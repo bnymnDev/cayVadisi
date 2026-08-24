@@ -1,0 +1,5 @@
+node_modules/
+assets/_raw/
+_shots/
+.claude/
+package-lock.json

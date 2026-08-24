@@ -1,0 +1,14 @@
+{
+  "name": "cay-vadisi",
+  "version": "1.0.0",
+  "description": "Çay Vadisi — First-Person-Teegarten am Schwarzen Meer (three.js, no-build, DE/TR)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "python -m http.server 8137"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "three": "^0.185.1"
+  }
+}

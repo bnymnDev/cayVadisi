@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Çay Vadisi — Teetal am Schwarzen Meer</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍃</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js",
+    "three/addons/": "./vendor/addons/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<!-- ===== Start / Laden ===== -->
+<div id="start-screen" class="overlay">
+  <div class="start-card">
+    <div class="start-lang">
+      <button id="lang-de" class="lang-btn active">Deutsch</button>
+      <button id="lang-tr" class="lang-btn">Türkçe</button>
+    </div>
+    <h1 class="title">ÇAY VADİSİ</h1>
+    <p class="subtitle" data-i18n="subtitle"></p>
+    <div class="loading-row">
+      <div id="load-bar"><div id="load-fill"></div></div>
+      <div id="load-label">0%</div>
+    </div>
+    <button id="btn-start" class="big-btn" disabled data-i18n="start"></button>
+    <button id="btn-continue" class="big-btn ghost hidden" data-i18n="continue"></button>
+    <div class="controls-hint" id="controls-hint"></div>
+    <div class="credits" data-i18n="credits"></div>
+  </div>
+</div>
+
+<!-- ===== HUD ===== -->
+<div id="hud" class="hidden">
+  <div id="hud-top-left">
+    <div id="hud-day"></div>
+    <div id="hud-clock"></div>
+    <div id="hud-weather"></div>
+  </div>
+  <div id="hud-top-right">
+    <div id="hud-money"></div>
+  </div>
+  <div id="hud-order"></div>
+  <div id="hud-basket">
+    <div id="basket-label"></div>
+    <div id="basket-bar"><div id="basket-fill"></div></div>
+    <div id="basket-quality"></div>
+  </div>
+  <div id="crosshair">
+    <svg width="56" height="56" viewBox="0 0 56 56">
+      <circle id="ch-dot" cx="28" cy="28" r="2.2" fill="rgba(255,255,255,.85)"/>
+      <circle id="ch-ring" cx="28" cy="28" r="16" fill="none" stroke="rgba(255,255,255,.9)"
+              stroke-width="3" stroke-dasharray="100.5" stroke-dashoffset="100.5"
+              transform="rotate(-90 28 28)"/>
+    </svg>
+  </div>
+  <div id="interact-prompt" class="hidden"></div>
+  <div id="marker-hut" class="world-marker hidden"><span>⚖</span><em></em></div>
+  <div id="toast-stack"></div>
+  <div id="popup-layer"></div>
+  <div id="rain-warn" class="hidden"></div>
+</div>
+
+<!-- ===== Shop / Verkauf ===== -->
+<div id="shop-screen" class="overlay hidden">
+  <div class="panel">
+    <h2 data-i18n="shopTitle"></h2>
+    <div id="sell-box">
+      <div id="sell-info"></div>
+      <button id="btn-sell" class="big-btn"></button>
+    </div>
+    <h3 data-i18n="upgrades"></h3>
+    <div id="upgrade-list"></div>
+    <button id="btn-shop-close" class="big-btn ghost" data-i18n="back"></button>
+  </div>
+</div>
+
+<!-- ===== Pause ===== -->
+<div id="pause-screen" class="overlay hidden">
+  <div class="panel narrow">
+    <h2 data-i18n="paused"></h2>
+    <button id="btn-resume" class="big-btn" data-i18n="resume"></button>
+    <div class="pause-row">
+      <span data-i18n="sound"></span>
+      <button id="btn-sound" class="toggle-btn"></button>
+    </div>
+    <div class="pause-row">
+      <span data-i18n="quality"></span>
+      <button id="btn-quality" class="toggle-btn"></button>
+    </div>
+    <div class="pause-row">
+      <span data-i18n="language"></span>
+      <button id="btn-lang" class="toggle-btn"></button>
+    </div>
+    <button id="btn-help" class="big-btn ghost" data-i18n="help"></button>
+    <button id="btn-restart" class="big-btn danger" data-i18n="restart"></button>
+  </div>
+</div>
+
+<!-- ===== Tagesabschluss ===== -->
+<div id="day-screen" class="overlay hidden">
+  <div class="panel narrow">
+    <h2 id="day-title"></h2>
+    <div id="day-stats"></div>
+    <button id="btn-next-day" class="big-btn"></button>
+  </div>
+</div>
+
+<!-- ===== Saisonende ===== -->
+<div id="season-screen" class="overlay hidden">
+  <div class="panel narrow">
+    <div id="season-medal"></div>
+    <h2 id="season-title"></h2>
+    <div id="season-stats"></div>
+    <button id="btn-season-continue" class="big-btn" data-i18n="keepPlaying"></button>
+  </div>
+</div>
+
+<div id="vignette"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
