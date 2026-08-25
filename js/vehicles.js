@@ -316,6 +316,9 @@ export function createVehicles(ctx, terrain, player, getColliders) {
       if (!driving) return 0;
       return Math.abs(fleet[driving].v) * 3.6;
     },
+    isDrifting() {
+      return !!(driving && fleet[driving].drifting);
+    },
     throttle01() {
       if (!driving) return 0;
       return clamp(Math.abs(fleet[driving].v) / V[driving].speed, 0, 1);
@@ -350,7 +353,9 @@ export function createVehicles(ctx, terrain, player, getColliders) {
       gas += api.touchGas;
       steer += -api.touchSteer;
       gas = clamp(gas, -1, 1); steer = clamp(steer, -1, 1);
-      f.braking = gas < -0.1 && f.v > 0.5;
+      const handbrake = keys.has('Space');
+      f.braking = (gas < -0.1 && f.v > 0.5) || handbrake;
+      f.drifting = handbrake && Math.abs(f.v) > 4;
 
       // Beschleunigung / Widerstand
       const topSpeed = spec.speed * (state.raining ? 0.85 : 1);
@@ -360,8 +365,12 @@ export function createVehicles(ctx, terrain, player, getColliders) {
       f.v = clamp(f.v, -topSpeed * 0.4, topSpeed);
       if (Math.abs(f.v) < 0.05 && gas === 0) f.v = 0;
 
-      // Lenkung (geschwindigkeitsabhängig)
-      const steerEff = steer * clamp(Math.abs(f.v) / 3, 0, 1) * 1.4 * Math.sign(f.v || 1);
+      // Handbremse: stark verzögern, aber Drift erlauben
+      if (handbrake) f.v -= f.v * 1.6 * dt;
+
+      // Lenkung (geschwindigkeitsabhängig; Drift lenkt schärfer)
+      const driftMul = f.drifting ? 2.1 : 1;
+      const steerEff = steer * clamp(Math.abs(f.v) / 3, 0, 1) * 1.4 * driftMul * Math.sign(f.v || 1);
       f.yaw += steerEff * dt;
       f.steer = lerp(f.steer, steer, Math.min(1, dt * 8));
 

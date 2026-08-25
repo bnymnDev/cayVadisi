@@ -210,6 +210,21 @@ export function createAudio() {
       }
     },
     harvest() { noiseBurst(1200, 0.8, 0.12, 0.14); blip(440, 0.12, 'triangle', 0.08, 0.05); },
+    horn(kind = 'sedan') {
+      if (!started) return;
+      // Traktor tief und rau, Lux zweistimmig-edel, Rest klassisch
+      if (kind === 'tractor') {
+        blip(180, 0.5, 'square', 0.09);
+      } else if (kind === 'lux') {
+        blip(440, 0.35, 'square', 0.07);
+        blip(554, 0.35, 'square', 0.07);
+      } else {
+        blip(370, 0.32, 'square', 0.08);
+        blip(466, 0.32, 'square', 0.06);
+      }
+    },
+    screech() { noiseBurst(2600, 2.2, 0.28, 0.09); },
+    jet() { noiseBurst(300, 0.4, 2.2, 0.16); blip(90, 2.4, 'sawtooth', 0.05); },
     plant() { noiseBurst(500, 0.9, 0.15, 0.12); },
     cash() {
       blip(740, 0.1, 'sine', 0.14);

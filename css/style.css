@@ -351,3 +351,20 @@ body {
   background: rgba(15,22,17,0.6); border: 1px solid rgba(244,239,228,0.3);
   color: var(--cream); border-radius: 9px; padding: 8px 18px; font-size: 14px; cursor: pointer;
 }
+
+/* ---- v4 ---- */
+#survival-row { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; opacity: 0.85; margin: 4px 0 6px; cursor: pointer; }
+#survival-hud {
+  position: absolute; right: 24px; bottom: 128px; width: 180px;
+  background: rgba(15,22,17,0.5); border-radius: 12px; padding: 9px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.sv-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.sv-bar { flex: 1; height: 7px; background: rgba(244,239,228,0.15); border-radius: 4px; overflow: hidden; }
+#sv-hunger, #sv-energy { height: 100%; border-radius: 4px; transition: width .3s; }
+#sv-hunger { background: linear-gradient(90deg, #c98a2c, #e3b24f); }
+#sv-energy { background: linear-gradient(90deg, #4a7d8a, #6fb0c0); }
+#event-choices .big-btn { font-size: 15px; padding: 12px 18px; }
+@media (max-width: 720px) {
+  #survival-hud { right: 14px; bottom: 96px; width: 140px; }
+}

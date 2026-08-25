@@ -175,6 +175,45 @@ export const CFG = {
   },
   parking: { x: 24, z: -100 },   // Stellplatz beim Spielerhaus
 
+  // ---- v4: Flughafen & Fernreisen ----
+  airport: {
+    x: 150, z: -62, ry: 0.4,
+    flights: {
+      istanbul: { cost: 850, hours: 3 },       // Luxus-Markt
+      almanya:  { cost: 2600 }                 // Gurbetçi-Schicht: Rest des Tages weg
+    },
+    istanbulPremium: { tea_pack: 1.6, hazel: 1.35, walnut: 1.3 },
+    almanyaWage: [2800, 4400]
+  },
+
+  // ---- v4: Hausausbau ----
+  homeLevels: [
+    { cost: 3000,  icon: '🧱' },   // Anbau: +2 kg Korb
+    { cost: 9000,  icon: '🏠' },   // Obergeschoss: +5 % Verkaufsbonus
+    { cost: 15000, icon: '📡' }    // Sat-Schüssel: +120 ₺/Tag Label-Werbung
+  ],
+  homeAdBonus: 120,
+
+  // ---- v4: Survival-Modus ----
+  survival: {
+    hungerPerDay: 85,     // Punkte Abbau pro Spieltag (von 100)
+    energyPerDay: 70,
+    lowThreshold: 20,
+    slowFactor: 0.6,
+    foods: {
+      simit: { cost: 15, hunger: 25, icon: '🥯' },
+      pide:  { cost: 45, hunger: 60, icon: '🫓' },
+      cayTea: { cost: 10, energy: 18, icon: '🍵' }
+    }
+  },
+
+  // ---- v4: Rollen ----
+  roles: {
+    farmer:   { pickFactor: 1 },
+    worker:   { pickFactor: 0.85 },            // pflückt schneller
+    jandarma: { pickFactor: 1.15, salary: 180 } // Staatsgehalt, aber kein Schwarzmarkt
+  },
+
   // ---- v2: Wohlstands-Stufen (Nettovermögen) ----
   wealthTiers: [0, 2500, 8000, 20000, 60000, 150000],
 

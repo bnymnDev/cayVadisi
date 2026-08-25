@@ -8,6 +8,58 @@ export function createExtras(ctx, terrain, mats) {
   const { scene } = ctx;
   const colliders = [];
 
+  // ---------- Hausausbau (Stufen erscheinen nach Kauf) ----------
+  const homeUp = new THREE.Group();
+  {
+    const H = CFG.home;
+    const y = terrain.heightAt(H.x, H.z);
+    homeUp.position.set(H.x, y, H.z);
+    homeUp.rotation.y = H.ry;
+    // Stufe 1: Anbau seitlich
+    const ext = new THREE.Group();
+    const extBox = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.0, 2.4), mats.woodMat);
+    extBox.position.set(2.9, 1.0, 0);
+    ext.add(extBox);
+    const extRoof = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.07, 2.8), mats.steelMat);
+    extRoof.position.set(2.9, 2.1, 0);
+    extRoof.rotation.z = -0.12;
+    ext.add(extRoof);
+    // Stufe 2: Obergeschoss
+    const floor2 = new THREE.Group();
+    const upBox = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.8, 2.8), mats.woodMat);
+    upBox.position.set(0, 3.6, 0);
+    floor2.add(upBox);
+    for (const sgn of [-1, 1]) {
+      const r = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.06, 3.3), mats.steelMat);
+      r.position.set(sgn * 0.95, 5.05, 0);
+      r.rotation.z = -sgn * 0.55;
+      floor2.add(r);
+    }
+    const winMat2 = new THREE.MeshStandardMaterial({ color: 0x27333d, roughness: 0.2, emissive: 0xffb066, emissiveIntensity: 0.4 });
+    const win2 = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.6), winMat2);
+    win2.position.set(0, 3.7, 1.42);
+    floor2.add(win2);
+    // Stufe 3: Sat-Schüssel
+    const dishG = new THREE.Group();
+    const dish = new THREE.Mesh(
+      new THREE.SphereGeometry(0.5, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.4),
+      new THREE.MeshStandardMaterial({ color: 0xdadfe2, roughness: 0.4, metalness: 0.3, side: THREE.DoubleSide })
+    );
+    dish.rotation.x = Math.PI * 0.85;
+    dish.position.set(-1.2, 5.3, 0.6);
+    dishG.add(dish);
+    homeUp.add(ext, floor2, dishG);
+    homeUp.userData.levels = [ext, floor2, dishG];
+    homeUp.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    scene.add(homeUp);
+  }
+  function syncHome() {
+    homeUp.userData.levels.forEach((lvlGroup, i) => {
+      lvlGroup.visible = state.homeLevel > i;
+    });
+  }
+  syncHome();
+
   // ---------- Çay-Fabrik (sichtbar erst nach Kauf) ----------
   const factoryGroup = new THREE.Group();
   const smokePuffs = [];
@@ -235,6 +287,7 @@ export function createExtras(ctx, terrain, mats) {
   return {
     colliders,
     syncFactory,
+    syncHome,
     setLabel,
     update(dt, elevN, elapsed) {
       // Fabrik-Rauch

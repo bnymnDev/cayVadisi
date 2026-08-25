@@ -40,6 +40,9 @@ alles liegt im Repo (offline lauffähig, direkt hostbar auf jedem Webspace).
 | `Tab` | Betriebs-Panel (Arbeiter · Lager · Bilanz) |
 | `P` | Privatleben (Profil · Familie · Immobilien · Börse) |
 | `M` | Minimap ein/aus |
+| `V` | First-/Third-Person-Ansicht |
+| `H` | Hupe (im Fahrzeug) |
+| `Leertaste` | Handbremse / Drift (im Fahrzeug) |
 | `Shift` | Rennen |
 | `Esc` | Pause |
 
@@ -93,12 +96,37 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   steuerfrei — aber die Jandarma kontrolliert, beschlagnahmt und kassiert
   Bußgelder. Jeder Deal erhöht den Fahndungsdruck.
 
+### Action, Rollen & Alltag (v4)
+- **Third-Person-Ansicht [V]:** Sieh deinen Avatar (mit Outfit-Farbe und
+  Rollen-Kleidung) über die Schulter.
+- **Rollen:** Çaycı, Profi-Pflücker (+15 % Pflücktempo) oder Jandarma
+  (Staatsgehalt, aber kein Schwarzmarkt).
+- **Flughafen:** Cessna-Flüge nach **İstanbul** (Kapalıçarşı zahlt Spitzenpreise)
+  und **Almanya** — die klassische **Gurbetçi-Schicht**: der Resttag ist weg,
+  dafür kommt dicker Euro-Lohn zurück.
+- **Nachbarn Temel & Dursun:** Zufallsereignisse mit Entscheidungen —
+  Grenzstreit, İmece-Erntehilfe, ausgebüxte Ziegen und Schafe,
+  Gurbetçi-Besuch mit BMW.
+- **Hausausbau:** Anbau → Obergeschoss → Sat-Schüssel, sichtbar am Haus,
+  jeweils mit Bonus.
+- **Survival-Modus** (optional beim Start): Hunger & Energie managen —
+  Simit, Pide und Çay kaufen, sonst wirst du langsam.
+- **Quatsch & Action:** Hupe [H], Handbremsen-Drift [Leertaste] mit
+  Reifenquietschen — und ein **echter CC0-Fußball** am Stadtplatz, den du
+  (auch mit dem Auto!) durch die Gegend kicken kannst.
+- **Echte Fotoscan-Modelle** (Poly Haven, CC0): Fußball, Fässer,
+  Çayevi-Terrasse mit Holztisch, Stühlen und Messing-Teekanne.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,
   Dorfbewohner-NPCs, Traktor-Anhänger.
 - Fortschritt wird automatisch gespeichert (`localStorage`, alte v1-Stände
   werden übernommen).
+
+### Geplant
+- **Multiplayer** (Koop im Tal) — bewusst noch nicht eingebaut, steht auf
+  der Roadmap.
 
 ## Technik
 

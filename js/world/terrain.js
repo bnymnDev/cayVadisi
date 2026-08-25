@@ -53,7 +53,8 @@ const FLATS = [
   { x: CFG.farm.x, z: CFG.farm.z, r: CFG.farm.r },
   { x: CFG.city.x, z: CFG.city.z, r: CFG.city.r },
   { x: CFG.parking.x, z: CFG.parking.z, r: 7 },
-  { x: CFG.factory.x, z: CFG.factory.z, r: 12 }
+  { x: CFG.factory.x, z: CFG.factory.z, r: 12 },
+  { x: CFG.airport.x, z: CFG.airport.z, r: 24 }
 ];
 for (const f of FLATS) f.h = baseHeight(f.x, f.z);
 
