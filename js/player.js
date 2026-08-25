@@ -17,8 +17,21 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
   let lastTouch = null;
   let bobPhase = 0;
   let enabled = false;
+  let wantLock = false;    // Spiel möchte PointerLock (First-Person aktiv)
+  let relockTimer = 0;     // Auto-Retry: Chrome blockt Lock ~1,3 s nach jedem Exit
+  let relockTries = 0;
 
   const dom = renderer.domElement;
+
+  function tryLock() {
+    if (locked || document.pointerLockElement === dom) return;
+    try {
+      const p = dom.requestPointerLock && dom.requestPointerLock();
+      if (p && p.catch) p.catch(() => { if (relockTries < 4) { relockTimer = 1.4; relockTries++; } });
+    } catch (e) {
+      if (relockTries < 4) { relockTimer = 1.4; relockTries++; }
+    }
+  }
 
   function onMouseMove(e) {
     if (!enabled) return;
@@ -34,14 +47,20 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
 
   document.addEventListener('pointerlockchange', () => {
     locked = document.pointerLockElement === dom;
+    if (locked) { dragging = false; relockTimer = 0; relockTries = 0; }
     api.onLockChange && api.onLockChange(locked);
+  });
+  document.addEventListener('pointerlockerror', () => {
+    if (wantLock && relockTries < 4) { relockTimer = 1.4; relockTries++; }
   });
   document.addEventListener('mousemove', onMouseMove);
   dom.addEventListener('mousedown', (e) => {
     if (!enabled || locked) return;
-    if (e.button === 2) dragging = true;
+    // Klick holt den verlorenen Lock zurück; bis dahin dreht Drag die Kamera
+    if (e.button === 0 && wantLock) tryLock();
+    if (e.button === 0 || e.button === 2) dragging = true;
   });
-  window.addEventListener('mouseup', (e) => { if (e.button === 2) dragging = false; });
+  window.addEventListener('mouseup', () => { dragging = false; });
   dom.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // Touch: 1 Finger ziehen = umsehen
@@ -75,12 +94,13 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
     setEnabled(v) { enabled = v; if (!v) keys.clear(); },
 
     requestLock() {
-      try {
-        const p = dom.requestPointerLock && dom.requestPointerLock();
-        if (p && p.catch) p.catch(() => {});
-      } catch (e) { /* ohne User-Geste nicht möglich */ }
+      wantLock = true;
+      relockTries = 0;
+      tryLock();
     },
     releaseLock() {
+      wantLock = false;
+      relockTimer = 0;
       if (document.pointerLockElement) document.exitPointerLock();
     },
 
@@ -93,6 +113,11 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
 
     update(dt, hasBoots, speedMul = 1) {
       if (!enabled) return;
+      // Lock nach Chrome-Cooldown automatisch zurückholen
+      if (wantLock && !locked && relockTimer > 0) {
+        relockTimer -= dt;
+        if (relockTimer <= 0) tryLock();
+      }
       const run = keys.has('ShiftLeft') || keys.has('ShiftRight');
       let speed = P.speed * (hasBoots ? P.bootsFactor : 1) * (run ? P.runFactor : 1) * speedMul;
 
