@@ -6,9 +6,9 @@ import { mulberry32, clamp } from './util.js';
 
 const SHIRT_COLORS = [0x6a7ba0, 0x9a5f4a, 0x5f8a5a, 0x8a5f7d, 0x777c38, 0x4a7d8a];
 
-function makeWorkerMesh(i) {
+export function makeWorkerMesh(i, opts = {}) {
   const g = new THREE.Group();
-  const shirt = SHIRT_COLORS[i % SHIRT_COLORS.length];
+  const shirt = opts.shirt ?? SHIRT_COLORS[i % SHIRT_COLORS.length];
   const body = new THREE.Mesh(
     new THREE.CapsuleGeometry(0.22, 0.55, 3, 8),
     new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.9 })
@@ -38,7 +38,7 @@ function makeWorkerMesh(i) {
     new THREE.MeshStandardMaterial({ color: 0xcbb072, roughness: 1 })
   );
   hatBrim.position.y = 1.56;
-  // Rücken-Korb
+  // Rücken-Korb (NPCs ohne)
   const basket = new THREE.Mesh(
     new THREE.CylinderGeometry(0.16, 0.12, 0.34, 8),
     new THREE.MeshStandardMaterial({ color: 0x8a6d42, roughness: 1 })
@@ -46,6 +46,8 @@ function makeWorkerMesh(i) {
   basket.position.set(0, 1.05, -0.28);
   basket.rotation.x = 0.15;
   basket.castShadow = true;
+  basket.visible = opts.basket !== false;
+  hatTop.visible = hatBrim.visible = opts.hat !== false;
   // Arme (für Pflück-Animation)
   const armMat = new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.9 });
   const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.38, 2, 6), armMat);
@@ -108,6 +110,7 @@ export function createWorkers(ctx, terrain, tea, particles) {
   return {
     sync,
     count: () => workers.length,
+    list: () => workers,
 
     update(dt, elapsed, running) {
       if (!workers.length) return;

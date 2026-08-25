@@ -151,6 +151,47 @@ export function buildVehicleMesh(id) {
   return { group: g, wheels, headMat, tailMat, lightPos };
 }
 
+// Anhänger für den Traktor (macht den Cargo-Bonus sichtbar)
+function buildTrailerMesh() {
+  const g = new THREE.Group();
+  const bed = box(1.35, 0.12, 2.2, 0x7a4f2c, { rough: 0.85, metal: 0.05 });
+  bed.position.y = 0.62;
+  g.add(bed);
+  for (const s of [-1, 1]) {
+    const wall = box(0.08, 0.4, 2.2, 0x8a5c36, { rough: 0.85, metal: 0.05 });
+    wall.position.set(s * 0.67, 0.86, 0);
+    g.add(wall);
+  }
+  for (const zz of [-1, 1]) {
+    const wall = box(1.35, 0.4, 0.08, 0x8a5c36, { rough: 0.85, metal: 0.05 });
+    wall.position.set(0, 0.86, zz * 1.06);
+    g.add(wall);
+  }
+  // Ladung: Teesäcke
+  for (let i = 0; i < 5; i++) {
+    const sack = new THREE.Mesh(
+      new THREE.SphereGeometry(0.26, 8, 6),
+      new THREE.MeshStandardMaterial({ color: 0x776744, roughness: 1 })
+    );
+    sack.scale.y = 0.75;
+    sack.position.set((i % 2 ? 0.3 : -0.3), 0.85, -0.7 + (i % 3) * 0.7);
+    sack.castShadow = true;
+    g.add(sack);
+  }
+  const drawbar = box(0.1, 0.08, 1.0, 0x3c3c3e, { rough: 0.5, metal: 0.6 });
+  drawbar.position.set(0, 0.45, 1.55);
+  g.add(drawbar);
+  const wheels = [];
+  for (const s of [-1, 1]) {
+    const w = wheel(0.34, 0.22);
+    w.position.set(s * 0.72, 0.34, -0.3);
+    wheels.push({ mesh: w, front: false, r: 0.34 });
+    g.add(w);
+  }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return { group: g, wheels };
+}
+
 // ---------- Fahr-System ----------
 export function createVehicles(ctx, terrain, player, getColliders) {
   const { scene, camera } = ctx;
@@ -193,11 +234,22 @@ export function createVehicles(ctx, terrain, player, getColliders) {
         const parts = buildVehicleMesh(id);
         const p = parkPos(i);
         fleet[id] = {
-          ...parts, x: p.x, z: p.z, yaw: Math.PI * 0.5, v: 0, steer: 0
+          ...parts, x: p.x, z: p.z, yaw: Math.PI * 0.5, v: 0, steer: 0,
+          pitch: 0, roll: 0, prevV: 0
         };
         parts.group.position.set(p.x, terrain.heightAt(p.x, p.z), p.z);
         parts.group.rotation.y = fleet[id].yaw;
         scene.add(parts.group);
+        // Traktor bekommt seinen Anhänger
+        if (id === 'tractor') {
+          const tr = buildTrailerMesh();
+          const tx = p.x - Math.sin(fleet[id].yaw) * 3.4;
+          const tz = p.z - Math.cos(fleet[id].yaw) * 3.4;
+          tr.group.position.set(tx, terrain.heightAt(tx, tz), tz);
+          tr.group.rotation.y = fleet[id].yaw;
+          scene.add(tr.group);
+          fleet[id].trailer = { ...tr, x: tx, z: tz, yaw: fleet[id].yaw };
+        }
       }
       if (state.vehicles[id]) i++;
     }
@@ -205,6 +257,8 @@ export function createVehicles(ctx, terrain, player, getColliders) {
   syncOwned();
 
   const fwd = new THREE.Vector3();
+  const _susQ = new THREE.Quaternion();
+  const _susE = new THREE.Euler();
   const camTarget = new THREE.Vector3();
   const camPos = new THREE.Vector3();
   const up = new THREE.Vector3(0, 1, 0);
@@ -213,6 +267,7 @@ export function createVehicles(ctx, terrain, player, getColliders) {
 
   const api = {
     get driving() { return driving; },
+    get fleet() { return fleet; },
     syncOwned,
 
     // nächstes eigenes Fahrzeug in Reichweite
@@ -349,6 +404,34 @@ export function createVehicles(ctx, terrain, player, getColliders) {
       tiltQ.setFromUnitVectors(up, n);
       f.group.quaternion.copy(tiltQ).multiply(yawQ);
 
+      // Federung: Nicken beim Beschleunigen/Bremsen, Wanken in Kurven
+      const dv = (f.v - f.prevV) / Math.max(dt, 1e-4);
+      f.prevV = f.v;
+      f.pitch = lerp(f.pitch, clamp(-dv * 0.012, -0.09, 0.09), Math.min(1, dt * 6));
+      f.roll = lerp(f.roll, clamp(f.steer * f.v * 0.006, -0.07, 0.07), Math.min(1, dt * 6));
+      _susQ.setFromEuler(_susE.set(f.pitch, 0, f.roll));
+      f.group.quaternion.multiply(_susQ);
+
+      // Anhänger folgt der Kupplung
+      if (f.trailer) {
+        const tr = f.trailer;
+        const hx = f.x - Math.sin(f.yaw) * 1.7;
+        const hz = f.z - Math.cos(f.yaw) * 1.7;
+        let dxT = hx - tr.x, dzT = hz - tr.z;
+        const dT = Math.hypot(dxT, dzT) || 1e-4;
+        const L = 1.9;                     // Deichsel-Länge
+        tr.x = hx - dxT / dT * L;
+        tr.z = hz - dzT / dT * L;
+        tr.yaw = Math.atan2(dxT, dzT);
+        const ty = terrain.heightAt(tr.x, tr.z);
+        const tn = terrain.normalAt(tr.x, tr.z);
+        tr.group.position.set(tr.x, ty, tr.z);
+        yawQ.setFromAxisAngle(up, tr.yaw);
+        tiltQ.setFromUnitVectors(up, tn);
+        tr.group.quaternion.copy(tiltQ).multiply(yawQ);
+        for (const w of tr.wheels) w.mesh.rotation.x += (f.v / w.r) * dt;
+      }
+
       // Räder drehen & lenken
       for (const w of f.wheels) {
         w.mesh.rotation.x += (f.v / w.r) * dt;
@@ -359,7 +442,7 @@ export function createVehicles(ctx, terrain, player, getColliders) {
       player.pos.set(f.x, y + 1.4, f.z);
 
       // Chase-Cam
-      const dist = driving === 'lux' ? 7.5 : 6.5;
+      const dist = driving === 'lux' ? 7.5 : driving === 'tractor' ? 9.5 : 6.5;
       camTarget.set(f.x, y + 1.6, f.z);
       camPos.set(
         f.x - Math.sin(f.yaw) * dist,

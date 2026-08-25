@@ -139,7 +139,13 @@ const STRINGS = {
     tierName0: 'Teepflücker', tierName1: 'Gärtner', tierName2: 'Hofbesitzer',
     tierName3: 'Großbauer', tierName4: 'Çay-Baron', tierName5: 'Legende vom Karadeniz',
 
-    tutV2: 'Neu: Im Westen liegt dein Hof (Gemüse & Tiere), im Osten die Stadt mit Markt und Autohaus. [Tab] öffnet den Betrieb.'
+    tutV2: 'Neu: Im Westen liegt dein Hof (Gemüse & Tiere), im Osten die Stadt mit Markt und Autohaus. [Tab] öffnet den Betrieb.',
+
+    // ---- v3: NPCs ----
+    npcGreet1: '„Kolay gelsin!" — Möge die Arbeit leicht fallen.',
+    npcGreet2: '„Merhaba komşu!" — Hallo, Nachbar!',
+    npcGreet3: '„Çay demlendi mi?" — Ist der Tee schon aufgebrüht?',
+    npcGreet4: '„Hayırlı işler!" — Gute Geschäfte!'
   },
   tr: {
     subtitle: 'Karadeniz kıyısında kendi çay bahçen',
@@ -280,7 +286,13 @@ const STRINGS = {
     tierName0: 'Çay toplayıcısı', tierName1: 'Bahçıvan', tierName2: 'Çiftlik sahibi',
     tierName3: 'Büyük çiftçi', tierName4: 'Çay Ağası', tierName5: 'Karadeniz Efsanesi',
 
-    tutV2: 'Yeni: Batıda çiftliğin (sebze & hayvan), doğuda pazar ve galerili kasaba. [Tab] işletmeyi açar.'
+    tutV2: 'Yeni: Batıda çiftliğin (sebze & hayvan), doğuda pazar ve galerili kasaba. [Tab] işletmeyi açar.',
+
+    // ---- v3: NPC'ler ----
+    npcGreet1: '„Kolay gelsin!"',
+    npcGreet2: '„Merhaba komşu!"',
+    npcGreet3: '„Çay demlendi mi?"',
+    npcGreet4: '„Hayırlı işler!"'
   }
 };
 

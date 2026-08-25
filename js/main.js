@@ -22,6 +22,8 @@ import { createVehicles } from './vehicles.js';
 import { createWorkers } from './workers.js';
 import { createPlayer } from './player.js';
 import { createAudio } from './audio.js';
+import { createMinimap } from './minimap.js';
+import { createNpcs } from './npcs.js';
 import { createUI } from './ui.js';
 import { createGame } from './game.js';
 import { applyDom } from './i18n.js';
@@ -74,7 +76,7 @@ const audio = createAudio();
 
 let propsApi = null;
 let game = null;
-let farm = null, city = null, vehicles = null, workers = null;
+let farm = null, city = null, vehicles = null, workers = null, minimap = null, npcs = null;
 
 const hooks = {};
 const ui = createUI(ctx, hooks);
@@ -129,6 +131,8 @@ createProps(ctx, terrain).then((p) => {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
     farm, city, vehicles, workers
   });
+  minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
+  npcs = createNpcs(ctx, terrain, ui, player);
   ui.bindTouch(player, vehicles);
   wireHooks();
   propsDone = true;
@@ -265,6 +269,8 @@ function step(rawDt, manual, skipRender = false) {
     city.update(dt, elevN, sky.rainT, elapsed);
     vehicles.update(dt, elevN, sky.rainT);
     workers.update(dt, elapsed, playing);
+    npcs.update(dt, elapsed);
+    minimap.update(dt);
   }
 
   if (game) {
