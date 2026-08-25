@@ -60,6 +60,14 @@ export const state = {
   hives: 0,                 // Bienenstöcke auf der Yayla
   tavlaWins: 0,
 
+  // v7
+  rep: 0,                   // Dorf-Ruf 0..100
+  koop: false,              // Mitglied der Çay-Kooperative
+  vehWear: {},              // Fahrzeug-Id -> Verschleiß 0..100
+  vehTuning: {},            // Fahrzeug-Id -> {engine, tires}
+  dog: false,               // Kangal-Hund
+  prestige: 0,              // New-Game+-Sterne
+
   // v5
   boat: false,
   rod: false,
@@ -99,9 +107,22 @@ export const state = {
   phase: 'day',        // day | evening | done
   seasonOver: false,
 
+  // v7: Tageshistorie für Charts (gespeichert)
+  hist: { stocks: {}, earned: [] },
+
   // Einstellungen
   settings: { lang: 'de', sound: true, quality: 'auto' }
 };
+
+// v7: New-Game+-Preisbonus (multipliziert alle Verkäufe)
+export function prestigeMul(cfg) {
+  return 1 + state.prestige * cfg.prestige.priceBonus;
+}
+
+// v7: Ruf begrenzen & ändern
+export function addRep(n) {
+  state.rep = Math.max(0, Math.min(100, state.rep + n));
+}
 
 export function basketCapacity(cfg, cargoMul = 1) {
   let cap = cfg.eco.basket0;
@@ -146,7 +167,9 @@ export function save() {
     boat: s.boat, rod: s.rod, fishCaught: s.fishCaught, packsSold: s.packsSold,
     story: s.story, dedeBonus: s.dedeBonus, ach: s.ach,
     debt: s.debt, insured: s.insured, workerData: s.workerData, sofor: s.sofor,
-    teaStyle: s.teaStyle, greenLine: s.greenLine, hives: s.hives, tavlaWins: s.tavlaWins
+    teaStyle: s.teaStyle, greenLine: s.greenLine, hives: s.hives, tavlaWins: s.tavlaWins,
+    rep: s.rep, koop: s.koop, vehWear: s.vehWear, vehTuning: s.vehTuning,
+    dog: s.dog, prestige: s.prestige, hist: s.hist
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -209,6 +232,13 @@ export function load() {
     state.greenLine = d.greenLine ?? false;
     state.hives = d.hives ?? 0;
     state.tavlaWins = d.tavlaWins ?? 0;
+    state.rep = d.rep ?? 0;
+    state.koop = d.koop ?? false;
+    state.vehWear = d.vehWear || {};
+    state.vehTuning = d.vehTuning || {};
+    state.dog = d.dog ?? false;
+    state.prestige = d.prestige ?? 0;
+    state.hist = (d.hist && Array.isArray(d.hist.earned)) ? d.hist : { stocks: {}, earned: [] };
     return true;
   } catch (e) { return false; }
 }
@@ -253,6 +283,11 @@ export function resetProgress() {
   state.workerData = []; state.sofor = false;
   state.teaStyle = 'siyah'; state.greenLine = false;
   state.hives = 0; state.tavlaWins = 0;
+  state.rep = 0; state.koop = false;
+  state.vehWear = {}; state.vehTuning = {};
+  state.dog = false;
+  state.hist = { stocks: {}, earned: [] };
+  // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
   try { localStorage.removeItem(KEY_V1); } catch (e) { /* egal */ }
@@ -267,4 +302,5 @@ export function resetDay() {
   state.timeSec = 0; state.raining = false; state.wetTimer = 0;
   state.phase = 'day';
   state._darkToast = false;
+  state._nightToast = false;
 }

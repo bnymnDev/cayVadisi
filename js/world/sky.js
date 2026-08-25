@@ -146,6 +146,7 @@ export function createSky(ctx) {
     _lastElev: -99
   };
 
+  const colNight = new THREE.Color(0x0e1622);
   const colDay = new THREE.Color(0xaabfc9);
   const colDawn = new THREE.Color(0xe3b48a);
   const colRain = new THREE.Color(0x76828a);
@@ -163,10 +164,11 @@ export function createSky(ctx) {
   }
 
   api.update = function (dt, playerPos, state) {
-    // Tageszeit
-    const t01 = clamp(state.timeSec / CFG.dayLengthSec, 0, 1);
+    // Tageszeit (v7: läuft über endHour hinaus in die Nacht bis night.endHour)
+    const tMax = (CFG.night.endHour - CFG.startHour) / (CFG.endHour - CFG.startHour);
+    const t01 = clamp(state.timeSec / CFG.dayLengthSec, 0, tMax);
     api.hour = CFG.startHour + t01 * (CFG.endHour - CFG.startHour);
-    const dayFrac = clamp((api.hour - 6) / 14, 0, 1);       // 06:00..20:00
+    const dayFrac = clamp((api.hour - 6) / 14, 0, 1.28);    // >1 = Sonne unterm Horizont
     const elev = Math.sin(dayFrac * Math.PI) * 1.08;         // rad, max ~62°
     const elevN = clamp(Math.sin(dayFrac * Math.PI), 0, 1);
     const azim = (95 + dayFrac * 170) * Math.PI / 180;
@@ -199,11 +201,15 @@ export function createSky(ctx) {
     hemi.intensity = (0.3 + 0.38 * elevN) * lerp(1, 0.75, r);
     hemi.color.setHex(0xbcd4e4).lerp(colRain, r);
 
+    // v7: Nachtanteil (Sonne unterm Horizont)
+    const nightDeep = smoothstep(-0.02, -0.16, elev);
+
     // Nebel
-    fogCol.copy(colDay).lerp(colDawn, lowSun * 0.8).lerp(colRain, r);
+    fogCol.copy(colDay).lerp(colDawn, lowSun * 0.8).lerp(colRain, r).lerp(colNight, nightDeep * 0.92);
     scene.fog.color.copy(fogCol);
     scene.fog.density = lerp(lerp(0.0019, 0.0033, lowSun), 0.0066, r) + api.extraFog;
     renderer.setClearColor(fogCol);
+    hemi.intensity *= 1 - nightDeep * 0.45;   // Nacht: nur Mond-Restlicht
 
     // Regenbogen ein-/ausblenden
     rainbow.visible = api.rainbowT > 0.01;

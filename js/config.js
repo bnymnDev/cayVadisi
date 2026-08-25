@@ -293,6 +293,55 @@ export const CFG = {
     prize: 600
   },
 
+  // ---- v7: Nacht (freiwillige Verlängerung bis Mitternacht) ----
+  night: {
+    endHour: 24,            // ab endHour bis hier ist "Gece", dann Zwangsschlaf
+    fish: { hamsi: 0.45, lufer: 0.35, kalkan: 0.2 },   // bessere Nacht-Quoten
+    kacak: {
+      hourFrom: 21,
+      ship: { x: 58, z: -196 },      // Schmugglerschiff vor der Küste
+      priceMul: 2.1,                 // tea_pack-Basispreis ×
+      baseRisk: 0.25, heatRisk: 0.07,
+      fineFactor: 1.4, repLoss: 8
+    }
+  },
+
+  // ---- v7: Kooperative & Dorf-Ruf ----
+  koop: {
+    minRep: 20, fee: 1500,
+    priceBonus: 1.06,        // Tee-Verkauf ×
+    seedDiscount: 0.85,      // Saatgut ×
+    dividendPerRep: 3        // ₺ je Ruf-Punkt am Festivaltag
+  },
+  rep: {
+    order: 1, festivalWin: 3, imece: 2,
+    blackCaught: 4, kacakCaught: 8, foxLoss: 0
+  },
+
+  // ---- v7: Werkstatt (Sanayi) ----
+  workshop: {
+    x: 138, z: -116, ry: 2.35,
+    wearPerKmh: 0.0025,      // Verschleiß/s bei 1 km/h
+    repairPerPoint: 4,       // ₺ pro Verschleiß-Punkt
+    maxSlow: 0.35,           // −35 % Topspeed bei 100 Verschleiß
+    tuning: {
+      engine: { costFactor: 0.2,  speedMul: 1.15 },   // % vom Fahrzeugpreis
+      tires:  { costFactor: 0.1,  steerMul: 1.25, rainSave: 0.5 }
+    }
+  },
+
+  // ---- v7: Kangal ----
+  dog: { cost: 2200, foxChance: 0.2, kacakGuard: 0.6 },  // Hund: Risiko × beim Kaçak
+
+  // ---- v7: Fotoalbum ----
+  album: { max: 10, width: 640 },
+
+  // ---- v7: New Game+ ----
+  prestige: { moneyKeep: 0.1, priceBonus: 0.05, maxShown: 5 },
+
+  // ---- v7: Preis-Historie ----
+  history: { days: 28 },
+
   // ---- v4: Rollen ----
   roles: {
     farmer:   { pickFactor: 1 },

@@ -30,6 +30,7 @@ import { createAirport } from './world/airport.js';
 import { createAvatar } from './avatar.js';
 import { createEvents } from './events.js';
 import { createBoat } from './boat.js';
+import { createDog } from './dog.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -96,6 +97,7 @@ let game = null;
 let farm = null, city = null, vehicles = null, workers = null, minimap = null, npcs = null, extras = null;
 let cc0 = null, airport = null, avatar = null, events = null;
 let boat = null, story = null, achievements = null, radio = null, yaylaApi = null;
+let dog = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -152,6 +154,7 @@ createProps(ctx, terrain).then(async (p) => {
   events = createEvents(ctx, ui, audio);
   avatar = createAvatar(ctx, player, terrain);
   boat = createBoat(ctx, terrain, player, audio, ui);
+  dog = createDog(ctx, terrain, player, audio);
   story = createStory(ctx, ui, audio, player);
   achievements = createAchievements(ctx, terrain, ui, audio);
   radio = createRadio();
@@ -160,7 +163,7 @@ createProps(ctx, terrain).then(async (p) => {
     ...extras.colliders, ...cc0.colliders, ...airport.colliders, ...yaylaApi.colliders);
   game = createGame(ctx, {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
-    farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi
+    farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi, dog
   });
   minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
   npcs = createNpcs(ctx, terrain, ui, player, () => game.playerShare());
@@ -197,6 +200,13 @@ window.addEventListener('keydown', (e) => {
     a.download = 'cayvadisi_' + Date.now() + '.png';
     a.href = renderer.domElement.toDataURL('image/png');
     a.click();
+    // v7: verkleinerte Kopie ins Fotoalbum legen
+    const c = renderer.domElement;
+    const w = CFG.album.width;
+    const oc = document.createElement('canvas');
+    oc.width = w; oc.height = Math.round(c.height / c.width * w);
+    oc.getContext('2d').drawImage(c, 0, 0, oc.width, oc.height);
+    ui.albumAdd(oc.toDataURL('image/jpeg', 0.75));
   }
 });
 window.addEventListener('mousedown', (e) => { if (photoMode && e.button === 0) photo.drag = true; });
@@ -341,6 +351,13 @@ function wireHooks() {
   hooks.buyGreenLine = () => game.buyGreenLine();
   hooks.promoteSofor = () => game.promoteSofor();
   hooks.playTavla = (s) => game.playTavla(s);
+  hooks.joinKoop = () => game.joinKoop();
+  hooks.repairVehicle = (id) => game.repairVehicle(id);
+  hooks.buyTuning = (id, part) => game.buyTuning(id, part);
+  hooks.buyDog = () => game.buyDog();
+  hooks.newGamePlus = () => game.newGamePlus();
+  hooks.ngpEligible = () => game.ngpEligible();
+  hooks.seedPrice = (id) => game.seedPrice(id);
   hooks.resume = () => game.pause(false);
   hooks.nextDay = () => game.nextDay();
   hooks.nextDay2 = () => game.startDay();
@@ -446,6 +463,7 @@ window.__game = {
   get events() { return events; },
   get avatar() { return avatar; },
   get boat() { return boat; },
+  get dog() { return dog; },
   get story() { return story; },
   get achievements() { return achievements; },
   setPhotoMode,
@@ -557,9 +575,11 @@ function step(rawDt, manual, skipRender = false) {
     airport.update(dt, elapsed);
     cc0.update(dt, player, vehicles.driving ? vehicles.speedKmh() / 3.6 : 0);
     boat.update(dt, elapsed);
+    dog.update(dt, elapsed);
     if (playing) { story.update(dt); achievements.update(dt); }
     radio.update(audio.ctx);
     extras.setFestival(window.__started && game.isFestival());
+    extras.setNight(window.__started && game.isNight());
     minimap.update(dt);
   }
 

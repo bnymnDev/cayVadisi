@@ -163,6 +163,31 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   Preise und Ernte-Wettbewerb mit Preisgeld.
 - **🇬🇧 English** als dritte Sprache.
 
+### Nacht, Ruf & New Game+ (v7)
+- **🌙 Echte Nacht:** Der Tag endet nicht mehr um 20 Uhr — bis Mitternacht
+  darfst du freiwillig wach bleiben (dann kippst du um). Sternenhimmel,
+  Mondlicht, dunkles Meer.
+- **🎣 Nachtangeln:** Nachts beißen Lüfer und Kalkan deutlich öfter — das
+  Boot bekommt dafür eine Laterne.
+- **🟢 Kaçak-Schmuggler:** Ab 21 Uhr ankert ein Schiff mit grüner Laterne vor
+  der Küste. Tee-Pakete bringen dort das Doppelte — wenn die Küstenwache
+  nicht zuschlägt (Ware weg, Strafe, Ruf ruiniert).
+- **🤝 Çay-Kooperative & Dorf-Ruf:** Aufträge, İmece und Festivalsiege bauen
+  deinen Ruf (0–100) auf; Schwarzhandel zerstört ihn. Ab 20 Ruf kannst du der
+  Kooperative beitreten: +6 % Teepreis, −15 % Saatgut, Dividende am Festivaltag.
+- **🔧 Sanayi-Werkstatt:** Fahrzeuge verschleißen beim Fahren und werden
+  langsamer. In der Werkstatt neben dem Autohaus: Reparatur, Motor-Tuning
+  (+15 % Tempo) und Sportreifen (bessere Lenkung, weniger Regen-Malus).
+- **🐕 Kangal:** Der treue Hirtenhund folgt dir überallhin, wedelt, bellt —
+  und verjagt nachts den Fuchs, der sonst Eier aus dem Hühnerstall stiehlt.
+- **📸 Fotoalbum:** Fotomodus-Aufnahmen (F, dann C) landen zusätzlich im
+  Album (Pausemenü) — ansehen, löschen, behalten.
+- **⭐ New Game+:** Nach der Dede-Geschichte oder als Çay-Baron neu starten:
+  Prestige-Stern (+5 % auf alle Verkäufe, stapelbar), 10 % Startkapital,
+  Erfolge bleiben.
+- **📈 Preis-Charts:** Kursverläufe aller Aktien und deiner Tageseinnahmen
+  als Mini-Charts in Börse und Bilanz.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

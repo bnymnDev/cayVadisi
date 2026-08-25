@@ -316,13 +316,96 @@ export function createExtras(ctx, terrain, mats) {
     scene.add(bunting);
   }
 
+  // ---------- v7: Sanayi-Werkstatt ----------
+  {
+    const Wk = CFG.workshop;
+    const y = terrain.heightAt(Wk.x, Wk.z);
+    const g = new THREE.Group();
+    g.position.set(Wk.x, y, Wk.z);
+    g.rotation.y = Wk.ry;
+    const hall = new THREE.Mesh(new THREE.BoxGeometry(7, 3.4, 5.5), mats.steelMat);
+    hall.position.y = 1.7;
+    g.add(hall);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.16, 6.1), mats.steelMat);
+    roof.position.y = 3.55;
+    g.add(roof);
+    const gate = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.4, 2.6),
+      new THREE.MeshStandardMaterial({ color: 0x7a4a1d, roughness: 0.6, metalness: 0.3 })
+    );
+    gate.position.set(0, 1.3, 2.78);
+    g.add(gate);
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.4, 0.8),
+      new THREE.MeshStandardMaterial({ map: makeSignTexture('SANAYİ — TAMİR & TUNING', '#31404f'), roughness: 0.6 })
+    );
+    sign.position.set(0, 4.0, 2.85);
+    g.add(sign);
+    // Reifenstapel davor
+    for (let i = 0; i < 3; i++) {
+      const tire = new THREE.Mesh(
+        new THREE.TorusGeometry(0.4, 0.16, 8, 14),
+        new THREE.MeshStandardMaterial({ color: 0x1c1c1e, roughness: 0.95 })
+      );
+      tire.rotation.x = Math.PI / 2;
+      tire.position.set(2.9, 0.18 + i * 0.34, 3.4);
+      g.add(tire);
+    }
+    g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    scene.add(g);
+    colliders.push({ x: Wk.x, z: Wk.z, r: 4.2 });
+  }
+
+  // ---------- v7: Schmugglerschiff (erscheint nur nachts vor der Küste) ----------
+  const kacakShip = new THREE.Group();
+  let lanternMat = null;
+  {
+    const K = CFG.night.kacak.ship;
+    kacakShip.position.set(K.x, 0.1, K.z);
+    kacakShip.rotation.y = 0.8;
+    const hullMat = new THREE.MeshStandardMaterial({ color: 0x1d232a, roughness: 0.85 });
+    const hull = new THREE.Mesh(new THREE.CapsuleGeometry(1.6, 7, 4, 10), hullMat);
+    hull.rotation.x = Math.PI / 2;
+    hull.scale.y = 0.45;
+    hull.position.y = 0.5;
+    kacakShip.add(hull);
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.15, 7.2),
+      new THREE.MeshStandardMaterial({ color: 0x3a3f45, roughness: 0.8 }));
+    deck.position.y = 1.05;
+    kacakShip.add(deck);
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 2.0),
+      new THREE.MeshStandardMaterial({ color: 0x272d34, roughness: 0.7 }));
+    cabin.position.set(0, 1.75, -1.6);
+    kacakShip.add(cabin);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 3.4, 6),
+      new THREE.MeshStandardMaterial({ color: 0x2c2c2e, roughness: 0.6 }));
+    mast.position.set(0, 2.8, 0.8);
+    kacakShip.add(mast);
+    // grüne Signal-Laterne — das Erkennungszeichen der Kaçakçılar
+    lanternMat = new THREE.MeshStandardMaterial({
+      color: 0x2a7d3a, emissive: 0x37e05a, emissiveIntensity: 0, roughness: 0.4
+    });
+    const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), lanternMat);
+    lantern.position.set(0, 4.4, 0.8);
+    kacakShip.add(lantern);
+    kacakShip.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    kacakShip.visible = false;
+    scene.add(kacakShip);
+  }
+
   return {
     colliders,
     syncFactory,
     syncHome,
     setLabel,
     setFestival(v) { bunting.visible = !!v; },
+    setNight(v) { kacakShip.visible = !!v; },
     update(dt, elevN, elapsed) {
+      if (kacakShip.visible) {
+        kacakShip.position.y = 0.1 + Math.sin(elapsed * 0.8) * 0.08;
+        kacakShip.rotation.z = Math.sin(elapsed * 0.6) * 0.02;
+        lanternMat.emissiveIntensity = 2.2 + Math.sin(elapsed * 5) * 0.8;
+      }
       // Fabrik-Rauch
       if (factoryGroup.visible) {
         for (const p of smokePuffs) {

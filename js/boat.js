@@ -34,7 +34,23 @@ function buildBoatMesh() {
     new THREE.MeshStandardMaterial({ color: 0x2c2c2e, roughness: 0.5 }));
   motor.position.set(0, 0.55, -1.7);
   g.add(motor);
+  // v7: Bootslaterne für Nachtfahrten
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.9, 6),
+    new THREE.MeshStandardMaterial({ color: 0x3c3c3e, roughness: 0.6 }));
+  pole.position.set(0, 1.6, 0.5);
+  g.add(pole);
+  const lanternMat = new THREE.MeshStandardMaterial({
+    color: 0xffe6b0, emissive: 0xffc86a, emissiveIntensity: 0, roughness: 0.4
+  });
+  const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), lanternMat);
+  lantern.position.set(0, 2.1, 0.5);
+  g.add(lantern);
+  const lamp = new THREE.PointLight(0xffd9a0, 0, 16, 1.6);
+  lamp.position.set(0, 2.2, 0.5);
+  g.add(lamp);
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  g.userData.lanternMat = lanternMat;
+  g.userData.lamp = lamp;
   return g;
 }
 
@@ -110,10 +126,12 @@ export function createBoat(ctx, terrain, player, audio, ui) {
     // Klick während des Bisses = Fang
     if (fishing.st === 'bite') {
       const F = CFG.fishing;
+      // v7: nachts beißen die besseren Fische
+      const probs = api.nightMode ? CFG.night.fish : null;
       const r = Math.random();
       let acc = 0, caught = 'hamsi';
       for (const [id, f] of Object.entries(F.fish)) {
-        acc += f.p;
+        acc += probs ? probs[id] : f.p;
         if (r <= acc) { caught = id; break; }
       }
       state.inventory[caught] = (state.inventory[caught] || 0) + 1;
@@ -150,6 +168,9 @@ export function createBoat(ctx, terrain, player, audio, ui) {
   const api = {
     get driving() { return driving; },
     get fishingState() { return fishing.st; },
+    get pos() { return { x, z }; },
+    teleport(nx, nz) { x = nx; z = nz; },   // Debug/Tests
+    nightMode: false,        // wird von game.update gesetzt
     canExitHere,
     syncOwned,
     canFishHere,
@@ -199,6 +220,10 @@ export function createBoat(ctx, terrain, player, audio, ui) {
         // Dümpeln
         mesh.position.y = 0.1 + Math.sin(elapsed * 1.3 + 1) * 0.05;
         mesh.rotation.z = Math.sin(elapsed * 0.9) * 0.03;
+        // v7: Laterne nachts an
+        const on = api.nightMode ? 1 : 0;
+        mesh.userData.lanternMat.emissiveIntensity += (on * 2.4 - mesh.userData.lanternMat.emissiveIntensity) * Math.min(1, dt * 3);
+        mesh.userData.lamp.intensity += (on * (driving ? 30 : 10) - mesh.userData.lamp.intensity) * Math.min(1, dt * 3);
       }
 
       // Angel-Logik

@@ -1,7 +1,7 @@
 // v4: Nachbarschafts-Ereignisse — Temel & Dursun, Streit und İmece
 // Ein Zufallsereignis pro Tag, als Entscheidungs-Dialog mit Konsequenzen.
 import { CFG } from './config.js';
-import { state, save } from './state.js';
+import { state, save, addRep } from './state.js';
 import { t } from './i18n.js';
 import { fmtMoney } from './util.js';
 
@@ -45,6 +45,7 @@ export function createEvents(ctx, ui, audio) {
         { id: 'accept', apply() {
           state.workerBoost *= 1.5;
           state.rel.dursun += 2;
+          addRep(CFG.rep.imece);   // v7: İmece stärkt den Dorf-Ruf
           return 'imeceYes';
         } },
         { id: 'decline', apply() {
