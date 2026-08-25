@@ -96,10 +96,15 @@ export function createNpcs(ctx, terrain, ui, player, shareFn) {
           p.group.position.set(p.x, terrain.heightAt(p.x, p.z) + Math.abs(Math.sin(p.phase)) * 0.035, p.z);
           p.armL.rotation.x = Math.sin(p.phase) * 0.35;
           p.armR.rotation.x = -Math.sin(p.phase) * 0.35;
+          if (p.legL) {
+            p.legL.rotation.x = -Math.sin(p.phase) * 0.5;
+            p.legR.rotation.x = Math.sin(p.phase) * 0.5;
+          }
         } else {
           p.group.position.y = terrain.heightAt(p.x, p.z);
           p.armL.rotation.x *= 0.9;
           p.armR.rotation.x *= 0.9;
+          if (p.legL) { p.legL.rotation.x *= 0.9; p.legR.rotation.x *= 0.9; }
         }
         // Kemal Ağa stichelt statt zu grüßen
         if (p.isKemal) {

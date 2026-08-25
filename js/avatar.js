@@ -57,9 +57,14 @@ export function createAvatar(ctx, player, terrain) {
         g.position.y += Math.abs(Math.sin(phase)) * 0.05;
         parts.armL.rotation.x = Math.sin(phase) * 0.55;
         parts.armR.rotation.x = -Math.sin(phase) * 0.55;
+        if (parts.legL) {
+          parts.legL.rotation.x = -Math.sin(phase) * 0.6;
+          parts.legR.rotation.x = Math.sin(phase) * 0.6;
+        }
       } else {
         parts.armL.rotation.x *= 0.85;
         parts.armR.rotation.x *= 0.85;
+        if (parts.legL) { parts.legL.rotation.x *= 0.85; parts.legR.rotation.x *= 0.85; }
       }
     }
   };
