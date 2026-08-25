@@ -35,6 +35,8 @@ import { createIstanbul } from './world/istanbul.js';
 import { createWildlife } from './wildlife.js';
 import { createRace } from './race.js';
 import { createSled } from './sled.js';
+import { createHeli } from './heli.js';
+import { createSelale } from './world/selale.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -102,6 +104,7 @@ let farm = null, city = null, vehicles = null, workers = null, minimap = null, n
 let cc0 = null, airport = null, avatar = null, events = null;
 let boat = null, story = null, achievements = null, radio = null, yaylaApi = null;
 let dog = null, istanbul = null, wildlife = null, race = null, sled = null;
+let heli = null, selale = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -168,10 +171,14 @@ createProps(ctx, terrain).then(async (p) => {
   wildlife = createWildlife(ctx, terrain, player, ui, audio);
   race = createRace(ctx, ui, audio);
   sled = createSled(ctx, terrain, player, ui, audio);
+  heli = createHeli(ctx, terrain, player, audio);
+  selale = createSelale(ctx, terrain);
+  allColliders.push(...selale.colliders);
+  if (state.upgrades.expand) teaField.setExtension(true);   // v9: gekaufte Parzellen laden
   const gameMods = {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
     farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi, dog,
-    race, sled, istanbul: null
+    race, sled, heli, selale, cc0, istanbul: null
   };
   game = createGame(ctx, gameMods);
   minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
@@ -380,6 +387,9 @@ function wireHooks() {
   hooks.haggleSell = (id) => game.haggleSell(id);
   hooks.brewReward = (s) => game.brewReward(s);
   hooks.buyNet = () => game.buyNet();
+  hooks.buyMandira = () => game.buyMandira();
+  hooks.buyRestaurant = () => game.buyRestaurant();
+  hooks.buyHeli = () => game.buyHeli();
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -496,6 +506,8 @@ window.__game = {
   get wildlife() { return wildlife; },
   get race() { return race; },
   get sled() { return sled; },
+  get heli() { return heli; },
+  get selale() { return selale; },
   get story() { return story; },
   get achievements() { return achievements; },
   setPhotoMode,
@@ -612,6 +624,8 @@ function step(rawDt, manual, skipRender = false) {
     dog.update(dt, elapsed);
     istanbul.update(dt, elapsed);
     race.update(dt, elapsed, boat.pos, boat.driving);
+    heli.update(dt, elapsed);
+    selale.update(dt, elapsed);
     sled.setWinter(seasonSnow);
     if (playing) {
       story.update(dt);

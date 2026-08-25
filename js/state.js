@@ -11,19 +11,19 @@ export const state = {
   ordersDone: 0,
   upgrades: {
     basket1: false, basket2: false, shears: false, boots: false, fert: false, cable: false,
-    foreman: false, sprinkler: false, silo: false
+    foreman: false, sprinkler: false, silo: false, expand: false
   },
 
   // v2: Betrieb
   workers: 0,                 // angestellte Pflücker
   workerKg: 0,                // heute von Arbeitern gepflückt (wertgewichtet 1.0)
-  animals: { chicken: 0, cow: 0, sheep: 0 },
+  animals: { chicken: 0, cow: 0, sheep: 0, goat: 0 },
   plots: [],                  // {type, daysLeft} | null — Länge kommt aus CFG
   inventory: {
     egg: 0, milk: 0, wool: 0, corn: 0, tomato: 0, cabbage: 0, hazel: 0,
     straw: 0, walnut: 0, coal: 0, tea_pack: 0,
     hamsi: 0, lufer: 0, kalkan: 0,
-    tea_green: 0, tea_white: 0, honey: 0
+    tea_green: 0, tea_white: 0, honey: 0, cheese: 0
   },
   vehicles: { tractor: false, pickup: false, sedan: false, lux: false },
   marketMul: {},              // Tagespreis-Faktoren pro Produkt
@@ -67,6 +67,13 @@ export const state = {
   vehTuning: {},            // Fahrzeug-Id -> {engine, tires}
   dog: false,               // Kangal-Hund
   prestige: 0,              // New-Game+-Sterne
+
+  // v9
+  heli: false,              // Helikopter
+  mandira: false,           // Molkerei am Hof
+  restaurant: false,        // Muhlama-Lokanta in der Stadt
+  derbyBest: 0,             // meiste Tore in einem Derby
+  kemalPeace: false,        // Story 2 abgeschlossen: kein Preisdumping mehr
 
   // v8
   net: false,               // Hamsi-Schleppnetz
@@ -179,7 +186,9 @@ export function save() {
     rep: s.rep, koop: s.koop, vehWear: s.vehWear, vehTuning: s.vehTuning,
     dog: s.dog, prestige: s.prestige, hist: s.hist,
     net: s.net, decree: s.decree, moralDays: s.moralDays, holidays: s.holidays,
-    maldivDone: s.maldivDone, raceBest: s.raceBest
+    maldivDone: s.maldivDone, raceBest: s.raceBest,
+    heli: s.heli, mandira: s.mandira, restaurant: s.restaurant,
+    derbyBest: s.derbyBest, kemalPeace: s.kemalPeace
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -255,6 +264,11 @@ export function load() {
     state.holidays = d.holidays ?? 0;
     state.maldivDone = d.maldivDone ?? false;
     state.raceBest = d.raceBest ?? 0;
+    state.heli = d.heli ?? false;
+    state.mandira = d.mandira ?? false;
+    state.restaurant = d.restaurant ?? false;
+    state.derbyBest = d.derbyBest ?? 0;
+    state.kemalPeace = d.kemalPeace ?? false;
     return true;
   } catch (e) { return false; }
 }
@@ -268,7 +282,7 @@ export function resetProgress() {
   state.ordersDone = 0; state.seasonOver = false;
   for (const k of Object.keys(state.upgrades)) state.upgrades[k] = false;
   state.workers = 0; state.workerKg = 0;
-  state.animals = { chicken: 0, cow: 0, sheep: 0 };
+  state.animals = { chicken: 0, cow: 0, sheep: 0, goat: 0 };
   state.plots = [];
   for (const k of Object.keys(state.inventory)) state.inventory[k] = 0;
   for (const k of Object.keys(state.vehicles)) state.vehicles[k] = false;
@@ -306,6 +320,8 @@ export function resetProgress() {
   state.net = false; state.decree = '';
   state.moralDays = 0; state.holidays = 0; state.maldivDone = false;
   state.raceBest = 0;
+  state.heli = false; state.mandira = false; state.restaurant = false;
+  state.derbyBest = 0; state.kemalPeace = false;
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -322,4 +338,6 @@ export function resetDay() {
   state.phase = 'day';
   state._darkToast = false;
   state._nightToast = false;
+  state._halayDone = false;
+  state._selaleDone = false;
 }

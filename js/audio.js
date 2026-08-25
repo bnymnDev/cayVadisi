@@ -205,11 +205,56 @@ export function createAudio() {
         o.connect(g).connect(master);
         o.start(t0); lfo.start(t0);
         o.stop(t0 + 0.6); lfo.stop(t0 + 0.6);
+      } else if (type === 'goat') {   // v9: Meckern — wie Schaf, aber höher & zittriger
+        const o = ac.createOscillator();
+        o.type = 'square';
+        const g = ac.createGain();
+        const t0 = ac.currentTime;
+        o.frequency.setValueAtTime(340, t0);
+        const lfo = ac.createOscillator();
+        lfo.frequency.value = 13;
+        const lg = ac.createGain(); lg.gain.value = 55;
+        lfo.connect(lg); lg.connect(o.frequency);
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(0.03, t0 + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
+        o.connect(g).connect(master);
+        o.start(t0); lfo.start(t0);
+        o.stop(t0 + 0.5); lfo.stop(t0 + 0.5);
       } else { // chicken
         for (let i = 0; i < 3; i++) {
           blip(880 + Math.random() * 200, 0.08, 'square', 0.03, i * 0.12);
         }
       }
+    },
+    // v9: Davul & Zurna — kurzes Fest-Motiv, komplett prozedural
+    davulZurna() {
+      if (!started) return;
+      // Davul: tiefer Schlag-Groove (düm-tek im 4/4-Halay-Gefühl)
+      const pattern = [0, 0.5, 0.75, 1, 1.5, 1.75, 2, 2.5, 2.75, 3, 3.5];
+      for (const beat of pattern) {
+        const strong = beat % 1 === 0;
+        blip(strong ? 68 : 120, strong ? 0.22 : 0.12, 'sine', strong ? 0.22 : 0.1, beat * 0.5);
+        noiseBurst(strong ? 300 : 1800, 0.8, 0.06, strong ? 0.1 : 0.06, beat * 0.5);
+      }
+      // Zurna: schnalzende Melodie darüber (Dorisch angehaucht)
+      const notes = [587, 659, 587, 523, 587, 698, 659, 587, 523, 494, 523, 587];
+      notes.forEach((f, i) => {
+        const t0 = 0.25 + i * 0.165;
+        const o = ac.createOscillator();
+        o.type = 'sawtooth';
+        const fl = ac.createBiquadFilter();
+        fl.type = 'bandpass'; fl.frequency.value = 1800; fl.Q.value = 1.4;
+        const gn = ac.createGain();
+        const at = ac.currentTime + t0;
+        o.frequency.setValueAtTime(f, at);
+        o.frequency.linearRampToValueAtTime(f * 1.02, at + 0.14);
+        gn.gain.setValueAtTime(0, at);
+        gn.gain.linearRampToValueAtTime(0.05, at + 0.02);
+        gn.gain.exponentialRampToValueAtTime(0.0001, at + 0.18);
+        o.connect(fl).connect(gn).connect(master);
+        o.start(at); o.stop(at + 0.22);
+      });
     },
     harvest() { noiseBurst(1200, 0.8, 0.12, 0.14); blip(440, 0.12, 'triangle', 0.08, 0.05); },
     // v7: Kangal-Bellen — zwei kurze, tiefe "Woff"s

@@ -68,7 +68,7 @@ export function createGame(ctx, mods) {
     for (const id of Object.keys(CFG.products)) {
       state.marketMul[id] = 1 + (Math.random() * 2 - 1) * swing;
     }
-    state.rivalDump = state.factory && Math.random() < CFG.rival.dumpChance;
+    state.rivalDump = state.factory && !state.kemalPeace && Math.random() < CFG.rival.dumpChance;
     if (state.rivalDump) {
       state.marketMul.tea_pack *= CFG.rival.dumpMul;
       setTimeout(() => ui.toast(t('rivalDump'), false, 7000), 2500);
@@ -119,7 +119,9 @@ export function createGame(ctx, mods) {
     if (boat.driving) boat.exit();
     if (istanbulMode) returnIstanbul(true);         // v8: letzter Vapur nach Hause
     if (mods.sled && mods.sled.riding) mods.sled.exit();
+    if (mods.heli && mods.heli.driving) mods.heli.exit();
     tour = null;
+    derby = null;
     player.setEnabled(false);
     player.releaseLock();
     audio.sleep();
@@ -195,6 +197,27 @@ export function createGame(ctx, mods) {
         }
         if (dec.repPerDay) addRep(-dec.repPerDay);
         if (dec.packsPerDay && state.factory) trackPacks(dec.packsPerDay);
+      }
+    }
+    // v9: Mandıra macht abends aus Milch Peynir
+    if (state.mandira) {
+      const cheese = Math.floor(Math.floor(state.inventory.milk) / CFG.mandira.milkPerCheese);
+      if (cheese > 0) {
+        state.inventory.milk -= cheese * CFG.mandira.milkPerCheese;
+        state.inventory.cheese += cheese;
+        lines.push({ k: 'sumMandira', v: '+' + cheese + ' 🧀' });
+      }
+    }
+    // v9: Muhlama-Lokanta serviert aus Peynir + Mais
+    if (state.restaurant) {
+      const R = CFG.restaurant;
+      const dishes = Math.min(R.maxDishes, Math.floor(state.inventory.cheese), Math.floor(state.inventory.corn));
+      if (dishes > 0) {
+        state.inventory.cheese -= dishes * R.dishCheese;
+        state.inventory.corn -= dishes * R.dishCorn;
+        const sum = Math.round(dishes * R.dishPay * famBonus());
+        state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+        lines.push({ k: 'sumRestaurant', v: '+' + fmtMoney(sum, L), sub: dishes + ' 🫕' });
       }
     }
     // v8: Pansiyon-Gäste (je besser der Ruf, desto voller das Haus)
@@ -522,6 +545,10 @@ export function createGame(ctx, mods) {
     state.money -= u.cost;
     state.daySpent += u.cost;
     state.upgrades[id] = true;
+    if (id === 'expand') {   // v9: Randparzellen sofort bepflanzen
+      tea.setExtension(true);
+      ui.toast(t('expandDone', tea.extCount), true, 7000);
+    }
     audio.buy();
     checkWealth();
     ui.refreshMoney();
@@ -1351,6 +1378,129 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ---------- v9: Derby, Peynir-Kette, Heli, Halay, Şelale ----------
+  let derby = null;   // {time, goals}
+
+  function resetBall() {
+    const ball = mods.cc0 && mods.cc0.ball;
+    if (!ball) return;
+    ball.pos.set(CFG.city.x + 2, 0, CFG.city.z + 4);
+    ball.pos.y = terrain.heightAt(ball.pos.x, ball.pos.z) + ball.r;
+    ball.vel.set(0, 0, 0);
+    ball.mesh.position.copy(ball.pos);
+  }
+
+  function startDerby() {
+    if (derby) return false;
+    derby = { time: CFG.derby.durationSec, goals: 0 };
+    resetBall();
+    audio.orderDone();
+    ui.toast(t('derbyStart', CFG.derby.durationSec), true, 6000);
+    return true;
+  }
+
+  function updateDerby(dt) {
+    if (!derby) return;
+    const D = CFG.derby;
+    derby.time -= dt;
+    const ball = mods.cc0 && mods.cc0.ball;
+    if (ball) {
+      // Ball in Tor-Lokalkoordinaten prüfen
+      const dx = ball.pos.x - D.goal.x, dz = ball.pos.z - D.goal.z;
+      const lx = Math.cos(-D.goal.ry) * dx - Math.sin(-D.goal.ry) * dz;
+      const lz = Math.sin(-D.goal.ry) * dx + Math.cos(-D.goal.ry) * dz;
+      if (Math.abs(lx) < D.goal.w / 2 && lz < 0 && lz > -1.4 && ball.pos.y < 2.2) {
+        derby.goals += 1;
+        audio.orderDone();
+        ui.toast(t('derbyGoal', derby.goals), true, 2500);
+        resetBall();
+      }
+    }
+    if (derby.time <= 0) {
+      const goals = derby.goals;
+      derby = null;
+      let sum = goals * D.prizePerGoal;
+      if (goals >= D.bonusGoals) {
+        sum += D.bonus;
+        addRep(D.rep);
+      }
+      if (goals > state.derbyBest) state.derbyBest = goals;
+      if (sum > 0) {
+        state.money += sum;
+        state.dayEarned += sum;
+        state.totalEarned += sum;
+        audio.tierUp();
+        ui.toast(t('derbyEnd', goals, fmtMoney(sum, state.settings.lang)), true, 8000);
+      } else {
+        ui.toast(t('derbyZero'), false, 6000);
+      }
+      ui.refreshMoney();
+      save();
+    }
+  }
+
+  function buyMandira() {
+    if (state.mandira || state.money < CFG.mandira.cost) { audio.deny(); return false; }
+    state.money -= CFG.mandira.cost;
+    state.daySpent += CFG.mandira.cost;
+    state.mandira = true;
+    if (extras.syncMandira) extras.syncMandira();
+    audio.cash();
+    ui.toast(t('mandiraBought'), true, 7000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function buyRestaurant() {
+    if (state.restaurant || state.money < CFG.restaurant.cost) { audio.deny(); return false; }
+    state.money -= CFG.restaurant.cost;
+    state.daySpent += CFG.restaurant.cost;
+    state.restaurant = true;
+    if (extras.syncRestaurant) extras.syncRestaurant();
+    audio.cash();
+    ui.toast(t('restaurantBought'), true, 7000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function buyHeli() {
+    if (state.heli || state.money < CFG.heli.cost) { audio.deny(); return false; }
+    state.money -= CFG.heli.cost;
+    state.daySpent += CFG.heli.cost;
+    state.heli = true;
+    if (mods.heli) mods.heli.syncOwned();
+    audio.tierUp();
+    ui.toast(t('heliBought'), true, 8000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function doHalay() {
+    if (state._halayDone) { audio.deny(); return false; }
+    state._halayDone = true;
+    audio.davulZurna && audio.davulZurna();
+    addRep(CFG.halay.rep);
+    if (state.survival) state.energy = Math.min(100, state.energy + CFG.halay.joy);
+    ui.toast(t('halayDone'), true, 7000);
+    save();
+    return true;
+  }
+
+  function doSelaleRest() {
+    if (state._selaleDone) { ui.toast(t('selaleAgain'), false); audio.deny(); return false; }
+    state._selaleDone = true;
+    if (state.survival) state.energy = Math.min(100, state.energy + CFG.selale.restEnergy);
+    audio.plant();
+    ui.toast(t('selaleRest'), true, 7000);
+    return true;
+  }
+
   function ngpEligible() {
     return state.story >= 5 || state.wealthTier >= 5;
   }
@@ -1447,6 +1597,15 @@ export function createGame(ctx, mods) {
   }, { passive: true });
 
   function doInteract() {
+    if (mods.heli && mods.heli.driving) {
+      if (mods.heli.grounded()) {
+        mods.heli.exit();
+        if (!ctx.isTouch) player.requestLock();
+      } else {
+        ui.toast(t('heliLand'), false, 2500);
+      }
+      return;
+    }
     if (mods.sled && mods.sled.riding) {
       mods.sled.exit();
       if (!ctx.isTouch) player.requestLock();
@@ -1504,6 +1663,10 @@ export function createGame(ctx, mods) {
     else if (act.id === 'istReturn') returnIstanbul();
     else if (act.id === 'sled') mods.sled && mods.sled.enter();
     else if (act.id === 'tour') startTour();
+    else if (act.id === 'heli') { if (mods.heli.enter()) audio.engineStart(); }
+    else if (act.id === 'derby') startDerby();
+    else if (act.id === 'halay') doHalay();
+    else if (act.id === 'selale') doSelaleRest();
   }
 
   window.addEventListener('keydown', (e) => {
@@ -1538,7 +1701,8 @@ export function createGame(ctx, mods) {
   player.onLockChange = (locked) => {
     // Nicht pausieren, wenn der Lock nur wegen Boot/Schlitten-Einstieg fällt
     if (!locked && running && !ui.overlayOpen() && !vehicles.driving
-        && !boat.driving && !(mods.sled && mods.sled.riding)) pause(true);
+        && !boat.driving && !(mods.sled && mods.sled.riding)
+        && !(mods.heli && mods.heli.driving)) pause(true);
   };
 
   function pause(v) {
@@ -1570,6 +1734,12 @@ export function createGame(ctx, mods) {
     if (mods.sled && mods.sled.nearSled(player.pos.x, player.pos.z)) return { id: 'sled' };
     if (state.properties.pansiyon && !tour
         && distTo(CFG.pension.x, CFG.pension.z) < CFG.interactDist + 2) return { id: 'tour' };
+    // v9
+    if (mods.heli && mods.heli.near(player.pos.x, player.pos.z)) return { id: 'heli' };
+    if (!derby && distTo(CFG.derby.goal.x, CFG.derby.goal.z) < CFG.interactDist + 2) return { id: 'derby' };
+    if (isFestival() && !state._halayDone
+        && distTo(CFG.city.x - 2, CFG.city.z + 4) < CFG.interactDist + 2) return { id: 'halay' };
+    if (mods.selale && mods.selale.nearRest(player.pos.x, player.pos.z)) return { id: 'selale' };
     if (distTo(CFG.hut.x, CFG.hut.z) < CFG.interactDist + 1.5) return { id: 'sell' };
     if (distTo(CFG.home.x, CFG.home.z) < CFG.interactDist && sky.hour >= 18) return { id: 'sleep' };
     if (state.upgrades.cable && distTo(CFG.cableTop.x, CFG.cableTop.z) < CFG.interactDist) return { id: 'cable' };
@@ -1625,6 +1795,18 @@ export function createGame(ctx, mods) {
       ui.setPrompt(t('prompt_sledExit'), () => doInteract());
       return;
     }
+
+    // v9: Helikopterflug hat eigene Steuerung/Kamera
+    if (mods.heli && mods.heli.driving) {
+      ui.setSpeed(mods.heli.speedKmh());
+      ui.setCrosshairActive(false);
+      ui.setPickProgress(0);
+      ui.setPrompt(mods.heli.grounded() ? t('prompt_exit') : t('prompt_heliFly'), () => doInteract());
+      return;
+    }
+
+    // v9: Derby-Timer & Tor-Erkennung
+    updateDerby(dt);
 
     // v8: geführte Pansiyon-Tour
     if (tour) {
@@ -1825,6 +2007,8 @@ export function createGame(ctx, mods) {
     newGamePlus, ngpEligible, isNight, seedPrice,
     returnIstanbul, bookVacation, setDecree, taxiCost, callTaxi,
     haggleSell, brewReward, buyNet, forecast, marketTips, newsLine, startTour,
+    startDerby, buyMandira, buyRestaurant, buyHeli, doHalay, doSelaleRest,
+    get derby() { return derby; },
     get istanbulMode() { return istanbulMode; },
     update,
     get running() { return running; },

@@ -449,6 +449,107 @@ export function createExtras(ctx, terrain, mats) {
       tourists.push({ m: tg, a: i * 2.1, r: 3.5 + i });
     }
   }
+  // ---------- v9: Mandıra am Hof (sichtbar nach Kauf) ----------
+  const mandiraGroup = new THREE.Group();
+  {
+    const mx = CFG.farm.x + 14, mz = CFG.farm.z + 8;
+    const y = terrain.heightAt(mx, mz);
+    mandiraGroup.position.set(mx, y, mz);
+    mandiraGroup.rotation.y = -0.4;
+    const hall = new THREE.Mesh(new THREE.BoxGeometry(5.5, 3, 4.2), mats.woodMat);
+    hall.position.y = 1.5;
+    mandiraGroup.add(hall);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(6.1, 0.14, 4.8), mats.steelMat);
+    roof.position.y = 3.15;
+    mandiraGroup.add(roof);
+    const churn = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.6, 1.2, 10),
+      new THREE.MeshStandardMaterial({ color: 0xb8bcc2, roughness: 0.3, metalness: 0.8 }));
+    churn.position.set(3.4, 0.6, 1);
+    mandiraGroup.add(churn);
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.6, 0.7),
+      new THREE.MeshStandardMaterial({ map: makeSignTexture('MANDIRA — PEYNİR', '#8a6a1d'), roughness: 0.6 }));
+    sign.position.set(0, 3.6, 2.2);
+    mandiraGroup.add(sign);
+    mandiraGroup.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    mandiraGroup.visible = false;
+    scene.add(mandiraGroup);
+  }
+  function syncMandira() {
+    mandiraGroup.visible = !!state.mandira;
+    if (state.mandira && !colliders.some(c => c._man)) {
+      colliders.push({ x: CFG.farm.x + 14, z: CFG.farm.z + 8, r: 3.4, _man: true });
+    }
+  }
+  syncMandira();
+
+  // ---------- v9: Muhlama-Lokanta in der Stadt (sichtbar nach Kauf) ----------
+  const restGroup = new THREE.Group();
+  {
+    const R = CFG.restaurant;
+    const y = terrain.heightAt(R.x, R.z);
+    restGroup.position.set(R.x, y, R.z);
+    restGroup.rotation.y = R.ry;
+    const hall = new THREE.Mesh(new THREE.BoxGeometry(6, 3.2, 5), mats.woodMat);
+    hall.position.y = 1.6;
+    restGroup.add(hall);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(6.6, 0.14, 5.6),
+      new THREE.MeshStandardMaterial({ color: 0x8a2e1d, roughness: 0.8 }));
+    roof.position.y = 3.35;
+    restGroup.add(roof);
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.4, 0.75),
+      new THREE.MeshStandardMaterial({ map: makeSignTexture('MUHLAMA LOKANTASI', '#8a2e1d'), roughness: 0.6 }));
+    sign.position.set(0, 3.8, 2.6);
+    restGroup.add(sign);
+    // Terrassentisch mit dampfender Pfanne
+    const table = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.08, 10), mats.woodMat);
+    table.position.set(2.2, 0.75, 3.2);
+    restGroup.add(table);
+    const pan = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.12, 10),
+      new THREE.MeshStandardMaterial({ color: 0x2c2c2e, roughness: 0.4, metalness: 0.6 }));
+    pan.position.set(2.2, 0.85, 3.2);
+    restGroup.add(pan);
+    restGroup.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    restGroup.visible = false;
+    scene.add(restGroup);
+  }
+  function syncRestaurant() {
+    restGroup.visible = !!state.restaurant;
+    if (state.restaurant && !colliders.some(c => c._res)) {
+      colliders.push({ x: CFG.restaurant.x, z: CFG.restaurant.z, r: 3.6, _res: true });
+    }
+  }
+  syncRestaurant();
+
+  // ---------- v9: Derby-Tor am Stadtplatz ----------
+  {
+    const D = CFG.derby.goal;
+    const y = terrain.heightAt(D.x, D.z);
+    const postMat = new THREE.MeshStandardMaterial({ color: 0xe8e8ea, roughness: 0.4 });
+    const gGoal = new THREE.Group();
+    gGoal.position.set(D.x, y, D.z);
+    gGoal.rotation.y = D.ry;
+    for (const s of [-1, 1]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.1, 8), postMat);
+      post.position.set(s * D.w / 2, 1.05, 0);
+      gGoal.add(post);
+    }
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, D.w, 8), postMat);
+    bar.rotation.z = Math.PI / 2;
+    bar.position.y = 2.1;
+    gGoal.add(bar);
+    // Netz-Andeutung
+    const net = new THREE.Mesh(
+      new THREE.PlaneGeometry(D.w, 2.1),
+      new THREE.MeshStandardMaterial({ color: 0xdadfe2, roughness: 1, transparent: true, opacity: 0.25, side: THREE.DoubleSide }));
+    net.position.set(0, 1.05, -0.5);
+    gGoal.add(net);
+    gGoal.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    scene.add(gGoal);
+  }
+
   function syncPension() {
     pensionGroup.visible = !!state.properties.pansiyon;
     const has = colliders.some(c => c._pen);
@@ -464,6 +565,8 @@ export function createExtras(ctx, terrain, mats) {
     syncFactory,
     syncHome,
     syncPension,
+    syncMandira,
+    syncRestaurant,
     setSummer(v) { summerNow = !!v; },
     setLabel,
     setFestival(v) { bunting.visible = !!v; },

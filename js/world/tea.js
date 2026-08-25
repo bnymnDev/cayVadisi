@@ -58,19 +58,25 @@ export function createTeaField(ctx, terrain) {
   const rng = mulberry32(CFG.seed);
 
   // ---- Busch-Positionen (Reihen) ----
+  // v9: Der Randring (Maske 0.38..0.6) sind Erweiterungs-Parzellen — erst nach
+  // dem "Bahçe Genişletme"-Upgrade aktiv und sichtbar.
   const positions = [];
+  const extFlag = [];
   for (let z = F.z0; z <= F.z1; z += F.rowGap) {
     for (let x = F.x0; x <= F.x1; x += F.bushGap) {
       const jx = x + (rng() - 0.5) * 0.5;
       const jz = z + (rng() - 0.5) * 0.45;
-      if (terrain.fieldMask(jx, jz) < 0.6) continue;
+      const mask = terrain.fieldMask(jx, jz);
+      if (mask < 0.38) continue;
       if (terrain.pathWeight(jx, jz) > 0.25) continue;
       const h = terrain.heightAt(jx, jz);
       if (h < 2.0) continue;
       positions.push(jx, h, jz);
+      extFlag.push(mask < 0.6 ? 1 : 0);
     }
   }
   const count = positions.length / 3;
+  const active = new Uint8Array(count);
 
   // ---- Zustand ----
   const states = new Uint8Array(count);
@@ -202,15 +208,28 @@ export function createTeaField(ctx, terrain) {
   const up = new THREE.Vector3(0, 1, 0);
   const p = new THREE.Vector3(), s = new THREE.Vector3();
   const rng2 = mulberry32(555);
-  for (let i = 0; i < count; i++) {
+  const bushAngle = new Float32Array(count);
+  const bushScale = new Float32Array(count);
+  const bushYMul = new Float32Array(count);
+  function composeBush(i) {
     p.set(positions[i * 3], positions[i * 3 + 1] - 0.06, positions[i * 3 + 2]);
-    quat.setFromAxisAngle(up, rng2() * Math.PI * 2);
-    const sc = 0.85 + rng2() * 0.35;
-    s.set(sc, sc * (0.9 + rng2() * 0.25), sc);
+    quat.setFromAxisAngle(up, bushAngle[i]);
+    const sc = active[i] ? bushScale[i] : 0.001;   // inaktive Parzellen unsichtbar
+    s.set(sc, sc * bushYMul[i], sc);
     m4.compose(p, quat, s);
     baseMesh.setMatrixAt(i, m4);
     leafMesh.setMatrixAt(i, m4);
     shootMesh.setMatrixAt(i, m4);
+  }
+  for (let i = 0; i < count; i++) {
+    bushAngle[i] = rng2() * Math.PI * 2;
+    bushScale[i] = 0.85 + rng2() * 0.35;
+    bushYMul[i] = 0.9 + rng2() * 0.25;
+    active[i] = extFlag[i] ? 0 : 1;
+    if (!active[i]) {   // inaktiv: neutraler Zustand, damit Arbeiter sie ignorieren
+      states[i] = ST_GROW; timers[i] = 99999; growVis[i] = 0; lateVis[i] = 0;
+    }
+    composeBush(i);
     aGrow.array[i] = growVis[i];
     aLate.array[i] = lateVis[i];
   }
@@ -246,6 +265,7 @@ export function createTeaField(ctx, terrain) {
       windUniforms.uWind.value += (windStrength - windUniforms.uWind.value) * Math.min(1, dt);
       let dirty = false;
       for (let i = 0; i < count; i++) {
+        if (!active[i]) continue;
         const st = states[i];
         if (st === ST_GROW) {
           timers[i] -= dt * growSpeedFactor;
@@ -270,6 +290,7 @@ export function createTeaField(ctx, terrain) {
       let best = -1, bestScore = -1;
       const R = CFG.tea.pickRange;
       queryNear(camPos.x, camPos.z, (i) => {
+        if (!active[i]) return;
         const st = states[i];
         if (st === ST_GROW) return;
         const dx = positions[i * 3] - camPos.x;
@@ -306,6 +327,7 @@ export function createTeaField(ctx, terrain) {
     // Kollisions-Abfrage für den Spieler
     collide(pos, radius) {
       queryNear(pos.x, pos.z, (i) => {
+        if (!active[i]) return;
         const dx = pos.x - positions[i * 3];
         const dz = pos.z - positions[i * 3 + 2];
         const rr = radius + 0.55;
@@ -323,6 +345,7 @@ export function createTeaField(ctx, terrain) {
     newDay(growFactor = 1) {
       if (growFactor <= 0) return;
       for (let i = 0; i < count; i++) {
+        if (!active[i]) continue;
         if (states[i] === ST_GROW) {
           if (Math.random() < 0.7) { states[i] = ST_RIPE; timers[i] = CFG.tea.ripeTime * (0.5 + Math.random() * 0.5); }
           else timers[i] = Math.min(timers[i], CFG.tea.growTime * 0.5 * Math.random());
@@ -337,8 +360,24 @@ export function createTeaField(ctx, terrain) {
 
     countRipe() {
       let n = 0;
-      for (let i = 0; i < count; i++) if (states[i] !== ST_GROW) n++;
+      for (let i = 0; i < count; i++) if (active[i] && states[i] !== ST_GROW) n++;
       return n;
+    },
+
+    // v9: Erweiterungs-Parzellen freischalten (Bahçe Genişletme)
+    extCount: extFlag.reduce((a, b) => a + b, 0),
+    setExtension(on) {
+      for (let i = 0; i < count; i++) {
+        if (!extFlag[i]) continue;
+        active[i] = on ? 1 : 0;
+        if (on && states[i] === ST_GROW && timers[i] > CFG.tea.growTime * 2) {
+          timers[i] = CFG.tea.growTime * (0.2 + Math.random() * 0.8);
+        }
+        composeBush(i);
+      }
+      baseMesh.instanceMatrix.needsUpdate = true;
+      leafMesh.instanceMatrix.needsUpdate = true;
+      shootMesh.instanceMatrix.needsUpdate = true;
     }
   };
 
