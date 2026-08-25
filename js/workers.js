@@ -64,8 +64,8 @@ export function makeWorkerMesh(i, opts = {}) {
   // ---- Arme: Schulter-Pivots + Hände ----
   function makeArm(sx) {
     const pivot = new THREE.Group();
-    pivot.position.set(sx * 0.2, 1.3, 0);
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.44, 3, 7), shirtMat);
+    pivot.position.set(sx * 0.175, 1.3, 0);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.047, 0.44, 3, 7), shirtMat);
     arm.position.set(sx * 0.015, -0.26, 0);
     arm.rotation.z = -sx * 0.08;
     pivot.add(arm);
@@ -83,7 +83,7 @@ export function makeWorkerMesh(i, opts = {}) {
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.09, 8), skinMat);
   neck.position.y = -0.1;
   head.add(neck);
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.115, 12, 10), skinMat);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.122, 12, 10), skinMat);
   skull.scale.set(0.92, 1.08, 0.98);
   head.add(skull);
   for (const sx of [-1, 1]) {
