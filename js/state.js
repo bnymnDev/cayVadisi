@@ -48,6 +48,16 @@ export const state = {
   introSeen: false,
   visited: { zonguldak: false, eregli: false, devrek: false },
 
+  // v4
+  role: 'farmer',
+  homeLevel: 0,
+  survival: false,
+  hunger: 100,
+  energy: 100,
+  rel: { temel: 0, dursun: 0 },   // Nachbarschafts-Beziehung
+  gurbetci: 0,                    // absolvierte Almanya-Schichten
+  workerBoost: 1,                 // İmece-Bonus (nur heute, nicht gespeichert)
+
   // Tageswerte
   dayKg: 0,
   dayEarned: 0,
@@ -75,6 +85,7 @@ export function basketCapacity(cfg, cargoMul = 1) {
   let cap = cfg.eco.basket0;
   if (state.upgrades.basket2) cap = cfg.eco.basket2;
   else if (state.upgrades.basket1) cap = cfg.eco.basket1;
+  if (state.homeLevel >= 1) cap += 2;   // Haus-Anbau: Lagerplatz
   return cap * cargoMul;
 }
 
@@ -102,7 +113,9 @@ export function save() {
     playerName: s.playerName, label: s.label, outfit: s.outfit,
     married: s.married, child: s.child, properties: s.properties,
     stocks: s.stocks, stockPrices: s.stockPrices, baston: s.baston,
-    blackHeat: s.blackHeat, introSeen: s.introSeen, visited: s.visited
+    blackHeat: s.blackHeat, introSeen: s.introSeen, visited: s.visited,
+    role: s.role, homeLevel: s.homeLevel, survival: s.survival,
+    hunger: s.hunger, energy: s.energy, rel: s.rel, gurbetci: s.gurbetci
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -143,6 +156,13 @@ export function load() {
     state.blackHeat = d.blackHeat ?? 0;
     state.introSeen = d.introSeen ?? false;
     Object.assign(state.visited, d.visited || {});
+    state.role = d.role ?? 'farmer';
+    state.homeLevel = d.homeLevel ?? 0;
+    state.survival = d.survival ?? false;
+    state.hunger = d.hunger ?? 100;
+    state.energy = d.energy ?? 100;
+    Object.assign(state.rel, d.rel || {});
+    state.gurbetci = d.gurbetci ?? 0;
     return true;
   } catch (e) { return false; }
 }
@@ -174,6 +194,12 @@ export function resetProgress() {
   state.blackHeat = 0;
   state.introSeen = false;
   state.visited = { zonguldak: false, eregli: false, devrek: false };
+  state.role = 'farmer';
+  state.homeLevel = 0;
+  state.survival = false;
+  state.hunger = 100; state.energy = 100;
+  state.rel = { temel: 0, dursun: 0 };
+  state.gurbetci = 0;
   resetDay();
   save();
   try { localStorage.removeItem(KEY_V1); } catch (e) { /* egal */ }

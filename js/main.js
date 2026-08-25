@@ -25,6 +25,10 @@ import { createAudio } from './audio.js';
 import { createMinimap } from './minimap.js';
 import { createNpcs } from './npcs.js';
 import { createExtras } from './world/extras.js';
+import { createCc0Props } from './world/cc0props.js';
+import { createAirport } from './world/airport.js';
+import { createAvatar } from './avatar.js';
+import { createEvents } from './events.js';
 import { createUI } from './ui.js';
 import { createGame } from './game.js';
 import { applyDom } from './i18n.js';
@@ -78,6 +82,8 @@ const audio = createAudio();
 let propsApi = null;
 let game = null;
 let farm = null, city = null, vehicles = null, workers = null, minimap = null, npcs = null, extras = null;
+let cc0 = null, airport = null, avatar = null, events = null;
+let thirdPerson = false;
 
 const hooks = {};
 const ui = createUI(ctx, hooks);
@@ -121,25 +127,61 @@ function maybeReady() {
   }
 }
 
-createProps(ctx, terrain).then((p) => {
-  propsApi = p;
+createProps(ctx, terrain).then(async (p) => {
+  cc0 = await createCc0Props(ctx, terrain);
   farm = createFarm(ctx, terrain, p.mats);
   city = createCity(ctx, terrain, p.mats);
   vehicles = createVehicles(ctx, terrain, player, () => allColliders);
   workers = createWorkers(ctx, terrain, teaField, particles);
   extras = createExtras(ctx, terrain, p.mats);
-  allColliders.push(...p.colliders, ...farm.colliders, ...city.colliders, ...extras.colliders);
+  airport = createAirport(ctx, terrain, p.mats);
+  events = createEvents(ctx, ui, audio);
+  avatar = createAvatar(ctx, player, terrain);
+  allColliders.push(...p.colliders, ...farm.colliders, ...city.colliders,
+    ...extras.colliders, ...cc0.colliders, ...airport.colliders);
   game = createGame(ctx, {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
-    farm, city, vehicles, workers, extras
+    farm, city, vehicles, workers, extras, events
   });
   minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
   npcs = createNpcs(ctx, terrain, ui, player);
   ui.bindTouch(player, vehicles);
   wireHooks();
+  propsApi = p;      // erst jetzt: der Render-Loop prüft propsApi als "alles bereit"
   propsDone = true;
   maybeReady();
 }).catch((e) => console.error('Props-Fehler:', e));
+
+// ---------- Third-Person (V) ----------
+window.addEventListener('keydown', (e) => {
+  if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+  if (e.code === 'KeyV' && game && game.running && !vehicles.driving) {
+    thirdPerson = !thirdPerson;
+    avatar.setVisible(thirdPerson);
+  }
+});
+const tpCam = new THREE.Vector3();
+const tpLook = new THREE.Vector3();
+const tpSmooth = new THREE.Vector3();
+let tpSmoothInit = false;
+function applyThirdPerson(dt) {
+  const yaw = player.euler.y, pitch = player.euler.x;
+  const dist = 4.6;
+  tpCam.set(
+    player.pos.x + Math.sin(yaw) * Math.cos(pitch) * dist,
+    player.pos.y + 1.1 - Math.sin(pitch) * dist * 0.9,
+    player.pos.z + Math.cos(yaw) * Math.cos(pitch) * dist
+  );
+  // Kamera nicht unter den Boden
+  const groundY = terrain.heightAt(tpCam.x, tpCam.z) + 0.4;
+  if (tpCam.y < groundY) tpCam.y = groundY;
+  // eigene Glättung — player.update setzt die Kamera jeden Frame neu
+  if (!tpSmoothInit) { tpSmooth.copy(tpCam); tpSmoothInit = true; }
+  tpSmooth.lerp(tpCam, Math.min(1, dt * 9));
+  camera.position.copy(tpSmooth);
+  tpLook.set(player.pos.x, player.pos.y - 0.55, player.pos.z);  // Brusthöhe des Avatars
+  camera.lookAt(tpLook);
+}
 
 function wireHooks() {
   hooks.sellValue = () => game.sellValue();
@@ -168,6 +210,15 @@ function wireHooks() {
   hooks.haveChild = () => game.haveChild();
   hooks.buyProperty = (id) => game.buyProperty(id);
   hooks.tradeStock = (id, n) => game.tradeStock(id, n);
+  hooks.canFlyIstanbul = () => game.canFlyIstanbul();
+  hooks.flyIstanbul = () => game.flyIstanbul();
+  hooks.istanbulPrice = (p2) => game.istanbulPrice(p2);
+  hooks.sellIstanbul = (p2, n) => game.sellIstanbul(p2, n);
+  hooks.flyAlmanya = () => game.flyAlmanya();
+  hooks.buyHomeUpgrade = () => game.buyHomeUpgrade();
+  hooks.setRole = (r) => { const ok = game.setRole(r); if (ok && avatar) avatar.rebuild(); return ok; };
+  hooks.buyFood = (id) => game.buyFood(id);
+  hooks.rebuildAvatar = () => avatar && avatar.rebuild();
   hooks.resume = () => game.pause(false);
   hooks.nextDay = () => game.nextDay();
   hooks.nextDay2 = () => game.startDay();
@@ -269,6 +320,10 @@ window.__game = {
   get city() { return city; },
   get vehicles() { return vehicles; },
   get workers() { return workers; },
+  get cc0() { return cc0; },
+  get events() { return events; },
+  get avatar() { return avatar; },
+  setThirdPerson(v) { thirdPerson = v; },
   setHour(h) { state.timeSec = (h - CFG.startHour) / (CFG.endHour - CFG.startHour) * CFG.dayLengthSec; },
   give(m) { state.money += m; ui.refreshMoney(); },
   teleport: (x, z) => player.teleport(x, z),
@@ -334,7 +389,12 @@ function step(rawDt, manual, skipRender = false) {
   const playing = game && game.running && !game.paused;
 
   if (game) game.update(dt, elapsed);
-  player.update(dt, state.upgrades.boots, state.baston ? CFG.life.bastonSpeed : 1);
+  player.update(dt, state.upgrades.boots, game ? game.speedMul() : 1);
+  if (thirdPerson && !vehicles?.driving && playing) applyThirdPerson(dt);
+  if (avatar) {
+    avatar.setVisible(thirdPerson && !vehicles?.driving);
+    avatar.update(dt);
+  }
 
   const growSpeed = game ? game.growSpeedFactor() : 1;
   const wind = game ? game.windStrength() : 0.5;
@@ -354,6 +414,8 @@ function step(rawDt, manual, skipRender = false) {
     workers.update(dt, elapsed, playing);
     npcs.update(dt, elapsed);
     extras.update(dt, elevN, elapsed);
+    airport.update(dt, elapsed);
+    cc0.update(dt, player, vehicles.driving ? vehicles.speedKmh() / 3.6 : 0);
     minimap.update(dt);
   }
 

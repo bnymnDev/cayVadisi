@@ -7,7 +7,7 @@ import { t } from './i18n.js';
 import { clamp, fmtMoney } from './util.js';
 
 export function createGame(ctx, mods) {
-  const { terrain, tea, props, player, audio, ui, particles, sky, farm, vehicles, workers, extras } = mods;
+  const { terrain, tea, props, player, audio, ui, particles, sky, farm, vehicles, workers, extras, events } = mods;
   const { camera } = ctx;
 
   let showers = [];          // {start, end}
@@ -108,6 +108,16 @@ export function createGame(ctx, mods) {
         lines.push({ k: 'sumWorkerTea', v: '+' + fmtMoney(sum, L), sub: Math.round(state.workerKg * 10) / 10 + ' kg' });
       }
     }
+    // v4: Jandarma-Gehalt & Sat-Werbung
+    if (state.role === 'jandarma') {
+      const sal = CFG.roles.jandarma.salary;
+      state.money += sal; state.dayEarned += sal; state.totalEarned += sal;
+      lines.push({ k: 'sumSalary', v: '+' + fmtMoney(sal, L) });
+    }
+    if (state.homeLevel >= 3) {
+      state.money += CFG.homeAdBonus; state.dayEarned += CFG.homeAdBonus; state.totalEarned += CFG.homeAdBonus;
+      lines.push({ k: 'sumAd', v: '+' + fmtMoney(CFG.homeAdBonus, L) });
+    }
     // Mieteinnahmen
     {
       let rent = 0;
@@ -163,6 +173,14 @@ export function createGame(ctx, mods) {
     regenExports();
     if (state.blackHeat > 0) state.blackHeat = Math.max(0, state.blackHeat - 1);
 
+    // v4: Schlaf erholt, Ereignisse neu planen
+    if (state.survival) {
+      state.energy = 100;
+      state.hunger = Math.max(0, state.hunger - 8);
+      state._starveToast = false;
+    }
+    if (events) events.newDay();
+
     tea.newDay();
     if (!state.seasonOver && state.day > CFG.seasonDays) {
       state.seasonOver = true;
@@ -180,7 +198,9 @@ export function createGame(ctx, mods) {
 
   // ---------- v3: Familie/Bonus & Aktien ----------
   function famBonus() {
-    return (state.married ? CFG.life.marriedBonus : 1) * (state.child ? CFG.life.childBonus : 1);
+    return (state.married ? CFG.life.marriedBonus : 1)
+      * (state.child ? CFG.life.childBonus : 1)
+      * (state.homeLevel >= 2 ? 1.05 : 1);
   }
 
   function initStocks() {
@@ -632,6 +652,7 @@ export function createGame(ctx, mods) {
 
   function sellBlack() {
     const B = CFG.life.black;
+    if (state.role === 'jandarma') { ui.toast(t('blackJandarma'), false); audio.deny(); return false; }
     if (state.basketKg <= 0.01) { audio.deny(); return false; }
     const value = sellValue() * B.bonus;
     const risk = B.baseRisk + state.blackHeat * B.heatRisk;
@@ -657,6 +678,110 @@ export function createGame(ctx, mods) {
     ui.refreshMoney();
     save();
     return true;
+  }
+
+  // ---------- v4: Flüge, Haus, Rolle, Essen ----------
+  function canFlyIstanbul() {
+    const F = CFG.airport.flights.istanbul;
+    return state.money >= F.cost && (CFG.endHour - sky.hour) > F.hours + 0.5;
+  }
+
+  function flyIstanbul() {
+    const F = CFG.airport.flights.istanbul;
+    if (!canFlyIstanbul()) { audio.deny(); return false; }
+    state.money -= F.cost;
+    state.daySpent += F.cost;
+    state.timeSec += F.hours * secPerHour();
+    audio.gondola();
+    save();
+    ui.showIstanbul();
+    return true;
+  }
+
+  function istanbulPrice(pid) {
+    const prem = CFG.airport.istanbulPremium[pid] || 1;
+    return CFG.products[pid].sell * (state.marketMul[pid] || 1) * prem;
+  }
+
+  function sellIstanbul(pid, count) {
+    const have = Math.floor(state.inventory[pid] || 0);
+    const n = Math.min(have, count);
+    if (n <= 0) { audio.deny(); return 0; }
+    const sum = n * istanbulPrice(pid) * famBonus();
+    state.inventory[pid] -= n;
+    state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+    audio.cash();
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return sum;
+  }
+
+  function flyAlmanya() {
+    const F = CFG.airport.flights.almanya;
+    if (state.money < F.cost) { audio.deny(); return false; }
+    state.money -= F.cost;
+    state.daySpent += F.cost;
+    const [lo, hi] = CFG.airport.almanyaWage;
+    const wage = Math.round(lo + Math.random() * (hi - lo));
+    state.money += wage; state.dayEarned += wage; state.totalEarned += wage;
+    state.gurbetci += 1;
+    if (state.survival) { state.hunger = Math.max(20, state.hunger - 30); }
+    ui.toast(t('gurbetciDone', fmtMoney(wage, state.settings.lang)), true, 8000);
+    audio.tierUp();
+    checkWealth();
+    save();
+    // Der Rest des Tages ist weg
+    endDay();
+    return true;
+  }
+
+  function buyHomeUpgrade() {
+    const lvl = state.homeLevel;
+    const spec = CFG.homeLevels[lvl];
+    if (!spec || state.money < spec.cost) { audio.deny(); return false; }
+    state.money -= spec.cost;
+    state.daySpent += spec.cost;
+    state.homeLevel = lvl + 1;
+    extras.syncHome();
+    audio.buy();
+    ui.toast(t('homeUpgraded' + state.homeLevel), true, 6000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function setRole(role) {
+    if (!CFG.roles[role]) return false;
+    state.role = role;
+    ui.toast(t('roleSet', t('role_' + role)), true);
+    save();
+    return true;
+  }
+
+  function buyFood(id) {
+    const f = CFG.survival.foods[id];
+    if (!f || state.money < f.cost) { audio.deny(); return false; }
+    state.money -= f.cost;
+    state.daySpent += f.cost;
+    if (f.hunger) state.hunger = Math.min(100, state.hunger + f.hunger);
+    if (f.energy) state.energy = Math.min(100, state.energy + f.energy);
+    state._starveToast = false;
+    audio.harvest();
+    ui.refreshMoney();
+    ui.refreshSurvival();
+    save();
+    return true;
+  }
+
+  // Tempo-Malus bei Hunger/Erschöpfung (für player.update)
+  function speedMul() {
+    let m = state.baston ? CFG.life.bastonSpeed : 1;
+    if (state.survival && (state.hunger < CFG.survival.lowThreshold || state.energy < CFG.survival.lowThreshold)) {
+      m *= CFG.survival.slowFactor;
+    }
+    return m;
   }
 
   // ---------- Eingaben ----------
@@ -713,11 +838,13 @@ export function createGame(ctx, mods) {
     else if (act.id === 'factory') { player.releaseLock(); ui.showFactory(); }
     else if (act.id === 'super') { player.releaseLock(); ui.showSuper(); }
     else if (act.id === 'black') sellBlack();
+    else if (act.id === 'airport') { player.releaseLock(); ui.showAirport(); }
   }
 
   window.addEventListener('keydown', (e) => {
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     if (e.code === 'KeyE' && running && !paused && !ui.overlayOpen()) doInteract();
+    if (e.code === 'KeyH' && vehicles.driving) audio.horn(vehicles.driving);
     if (e.code === 'KeyP' && running && !paused) {
       if (ui.lifeOpen()) { ui.hideOverlays(); pause(false); }
       else if (!ui.overlayOpen()) { player.releaseLock(); ui.showLife(); }
@@ -771,6 +898,7 @@ export function createGame(ctx, mods) {
     if (distTo(CFG.supermarket.x, CFG.supermarket.z) < CFG.interactDist + 1.5) return { id: 'super' };
     if (sky.hour >= CFG.life.black.hourFrom && state.basketKg > 0.01
         && distTo(CFG.life.black.spot.x, CFG.life.black.spot.z) < CFG.interactDist) return { id: 'black' };
+    if (distTo(CFG.airport.x, CFG.airport.z) < CFG.interactDist + 8) return { id: 'airport' };
     return null;
   }
 
@@ -781,6 +909,20 @@ export function createGame(ctx, mods) {
     // Zeit
     state.timeSec += dt;
     if (state.timeSec >= CFG.dayLengthSec) { endDay(); return; }
+
+    // v4: Nachbarschafts-Ereignisse
+    if (events) events.update();
+
+    // v4: Survival — Hunger & Energie
+    if (state.survival) {
+      state.hunger = Math.max(0, state.hunger - CFG.survival.hungerPerDay / CFG.dayLengthSec * dt);
+      state.energy = Math.max(0, state.energy - CFG.survival.energyPerDay / CFG.dayLengthSec * dt);
+      ui.refreshSurvival();
+      if (state.hunger <= 0 && !state._starveToast) {
+        state._starveToast = true;
+        ui.toast(t('starving'), false, 6000);
+      }
+    }
 
     // Wetter
     let rainingNow = false;
@@ -805,6 +947,7 @@ export function createGame(ctx, mods) {
     // Fahren: kein Pflücken, aber Motor & Tacho
     if (vehicles.driving) {
       audio.engineUpdate(vehicles.throttle01(), vehicles.speedKmh());
+      if (vehicles.isDrifting() && Math.random() < dt * 4) audio.screech();
       ui.setSpeed(vehicles.speedKmh());
       ui.setCrosshairActive(false);
       ui.setPickProgress(0);
@@ -819,7 +962,11 @@ export function createGame(ctx, mods) {
     ui.setCrosshairActive(pickTarget >= 0);
 
     if (picking && mouseDown && pickTarget >= 0) {
-      const need = state.upgrades.shears ? CFG.tea.pickTimeShears : CFG.tea.pickTime;
+      let need = (state.upgrades.shears ? CFG.tea.pickTimeShears : CFG.tea.pickTime)
+        * (CFG.roles[state.role] || CFG.roles.farmer).pickFactor;
+      if (state.survival && (state.hunger < CFG.survival.lowThreshold || state.energy < CFG.survival.lowThreshold)) {
+        need *= 1.4;
+      }
       pickProgress += dt / need;
       if (Math.random() < dt * 9) audio.pickTick();
       if (pickProgress >= 1) finishPick();
@@ -875,6 +1022,8 @@ export function createGame(ctx, mods) {
     travelTo, canTravel, buyTravelGood, sellAtCity, cityPrice,
     buyFactory, packBasket, sellSuper, fulfillExport,
     setIdentity, marry, haveChild, buyProperty, tradeStock, sellBlack, famBonus,
+    canFlyIstanbul, flyIstanbul, istanbulPrice, sellIstanbul, flyAlmanya,
+    buyHomeUpgrade, setRole, buyFood, speedMul,
     update,
     get running() { return running; },
     get paused() { return paused; },

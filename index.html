@@ -31,6 +31,7 @@
       <div id="load-bar"><div id="load-fill"></div></div>
       <div id="load-label">0%</div>
     </div>
+    <label id="survival-row"><input type="checkbox" id="chk-survival"> <span data-i18n="survivalOpt"></span></label>
     <button id="btn-start" class="big-btn" disabled data-i18n="start"></button>
     <button id="btn-continue" class="big-btn ghost hidden" data-i18n="continue"></button>
     <div class="controls-hint" id="controls-hint"></div>
@@ -53,6 +54,10 @@
   </div>
   <div id="hud-speed" class="hidden"></div>
   <div id="minimap"><canvas id="minimap-canvas"></canvas></div>
+  <div id="survival-hud" class="hidden">
+    <div class="sv-row">🍞<div class="sv-bar"><div id="sv-hunger"></div></div></div>
+    <div class="sv-row">⚡<div class="sv-bar"><div id="sv-energy"></div></div></div>
+  </div>
   <div id="hud-order"></div>
   <div id="hud-basket">
     <div id="basket-label"></div>
@@ -141,6 +146,25 @@
     </div>
     <div id="manage-body"></div>
     <button id="btn-manage-close" class="big-btn ghost" data-i18n="back"></button>
+  </div>
+</div>
+
+<!-- ===== Flughafen ===== -->
+<div id="airport-screen" class="overlay hidden">
+  <div class="panel">
+    <h2 data-i18n="airportTitle"></h2>
+    <div id="airport-body"></div>
+    <button id="btn-airport-close" class="big-btn ghost" data-i18n="back"></button>
+  </div>
+</div>
+
+<!-- ===== Nachbarschafts-Ereignis ===== -->
+<div id="event-screen" class="overlay hidden">
+  <div class="panel narrow">
+    <div id="event-icon" style="font-size:44px"></div>
+    <h2 id="event-title"></h2>
+    <div id="event-text" class="section-info" style="font-size:15px"></div>
+    <div id="event-choices"></div>
   </div>
 </div>
 

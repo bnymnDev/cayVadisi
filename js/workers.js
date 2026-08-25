@@ -114,7 +114,7 @@ export function createWorkers(ctx, terrain, tea, particles) {
 
     update(dt, elapsed, running) {
       if (!workers.length) return;
-      const pickNeed = W.pickTime * (state.upgrades.foreman ? W.foremanFactor : 1);
+      const pickNeed = W.pickTime * (state.upgrades.foreman ? W.foremanFactor : 1) / (state.workerBoost || 1);
       for (const w of workers) {
         if (!running) {
           // Feierabend: stehen, Arme unten

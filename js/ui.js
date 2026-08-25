@@ -15,6 +15,8 @@ export function createUI(ctx, hooks) {
     dealer: $('dealer-screen'), manage: $('manage-screen'),
     travel: $('travel-screen'), factory: $('factory-screen'),
     superS: $('super-screen'), life: $('life-screen'),
+    airportS: $('airport-screen'), eventS: $('event-screen'),
+    svHud: $('survival-hud'),
     speed: $('hud-speed'), tier: $('hud-tier'), touch: $('touch-controls'),
     loadFill: $('load-fill'), loadLabel: $('load-label'),
     btnStart: $('btn-start'), btnContinue: $('btn-continue'),
@@ -48,6 +50,7 @@ export function createUI(ctx, hooks) {
     hideStart() {
       hide(els.start); show(els.hud);
       api.refreshWealth();
+      api.refreshSurvival();
       if (ctx.isTouch) els.touch.classList.remove('hidden');
     },
 
@@ -168,7 +171,9 @@ export function createUI(ctx, hooks) {
         || !els.travel.classList.contains('hidden')
         || !els.factory.classList.contains('hidden')
         || !els.superS.classList.contains('hidden')
-        || !els.life.classList.contains('hidden');
+        || !els.life.classList.contains('hidden')
+        || !els.airportS.classList.contains('hidden')
+        || !els.eventS.classList.contains('hidden');
     },
     manageOpen() { return !els.manage.classList.contains('hidden'); },
     lifeOpen() { return !els.life.classList.contains('hidden'); },
@@ -176,6 +181,87 @@ export function createUI(ctx, hooks) {
       hide(els.shop); hide(els.pause); hide(els.day); hide(els.season);
       hide(els.farm); hide(els.market); hide(els.dealer); hide(els.manage);
       hide(els.travel); hide(els.factory); hide(els.superS); hide(els.life);
+      hide(els.airportS); hide(els.eventS);
+    },
+
+    // ---------- v4: Survival-HUD ----------
+    refreshSurvival() {
+      if (!state.survival) { els.svHud.classList.add('hidden'); return; }
+      els.svHud.classList.remove('hidden');
+      $('sv-hunger').style.width = Math.round(state.hunger) + '%';
+      $('sv-energy').style.width = Math.round(state.energy) + '%';
+    },
+
+    // ---------- v4: Flughafen ----------
+    showAirport() { api.renderAirport(); show(els.airportS); },
+    renderAirport() {
+      const L = state.settings.lang;
+      const A = CFG.airport;
+      els.airportS.querySelector('h2').textContent = t('airportTitle');
+      const body = $('airport-body');
+      body.innerHTML = `
+        <div class="section-info">${t('airportHint')}</div>
+        <div class="upgrade-item">
+          <div class="u-icon">🕌</div>
+          <div class="u-body"><div class="u-name">İstanbul</div>
+          <div class="u-desc">${t('istanbulDesc')} · ~${A.flights.istanbul.hours} h</div></div>
+          <button id="btn-fly-ist" ${hooks.canFlyIstanbul() ? '' : 'disabled'}>${fmtMoney(A.flights.istanbul.cost, L)}</button>
+        </div>
+        <div class="upgrade-item">
+          <div class="u-icon">🇩🇪</div>
+          <div class="u-body"><div class="u-name">Almanya — Gurbetçi</div>
+          <div class="u-desc">${t('almanyaDesc')}${state.gurbetci > 0 ? ` · ${t('gurbetciCount', state.gurbetci)}` : ''}</div></div>
+          <button id="btn-fly-alm" ${state.money >= A.flights.almanya.cost ? '' : 'disabled'}>${fmtMoney(A.flights.almanya.cost, L)}</button>
+        </div>`;
+      $('btn-fly-ist').addEventListener('click', () => hooks.flyIstanbul());
+      $('btn-fly-alm').addEventListener('click', () => hooks.flyAlmanya());
+    },
+    showIstanbul() {
+      const L = state.settings.lang;
+      els.airportS.querySelector('h2').textContent = 'İstanbul — Kapalıçarşı';
+      const body = $('airport-body');
+      body.innerHTML = `<div class="section-info">${t('istanbulWelcome')}</div>`;
+      let any = false;
+      for (const pid of Object.keys(CFG.airport.istanbulPremium)) {
+        const have = Math.floor(state.inventory[pid] || 0);
+        if (have <= 0) continue;
+        any = true;
+        const price = Math.round(hooks.istanbulPrice(pid));
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        row.innerHTML = `
+          <div class="u-icon">${CFG.products[pid].icon}</div>
+          <div class="u-body"><div class="u-name">${t('prod_' + pid)} × ${have} <span class="price-up">▲ ${t('premiumHere')}</span></div>
+          <div class="u-desc">${fmtMoney(price, L)} / Stk</div></div>
+          <button>${fmtMoney(have * price, L)}</button>`;
+        row.querySelector('button').addEventListener('click', () => {
+          hooks.sellIstanbul(pid, have);
+          api.showIstanbul();
+        });
+        body.appendChild(row);
+      }
+      if (!any) body.innerHTML += `<div class="section-info">${t('cityNoGoods')}</div>`;
+      show(els.airportS);
+    },
+
+    // ---------- v4: Nachbarschafts-Ereignis ----------
+    showEvent(ev, onChoice) {
+      $('event-icon').textContent = t('evIcon_' + ev.id);
+      $('event-title').textContent = t('evTitle_' + ev.id);
+      $('event-text').textContent = t('evText_' + ev.id);
+      const box = $('event-choices');
+      box.innerHTML = '';
+      for (const c of ev.choices) {
+        const b = document.createElement('button');
+        b.className = 'big-btn' + (c.id === ev.choices[0].id ? '' : ' ghost');
+        b.textContent = t('evChoice_' + c.id);
+        b.addEventListener('click', () => {
+          hide(els.eventS);
+          onChoice(c);
+        });
+        box.appendChild(b);
+      }
+      show(els.eventS);
     },
 
     // ---------- v3: Reisen ----------
@@ -318,6 +404,7 @@ export function createUI(ctx, hooks) {
         $('btn-super-1').addEventListener('click', () => { hooks.sellSuper(1); api.renderSuper(); });
         $('btn-super-all').addEventListener('click', () => { hooks.sellSuper(have); api.renderSuper(); });
       }
+      api.appendFoodRows(body);
     },
 
     // ---------- v3: Leben ----------
@@ -341,7 +428,17 @@ export function createUI(ctx, hooks) {
             `<button class="swatch ${state.outfit === c ? 'active' : ''}" data-c="${c}" style="background:${c}"></button>`).join('')}
           </div>
           <button id="btn-save-profile" class="big-btn">${t('saveProfile')}</button>
-          <div class="section-info">${t('bastonState')}: <b>${state.baston ? t('owned') + ' ✓ (+8 %)' : t('bastonHint')}</b></div>`;
+          <label class="life-label">${t('roleLabel')}</label>
+          <div class="btn-row">${['farmer', 'worker', 'jandarma'].map(r =>
+            `<button class="big-btn role-btn ${state.role === r ? '' : 'ghost'}" data-r="${r}">${t('role_' + r)}</button>`).join('')}
+          </div>
+          <div class="section-info">${t('roleInfo_' + state.role)}</div>
+          <div class="section-info">${t('bastonState')}: <b>${state.baston ? t('owned') + ' ✓ (+8 %)' : t('bastonHint')}</b></div>
+          <div class="section-info">${t('viewHint')}</div>`;
+        body.querySelectorAll('.role-btn').forEach(b => b.addEventListener('click', () => {
+          hooks.setRole(b.dataset.r);
+          api.renderLife();
+        }));
         body.querySelectorAll('.swatch').forEach(sw => sw.addEventListener('click', () => {
           state.outfit = sw.dataset.c;
           api.renderLife();
@@ -369,6 +466,23 @@ export function createUI(ctx, hooks) {
         if (bc) bc.addEventListener('click', () => { if (hooks.haveChild()) api.renderLife(); });
       } else if (api._lifeTab === 'estate') {
         body.innerHTML = '';
+        // Hausausbau
+        {
+          const lvl = state.homeLevel;
+          const spec = CFG.homeLevels[lvl];
+          const row = document.createElement('div');
+          row.className = 'upgrade-item' + (spec ? '' : ' owned');
+          row.innerHTML = `
+            <div class="u-icon">${spec ? spec.icon : '🏡'}</div>
+            <div class="u-body"><div class="u-name">${t('homeTitle')} — ${t('homeLvl' + lvl)}</div>
+            <div class="u-desc">${spec ? t('homeNext' + (lvl + 1)) : t('homeMax')}</div></div>
+            <button ${!spec || state.money < spec.cost ? 'disabled' : ''}>
+              ${spec ? fmtMoney(spec.cost, L) : t('owned') + ' ✓'}</button>`;
+          if (spec) row.querySelector('button').addEventListener('click', () => {
+            if (hooks.buyHomeUpgrade()) api.renderLife();
+          });
+          body.appendChild(row);
+        }
         for (const [id, p] of Object.entries(CFG.life.properties)) {
           const owned = state.properties[id];
           const row = document.createElement('div');
@@ -486,6 +600,27 @@ export function createUI(ctx, hooks) {
       const btn = $('btn-market-sellall');
       btn.textContent = t('sellAll') + (any ? ' · ' + fmtMoney(total, L) : '');
       btn.disabled = !any;
+      api.appendFoodRows(list);
+    },
+
+    // Essstand (Survival): an Markt & Supermarkt angehängt
+    appendFoodRows(container) {
+      if (!state.survival) return;
+      const L = state.settings.lang;
+      const head = document.createElement('h3');
+      head.textContent = t('foodSection');
+      container.appendChild(head);
+      for (const [id, f] of Object.entries(CFG.survival.foods)) {
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        row.innerHTML = `
+          <div class="u-icon">${f.icon}</div>
+          <div class="u-body"><div class="u-name">${t('food_' + id)}</div>
+          <div class="u-desc">${f.hunger ? '🍞 +' + f.hunger : ''} ${f.energy ? '⚡ +' + f.energy : ''}</div></div>
+          <button ${state.money < f.cost ? 'disabled' : ''}>${fmtMoney(f.cost, L)}</button>`;
+        row.querySelector('button').addEventListener('click', () => hooks.buyFood(id));
+        container.appendChild(row);
+      }
     },
 
     // ---------- v2: Autohaus ----------
@@ -706,6 +841,8 @@ export function createUI(ctx, hooks) {
 
   els.btnStart.addEventListener('click', () => {
     if (hasSave() && !els.btnContinue.classList.contains('hidden')) resetProgress();
+    state.survival = $('chk-survival').checked;   // Wahl überlebt den Reset
+    save();
     hooks.onStart();
   });
   els.btnContinue.addEventListener('click', () => hooks.onContinue());
@@ -731,6 +868,8 @@ export function createUI(ctx, hooks) {
     $('tab-' + tb).addEventListener('click', () => { api._manageTab = tb; api.renderManage(); });
   }
   $('btn-travel-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-airport-close').addEventListener('click', () => hooks.closeShop());
+  $('chk-survival').addEventListener('change', (e) => { state.survival = e.target.checked; });
   $('btn-factory-close').addEventListener('click', () => hooks.closeShop());
   $('btn-super-close').addEventListener('click', () => hooks.closeShop());
   $('btn-life-close').addEventListener('click', () => hooks.closeShop());
