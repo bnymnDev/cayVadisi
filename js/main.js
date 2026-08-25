@@ -47,6 +47,7 @@ import { createCats } from './cats.js';
 import { createKonak } from './world/konak.js';
 import { createVillage } from './world/village.js';
 import { createChars } from './chars.js';
+import { createAnimals3d } from './animals3d.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -168,11 +169,12 @@ function maybeReady() {
 }
 
 createProps(ctx, terrain).then(async (p) => {
-  // v13.3: geriggtes Menschmodell zuerst laden — Arbeiter/NPCs/Avatar brauchen es
+  // v13.3/13.5: geriggte Menschen & Tiere zuerst laden
   const chars = createChars(ctx);
-  await chars.load();
+  const animals3d = createAnimals3d(ctx);
+  await Promise.all([chars.load(), animals3d.load()]);
   cc0 = await createCc0Props(ctx, terrain);
-  farm = createFarm(ctx, terrain, p.mats);
+  farm = createFarm(ctx, terrain, p.mats, animals3d);
   city = createCity(ctx, terrain, p.mats);
   vehicles = createVehicles(ctx, terrain, player, () => allColliders);
   workers = createWorkers(ctx, terrain, teaField, particles, chars);
@@ -181,7 +183,7 @@ createProps(ctx, terrain).then(async (p) => {
   events = createEvents(ctx, ui, audio);
   avatar = createAvatar(ctx, player, terrain, chars);
   boat = createBoat(ctx, terrain, player, audio, ui);
-  dog = createDog(ctx, terrain, player, audio);
+  dog = createDog(ctx, terrain, player, audio, animals3d);
   story = createStory(ctx, ui, audio, player);
   achievements = createAchievements(ctx, terrain, ui, audio);
   radio = createRadio();
@@ -199,7 +201,7 @@ createProps(ctx, terrain).then(async (p) => {
   fireworks = createFireworks(ctx, audio);
   orchard = createOrchard(ctx, terrain);
   gulet = createGulet(ctx, player, ui, audio);
-  cats = createCats(ctx, terrain);
+  cats = createCats(ctx, terrain, animals3d);
   konak = createKonak(ctx, terrain, p.mats);
   village = createVillage(ctx, terrain, p.mats);
   allColliders.push(...selale.colliders, ...karsikoy.colliders, ...konak.colliders, ...village.colliders);

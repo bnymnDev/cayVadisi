@@ -234,7 +234,7 @@ function makeCropGroup(type, rng) {
   return g;
 }
 
-export function createFarm(ctx, terrain, mats) {
+export function createFarm(ctx, terrain, mats, animals3d) {
   const { scene } = ctx;
   const F = CFG.farm;
   const colliders = [];
@@ -329,12 +329,20 @@ export function createFarm(ctx, terrain, mats) {
       const want = state.animals[type] || 0;
       let have = animals.filter(a => a.type === type).length;
       while (have < want) {
-        const { group, parts } = makeAnimalMesh(type);
+        // v13.5: geriggtes Tiermodell, wenn verfügbar — sonst Prozedural-Mesh
+        let group, parts, anim = null;
+        if (animals3d && animals3d.has(type)) {
+          anim = animals3d.spawn(type);
+          group = anim.group;
+          parts = { legs: [] };
+        } else {
+          ({ group, parts } = makeAnimalMesh(type));
+        }
         const a = rng() * Math.PI * 2, r = rng() * (F.pen.r - 2);
         const x = F.pen.x + Math.cos(a) * r, z = F.pen.z + Math.sin(a) * r;
         group.position.set(x, terrain.heightAt(x, z), z);
         scene.add(group);
-        animals.push({ type, mesh: group, parts, x, z, tx: x, tz: z, phase: rng() * 6.28, idle: 1 + rng() * 3 });
+        animals.push({ type, mesh: group, parts, anim, x, z, tx: x, tz: z, phase: rng() * 6.28, idle: 1 + rng() * 3 });
         have++;
       }
       while (have > want) {
@@ -365,10 +373,15 @@ export function createFarm(ctx, terrain, mats) {
         an.z += dz / d * speed * dt;
         an.mesh.rotation.y = -Math.atan2(dz, dx) + Math.PI / 2 + Math.PI / 2;
         an.phase += dt * 7;
-        let li = 0;
-        for (const leg of an.parts.legs) {
-          leg.rotation.x = Math.sin(an.phase + (li++ % 2) * Math.PI) * 0.5;
+        if (an.anim) an.anim.play('Walk');
+        else {
+          let li = 0;
+          for (const leg of an.parts.legs) {
+            leg.rotation.x = Math.sin(an.phase + (li++ % 2) * Math.PI) * 0.5;
+          }
         }
+      } else if (an.anim) {
+        an.anim.play('Idle');
       } else {
         for (const leg of an.parts.legs) leg.rotation.x *= 0.9;
         // Hühner picken
@@ -376,6 +389,7 @@ export function createFarm(ctx, terrain, mats) {
           an.mesh.rotation.x = Math.max(0, Math.sin(elapsed * 2.4 + an.phase)) * 0.25;
         }
       }
+      if (an.anim) an.anim.update(dt);
       an.mesh.position.set(an.x, terrain.heightAt(an.x, an.z), an.z);
     }
   }

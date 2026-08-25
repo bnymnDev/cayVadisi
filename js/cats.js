@@ -33,7 +33,7 @@ function buildCatMesh(color) {
   return { group: g, tail };
 }
 
-export function createCats(ctx, terrain) {
+export function createCats(ctx, terrain, animals3d) {
   const { scene } = ctx;
   const spots = [
     { cx: CFG.city.x + 8, cz: CFG.city.z - 2, r: 8 },      // Çayevi-Terrasse
@@ -43,11 +43,18 @@ export function createCats(ctx, terrain) {
   ];
   const cats = [];
   spots.forEach((s2, i) => {
-    const { group, tail } = buildCatMesh(CAT_COLORS[i % CAT_COLORS.length]);
+    // v13.5: geriggte Katze mit Fell-Tint — sonst Prozedural-Mesh
+    let group, tail = null, anim = null;
+    if (animals3d && animals3d.has('cat')) {
+      anim = animals3d.spawn('cat', { tint: CAT_COLORS[i % CAT_COLORS.length] });
+      group = anim.group;
+    } else {
+      ({ group, tail } = buildCatMesh(CAT_COLORS[i % CAT_COLORS.length]));
+    }
     const x = s2.cx, z = s2.cz;
     group.position.set(x, terrain.heightAt(x, z), z);
     scene.add(group);
-    cats.push({ group, tail, spot: s2, x, z, tx: x, tz: z, idle: i * 2, follow: 0, phase: i });
+    cats.push({ group, tail, anim, spot: s2, x, z, tx: x, tz: z, idle: i * 2, follow: 0, phase: i });
   });
 
   return {
@@ -88,8 +95,13 @@ export function createCats(ctx, terrain) {
           c.group.rotation.y = Math.atan2(dx, dz);
         }
         c.group.position.set(c.x, terrain.heightAt(c.x, c.z), c.z);
-        // Schwanz wippt
-        c.tail.rotation.x = Math.sin(elapsed * 2.4 + c.phase) * 0.35;
+        if (c.anim) {
+          c.anim.play(d > 0.3 ? 'Walk' : 'Idle', 0.2, c.follow > 0 ? 1.6 : 1);
+          c.anim.update(dt);
+        } else {
+          // Schwanz wippt (Prozedural-Fallback)
+          c.tail.rotation.x = Math.sin(elapsed * 2.4 + c.phase) * 0.35;
+        }
       }
     }
   };
