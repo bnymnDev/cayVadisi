@@ -500,6 +500,40 @@ export const CFG = {
   // ---- v11: Ezan-Tagesrhythmus (bewusst dezent: kein Melodie-Imitat) ----
   ezan: { hours: [12.5, 18.2], gatherSec: 45 },
 
+  // ---- v12: Foto-Missionen ----
+  photoMissions: {
+    chance: 0.4, pay: 400, rep: 1,
+    targets: ['selale', 'dolphins', 'fireworks', 'sunset', 'istanbul']
+  },
+
+  // ---- v12: Segel-Gulet mit Küstentour ----
+  gulet: {
+    cost: 30000, minRep: 10, pay: 500, perRep: 5,
+    mooring: { x: 122, z: -156 },
+    route: [ { x: 100, z: -170 }, { x: 40, z: -185 }, { x: -30, z: -180 },
+             { x: -80, z: -190 }, { x: -20, z: -165 }, { x: 80, z: -160 }, { x: 122, z: -156 } ],
+    speed: 6
+  },
+
+  // ---- v12: Çay-Meisterschaft von Rize (Festival-Endgame) ----
+  meister: { entry: 500, prize: 3000, rep: 10, minRep: 40 },
+
+  // ---- v12: Konak-Restaurierung -> Museum ----
+  konak: {
+    x: -34, z: 42, ry: 0.5,
+    stages: [5000, 8000, 12000],
+    entryBase: 100, entryPerRep: 3, collectionBonus: 2   // Faktor bei kompletter Sammlung
+  },
+
+  // ---- v12: Mikro-Wetterzonen (atmosphärisch) ----
+  microWeather: { selaleR: 45, selaleFog: 0.004, yaylaR: 35, yaylaFogUntil: 11, yaylaFog: 0.005 },
+
+  // ---- v12: Dorfkatzen ----
+  cats: { feedGoal: 10, feedRep: 2 },
+
+  // ---- v12: Kemal-Joint-Venture (nach Barış) ----
+  jointVenture: { cost: 10000, packsPerDay: 2, priceMul: 1.1 },
+
   // ---- v4: Rollen ----
   roles: {
     farmer:   { pickFactor: 1 },

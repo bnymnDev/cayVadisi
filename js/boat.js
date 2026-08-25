@@ -198,6 +198,7 @@ export function createBoat(ctx, terrain, player, audio, ui) {
     get pos() { return { x, z }; },
     teleport(nx, nz) { x = nx; z = nz; },   // Debug/Tests
     nightMode: false,        // wird von game.update gesetzt
+    get dolphinsVisible() { return dolphinShow > 0; },   // v12: Foto-Missionen
 
     // v8: Schleppnetz — nur in Fahrt und mit gekauftem Ağ
     get netting() { return netState.active; },

@@ -727,6 +727,57 @@ export function createUI(ctx, hooks) {
       });
     },
 
+    // ---------- v12: Çay-Meisterschaft von Rize (3 Disziplinen à 3 Runden) ----------
+    showMeister(stage = 0, acc = []) {
+      const stages = [
+        { name: t('meisterStage1'), speed: 1.35 },
+        { name: t('meisterStage2'), speed: 1.0 },
+        { name: t('meisterStage3'), speed: 1.6 }
+      ];
+      const s2 = stages[stage];
+      api._timingGame({
+        icon: '🏆', title: t('meisterTitle'),
+        intro: (stage === 0 ? t('meisterIntro') + '<br><br>' : '') + `<b>${stage + 1}/3 · ${s2.name}</b>`,
+        btn: t('meisterGo'), rounds: 3, speed: s2.speed,
+        onDone(scores) {
+          acc.push(...scores);
+          if (stage < 2) {
+            setTimeout(() => api.showMeister(stage + 1, acc), 850);
+            return `<b>${s2.name}</b> ✓ …`;
+          }
+          const avg = acc.reduce((a, b) => a + b, 0) / acc.length;
+          const res = hooks.meisterResult(avg);
+          return `${t('meisterScore', res.avg, res.opp)}<br><b>${res.won ? t('meisterWon') : t('meisterLost')}</b>`;
+        }
+      });
+    },
+
+    // ---------- v12: Konak-Restaurierung ----------
+    showKonak() {
+      const L = state.settings.lang;
+      $('event-icon').textContent = '🏛️';
+      $('event-title').textContent = t('konakTitle');
+      $('event-text').innerHTML = t('konakText' + state.konak)
+        + (state.konak >= 3 ? `<br><br>${t('konakInfo')}` : '');
+      const box = $('event-choices');
+      box.innerHTML = '';
+      if (state.konak < 3) {
+        const cost = CFG.konak.stages[state.konak];
+        const b = document.createElement('button');
+        b.className = 'big-btn';
+        b.disabled = state.money < cost;
+        b.textContent = t('konakRestoreBtn', state.konak + 1) + ' · ' + fmtMoney(cost, L);
+        b.addEventListener('click', () => { if (hooks.restoreKonak()) api.showKonak(); });
+        box.appendChild(b);
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
     // ---------- v10: Elfmeter-Duell gegen die Karşıköy Gençlik ----------
     showMac() {
       api._timingGame({
@@ -966,13 +1017,19 @@ export function createUI(ctx, hooks) {
           <div class="section-info">${t('styleInfo_' + state.teaStyle)}</div>
           ${!state.greenLine ? `<button id="btn-greenline" class="big-btn ghost" ${state.money < CFG.teaStyles.yesil.lineCost ? 'disabled' : ''}>
             ${t('buyGreenLine')} · ${fmtMoney(CFG.teaStyles.yesil.lineCost, L)}</button>` : ''}
-          <div class="section-info">${t('factoryInfo')}</div>`;
+          <div class="section-info">${t('factoryInfo')}</div>
+          ${state.kemalPeace && !state.jointVenture ? `<button id="btn-jv" class="big-btn ghost"
+              ${state.money < CFG.jointVenture.cost ? 'disabled' : ''}>🤝 ${t('jvName')} · ${fmtMoney(CFG.jointVenture.cost, L)}</button>
+            <div class="section-info">${t('jvDesc')}</div>` : ''}
+          ${state.jointVenture ? `<div class="section-info">🤝 ${t('jvActive')}</div>` : ''}`;
         $('btn-pack').addEventListener('click', () => { if (hooks.packBasket()) api.renderFactory(); });
         body.querySelectorAll('.style-btn').forEach(b => b.addEventListener('click', () => {
           if (hooks.setTeaStyle(b.dataset.s)) api.renderFactory();
         }));
         const gl = $('btn-greenline');
         if (gl) gl.addEventListener('click', () => { if (hooks.buyGreenLine()) api.renderFactory(); });
+        const jv = $('btn-jv');
+        if (jv) jv.addEventListener('click', () => { if (hooks.buyJointVenture()) api.renderFactory(); });
       }
       const exp = $('export-list');
       exp.innerHTML = '';
@@ -1439,6 +1496,22 @@ export function createUI(ctx, hooks) {
             ${owned ? t('owned') + ' ✓' : fmtMoney(CFG.heli.cost, L)}</button>`;
         if (!owned) row.querySelector('button').addEventListener('click', () => {
           if (hooks.buyHeli()) api.renderDealer();
+        });
+        list.appendChild(row);
+      }
+      // v12: Segel-Gulet
+      {
+        const owned = state.gulet;
+        const row = document.createElement('div');
+        row.className = 'upgrade-item' + (owned ? ' owned' : '');
+        row.innerHTML = `
+          <div class="u-icon">⛵</div>
+          <div class="u-body"><div class="u-name">${t('guletName')}</div>
+          <div class="u-desc">${t('guletDesc')}</div></div>
+          <button ${owned || state.money < CFG.gulet.cost ? 'disabled' : ''}>
+            ${owned ? t('owned') + ' ✓' : fmtMoney(CFG.gulet.cost, L)}</button>`;
+        if (!owned) row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyGulet()) api.renderDealer();
         });
         list.appendChild(row);
       }

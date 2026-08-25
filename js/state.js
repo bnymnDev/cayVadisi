@@ -68,6 +68,15 @@ export const state = {
   dog: false,               // Kangal-Hund
   prestige: 0,              // New-Game+-Sterne
 
+  // v12
+  photoMissionsDone: 0,     // erledigte Foto-Missionen
+  gulet: false,             // Segel-Gulet
+  guletTours: 0,
+  sampiyon: false,          // Çay-Meister von Rize
+  konak: 0,                 // Restaurierungs-Stufe 0..3 (3 = Museum)
+  catFeeds: 0,              // gefütterte Katzen (kumulativ)
+  jointVenture: false,      // Ortak Marka mit Kemal
+
   // v11
   animalNames: {},          // Art -> [Namen]
   orchard: false,           // Haselnuss-Plantage
@@ -204,7 +213,9 @@ export function save() {
     dolmus: s.dolmus, collect: s.collect,
     fishTournBest: s.fishTournBest, macWins: s.macWins,
     animalNames: s.animalNames, orchard: s.orchard, logi: s.logi,
-    heliJobsDone: s.heliJobsDone
+    heliJobsDone: s.heliJobsDone,
+    photoMissionsDone: s.photoMissionsDone, gulet: s.gulet, guletTours: s.guletTours,
+    sampiyon: s.sampiyon, konak: s.konak, catFeeds: s.catFeeds, jointVenture: s.jointVenture
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -293,6 +304,13 @@ export function load() {
     state.orchard = d.orchard ?? false;
     state.logi = d.logi || { packs: false, goods: false, exportA: false };
     state.heliJobsDone = d.heliJobsDone ?? 0;
+    state.photoMissionsDone = d.photoMissionsDone ?? 0;
+    state.gulet = d.gulet ?? false;
+    state.guletTours = d.guletTours ?? 0;
+    state.sampiyon = d.sampiyon ?? false;
+    state.konak = d.konak ?? 0;
+    state.catFeeds = d.catFeeds ?? 0;
+    state.jointVenture = d.jointVenture ?? false;
     return true;
   } catch (e) { return false; }
 }
@@ -351,6 +369,9 @@ export function resetProgress() {
   state.animalNames = {}; state.orchard = false;
   state.logi = { packs: false, goods: false, exportA: false };
   state.heliJobsDone = 0;
+  state.photoMissionsDone = 0; state.gulet = false; state.guletTours = 0;
+  state.sampiyon = false; state.konak = 0; state.catFeeds = 0;
+  state.jointVenture = false;
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -374,4 +395,6 @@ export function resetDay() {
   state._tournDone = false;
   state._ezan0 = false;
   state._ezan1 = false;
+  state._guletDone = false;
+  state._meisterDone = false;
 }

@@ -1,5 +1,6 @@
 // Dorfbewohner: spazieren durch Stadt, Hof und Annahmestelle, grüßen im Vorbeigehen
 import { CFG } from './config.js';
+import { state } from './state.js';
 import { mulberry32 } from './util.js';
 import { makeWorkerMesh } from './workers.js';
 import { t } from './i18n.js';
@@ -108,7 +109,8 @@ export function createNpcs(ctx, terrain, ui, player, shareFn) {
             kemalCooldown = 30;
             p.group.rotation.y = Math.atan2(player.pos.x - p.x, player.pos.z - p.z);
             const share = shareFn ? shareFn() : 5;
-            const line = share >= 60 ? 'kemalLose' : share >= 30 ? 'kemalMid' : 'kemalTaunt';
+            const line = state.jointVenture ? 'kemalJV' : state.kemalPeace ? 'kemalFriend'
+              : share >= 60 ? 'kemalLose' : share >= 30 ? 'kemalMid' : 'kemalTaunt';
             ui.toast('🎩 ' + t(line), false, 5000);
           }
           continue;
