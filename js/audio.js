@@ -275,6 +275,16 @@ export function createAudio() {
         noiseBurst(500, 0.9, 0.1, 0.1, t0 + 0.01);
       }
     },
+    // v12: Katzen — Miau (zwei steigende Blips) & Schnurren (tiefes Tremolo)
+    meow() {
+      if (!started) return;
+      blip(660, 0.16, 'square', 0.045);
+      blip(880, 0.22, 'square', 0.04, 0.12);
+    },
+    purr() {
+      if (!started) return;
+      for (let i = 0; i < 9; i++) blip(72 + (i % 2) * 10, 0.09, 'sawtooth', 0.035, i * 0.11);
+    },
     horn(kind = 'sedan') {
       if (!started) return;
       // Traktor tief und rau, Lux zweistimmig-edel, Rest klassisch

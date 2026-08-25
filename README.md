@@ -283,6 +283,33 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   dezent umgesetzt (kein Melodie-Imitat): kurzer Hinweis, und die
   Kasaba-Bewohner sammeln sich ruhig beim Çayevi.
 
+### Gulet, Konak & Dorfkatzen (v12)
+- **📸 Foto-Missionen:** Die Lokalgazete vergibt morgens Foto-Aufträge —
+  Şelale, Delfine vom Boot, Festival-Feuerwerk, Sonnenuntergang oder
+  İstanbul. Motiv im Fotomodus (F → C) einfangen: Honorar + Ruf.
+- **⛵ Segel-Gulet:** Traditionsschiff am Kai (beim Händler kaufbar).
+  Ab Ruf 10 einmal täglich eine automatische Küstentour mit zahlenden
+  Gästen — Panoramakamera segelt mit, Gage wächst mit dem Ruf.
+- **🏆 Çay-Meisterschaft von Rize:** Am Festivaltag (ab Ruf 40) treten
+  drei Disziplinen an: Pflücken im Akkord, der perfekte Aufguss und das
+  Pazarlık-Finale — neun Timing-Wertungen gegen Rizes Meister, Pokal
+  und 3.000 ₺ für den Şampiyon.
+- **🏛️ Konak-Restaurierung:** Die Herrenhaus-Ruine am Hang lässt sich in
+  drei Etappen restaurieren (Gerüst sichtbar) und wird zum
+  **KONAK MÜZESİ** — täglicher Eintritt wächst mit dem Ruf, eine
+  komplette Sammelkarten-Ausstellung verdoppelt die Kasse.
+- **🌦️ Mikro-Wetterzonen:** Gischtnebel hängt dauerhaft an der Şelale,
+  Frühdunst liegt bis 11 Uhr über der Yayla — lokales Wetter statt
+  Einheitshimmel.
+- **🐈 Dorfkatzen:** Vier Katzen streunen durch Çayevi-Terrasse, Hof,
+  Karşıköy und Pansiyon. Mit Hamsi füttern (E) — die Katze folgt eine
+  Minute; zehn Fütterungen machen dich zum Katzenfreund des Dorfes (+Ruf).
+  Miau & Schnurren natürlich prozedural.
+- **🤝 Joint Venture mit Kemal Ağa:** Nach dem Story-Frieden bietet die
+  Fabrik den Vertrag „ÇAYKEM" an — Kemals Werk liefert täglich 2 Pakete
+  für die eigene Marke, Verkaufspreis +10 %, und Kemal grüßt endlich
+  freundlich.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

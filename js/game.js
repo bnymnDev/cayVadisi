@@ -112,6 +112,7 @@ export function createGame(ctx, mods) {
     resetDay();
     planWeather();
     planHeliJob();
+    planPhotoMission();
     planMarket();
     initStocks();
     if (!state.exportOffers.length) regenExports();
@@ -131,6 +132,7 @@ export function createGame(ctx, mods) {
     if (istanbulMode) returnIstanbul(true);         // v8: letzter Vapur nach Hause
     if (mods.sled && mods.sled.riding) mods.sled.exit();
     if (mods.heli && mods.heli.driving) mods.heli.exit();
+    if (mods.gulet && mods.gulet.touring) mods.gulet.finish();   // v12: Tour endet mit dem Tag
     tour = null;
     derby = null;
     player.setEnabled(false);
@@ -374,6 +376,25 @@ export function createGame(ctx, mods) {
         state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
         lines.push({ k: 'sumSilo', v: '+' + fmtMoney(sum, L) });
       }
+    }
+    // v12: Konak-Museum — Eintrittsgelder, Bonus bei kompletter Sammlung
+    if (state.konak >= 3) {
+      const K = CFG.konak;
+      let entry = Math.round(K.entryBase + state.rep * K.entryPerRep);
+      let full = false;
+      if (mods.collectibles && mods.collectibles.count() >= mods.collectibles.total) {
+        entry *= K.collectionBonus;
+        full = true;
+      }
+      state.money += entry; state.dayEarned += entry; state.totalEarned += entry;
+      lines.push({ k: 'sumMuseum', v: '+' + fmtMoney(entry, L), sub: full ? '🖼️ ×' + K.collectionBonus : '🏛️' });
+    }
+    // v12: Joint Venture — Kemals Werk produziert für die eigene Marke mit
+    if (state.jointVenture && state.factory) {
+      const jp = CFG.jointVenture.packsPerDay;
+      state.inventory.tea_pack += jp;
+      trackPacks(jp);
+      lines.push({ k: 'sumJV', v: '+' + jp + ' 📦' });
     }
     checkWealth();
     ui.showDaySummary(lines);
@@ -863,7 +884,8 @@ export function createGame(ctx, mods) {
     const have = Math.floor(state.inventory.tea_pack || 0);
     const n = Math.min(have, count);
     if (n <= 0) { audio.deny(); return 0; }
-    const price = CFG.products.tea_pack.sell * CFG.supermarket.retailFactor * (state.marketMul.tea_pack || 1);
+    const price = CFG.products.tea_pack.sell * CFG.supermarket.retailFactor * (state.marketMul.tea_pack || 1)
+      * (state.jointVenture ? CFG.jointVenture.priceMul : 1);   // v12: JV-Markenaufschlag
     const sum = n * price * famBonus();
     state.inventory.tea_pack -= n;
     trackPacks(n);
@@ -1843,6 +1865,141 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ---------- v12: Foto-Missionen, Gulet, Meisterschaft, Konak, Katzen, JV ----------
+  let photoMission = null;   // Ziel-Id aus CFG.photoMissions.targets
+
+  function planPhotoMission() {
+    photoMission = null;
+    if (Math.random() < CFG.photoMissions.chance) {
+      const T2 = CFG.photoMissions.targets;
+      photoMission = T2[Math.floor(Math.random() * T2.length)];
+      setTimeout(() => ui.toast(t('photoMission', t('photo_' + photoMission)), false, 10000), 6000);
+    }
+  }
+
+  // Wird von main bei jedem Foto (C im Fotomodus) aufgerufen
+  function photoTaken(camPos, camDir) {
+    if (!photoMission) return false;
+    const S = CFG.selale;
+    let hit = false;
+    if (photoMission === 'selale') {
+      hit = Math.hypot(camPos.x - S.x, camPos.z - S.z) < 35;
+    } else if (photoMission === 'dolphins') {
+      hit = boat.dolphinsVisible;
+    } else if (photoMission === 'fireworks') {
+      hit = isFestival() && isNight();
+    } else if (photoMission === 'sunset') {
+      hit = sky.hour >= 18.7 && sky.hour <= 20.3 && camDir.dot(sky.sunDir) > 0.4;
+    } else if (photoMission === 'istanbul') {
+      hit = istanbulMode;
+    }
+    if (!hit) return false;
+    const P = CFG.photoMissions;
+    photoMission = null;
+    state.photoMissionsDone += 1;
+    state.money += P.pay;
+    state.dayEarned += P.pay;
+    state.totalEarned += P.pay;
+    addRep(P.rep);
+    audio.tierUp();
+    ui.toast(t('photoDone', fmtMoney(P.pay, state.settings.lang)), true, 8000);
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function buyGulet() {
+    if (state.gulet || state.money < CFG.gulet.cost) { audio.deny(); return false; }
+    state.money -= CFG.gulet.cost;
+    state.daySpent += CFG.gulet.cost;
+    state.gulet = true;
+    if (mods.gulet) mods.gulet.syncOwned();
+    audio.tierUp();
+    ui.toast(t('guletBought'), true, 8000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function startMeister() {
+    if (state._meisterDone || !isFestival() || state.rep < CFG.meister.minRep
+        || state.money < CFG.meister.entry) { audio.deny(); return false; }
+    state.money -= CFG.meister.entry;
+    state.daySpent += CFG.meister.entry;
+    state._meisterDone = true;
+    ui.refreshMoney();
+    return true;
+  }
+
+  function meisterResult(avg) {
+    const opp = 0.55 + Math.random() * 0.3;
+    const won = avg > opp;
+    if (won) {
+      state.money += CFG.meister.prize;
+      state.dayEarned += CFG.meister.prize;
+      state.totalEarned += CFG.meister.prize;
+      if (!state.sampiyon) addRep(CFG.meister.rep);
+      state.sampiyon = true;
+      audio.tierUp();
+    } else {
+      audio.deny();
+    }
+    ui.refreshMoney();
+    save();
+    return { won, avg: Math.round(avg * 100), opp: Math.round(opp * 100) };
+  }
+
+  function restoreKonak() {
+    const cost = CFG.konak.stages[state.konak];
+    if (cost == null || state.money < cost) { audio.deny(); return false; }
+    state.money -= cost;
+    state.daySpent += cost;
+    state.konak += 1;
+    if (mods.konak) mods.konak.syncStage();
+    audio.harvest();
+    ui.toast(state.konak >= 3 ? t('konakDone') : t('konakStage', state.konak), true, 8000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function feedCat() {
+    if (!mods.cats) return false;
+    if (Math.floor(state.inventory.hamsi) < 1) {
+      ui.toast(t('catHungry'), false, 4000);
+      audio.meow && audio.meow();
+      return false;
+    }
+    if (!mods.cats.feedNearest(player.pos.x, player.pos.z)) return false;
+    state.inventory.hamsi -= 1;
+    state.catFeeds += 1;
+    audio.purr ? audio.purr() : audio.buy();
+    ui.toast(t('catFed', state.catFeeds), true, 5000);
+    if (state.catFeeds === CFG.cats.feedGoal) {
+      addRep(CFG.cats.feedRep);
+      ui.toast(t('catFriend'), true, 8000);
+      audio.tierUp();
+    }
+    save();
+    return true;
+  }
+
+  function buyJointVenture() {
+    if (state.jointVenture || !state.kemalPeace || !state.factory
+        || state.money < CFG.jointVenture.cost) { audio.deny(); return false; }
+    state.money -= CFG.jointVenture.cost;
+    state.daySpent += CFG.jointVenture.cost;
+    state.jointVenture = true;
+    audio.tierUp();
+    ui.toast(t('jvDone'), true, 9000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
   function doSelaleRest() {
     if (state._selaleDone) { ui.toast(t('selaleAgain'), false); audio.deny(); return false; }
     state._selaleDone = true;
@@ -2024,6 +2181,13 @@ export function createGame(ctx, mods) {
     else if (act.id === 'derby') startDerby();
     else if (act.id === 'halay') doHalay();
     else if (act.id === 'selale') doSelaleRest();
+    else if (act.id === 'gulet') {
+      if (mods.gulet.canTour()) mods.gulet.start();
+      else ui.toast(t(state._guletDone ? 'guletTomorrow' : 'guletNeedRep', CFG.gulet.minRep), false, 5000);
+    }
+    else if (act.id === 'konak') { player.releaseLock(); ui.showKonak(); }
+    else if (act.id === 'meister') { if (startMeister()) { player.releaseLock(); ui.showMeister(); } }
+    else if (act.id === 'cat') feedCat();
   }
 
   window.addEventListener('keydown', (e) => {
@@ -2059,7 +2223,8 @@ export function createGame(ctx, mods) {
     // Nicht pausieren, wenn der Lock nur wegen Boot/Schlitten-Einstieg fällt
     if (!locked && running && !ui.overlayOpen() && !vehicles.driving
         && !boat.driving && !(mods.sled && mods.sled.riding)
-        && !(mods.heli && mods.heli.driving)) pause(true);
+        && !(mods.heli && mods.heli.driving)
+        && !(mods.gulet && mods.gulet.touring)) pause(true);
   };
 
   function pause(v) {
@@ -2101,6 +2266,13 @@ export function createGame(ctx, mods) {
         && distTo(CFG.yayla.x + 6, CFG.yayla.z + 2) < CFG.interactDist + 2) return { id: 'hivegame' };
     if (distTo(CFG.karsikoy.market.x, CFG.karsikoy.market.z) < CFG.interactDist + 1.5) return { id: 'koymarket' };
     if (distTo(CFG.karsikoy.pitch.x, CFG.karsikoy.pitch.z) < CFG.interactDist + 2) return { id: 'mac' };
+    // v12
+    if (mods.gulet && mods.gulet.nearMooring(player.pos.x, player.pos.z)) return { id: 'gulet' };
+    if (mods.konak && state.konak < 3 && mods.konak.near(player.pos.x, player.pos.z)) return { id: 'konak' };
+    if (isFestival() && !state._meisterDone && state.rep >= CFG.meister.minRep
+        && distTo(CFG.city.x + 6, CFG.city.z + 6) < CFG.interactDist + 2) return { id: 'meister' };
+    if (mods.cats && Math.floor(state.inventory.hamsi) >= 1
+        && mods.cats.nearest(player.pos.x, player.pos.z)) return { id: 'cat' };
     // v9
     if (mods.heli && mods.heli.near(player.pos.x, player.pos.z)) return { id: 'heli' };
     if (!derby && distTo(CFG.derby.goal.x, CFG.derby.goal.z) < CFG.interactDist + 2) return { id: 'derby' };
@@ -2166,6 +2338,15 @@ export function createGame(ctx, mods) {
         if (mods.npcs) mods.npcs.gather(CFG.ezan.gatherSec);
       }
     });
+
+    // v12: Gulet-Tour — Autopilot mit Panoramakamera
+    if (mods.gulet && mods.gulet.touring) {
+      ui.setSpeed(null);
+      ui.setCrosshairActive(false);
+      ui.setPickProgress(0);
+      ui.setPrompt(null, null);
+      return;
+    }
 
     // v8: Rodeln hat eigene Steuerung/Kamera
     if (mods.sled && mods.sled.riding) {
@@ -2282,7 +2463,13 @@ export function createGame(ctx, mods) {
     }
 
     // v5: Morgennebel & Regenbogen ausblenden/einblenden
-    const wantFog = fogMorning && sky.hour < 10.5 ? 0.009 : 0;
+    // v12: Mikro-Wetterzonen — Gischtnebel an der Şelale, Frühdunst auf der Yayla
+    let wantFog = fogMorning && sky.hour < 10.5 ? 0.009 : 0;
+    {
+      const MW = CFG.microWeather;
+      if (distTo(CFG.selale.x, CFG.selale.z) < MW.selaleR) wantFog += MW.selaleFog;
+      if (sky.hour < MW.yaylaFogUntil && distTo(CFG.yayla.x, CFG.yayla.z) < MW.yaylaR) wantFog += MW.yaylaFog;
+    }
     sky.extraFog += (wantFog - sky.extraFog) * Math.min(1, dt * 0.5);
     if (rainbowTimer > 0) {
       rainbowTimer -= dt;
@@ -2400,6 +2587,10 @@ export function createGame(ctx, mods) {
     buyDolmus, placeSandbag, startFishTourn, collectItem, hiveReward,
     karsikoyPrice, sellKarsikoy, macResult, floodHit,
     buyOrchard, setLogi, spawnHeliJob,
+    planPhotoMission, photoTaken, buyGulet, startMeister, meisterResult,
+    restoreKonak, feedCat, buyJointVenture,
+    get photoMission() { return photoMission; },
+    set photoMission(v) { photoMission = v; },
     get heliJob() { return heliJob; },
     get derby() { return derby; },
     get floodToday() { return floodToday; },

@@ -42,6 +42,9 @@ import { createCollectibles } from './collectibles.js';
 import { createKarsikoy } from './world/karsikoy.js';
 import { createFireworks } from './world/fireworks.js';
 import { createOrchard } from './world/orchard.js';
+import { createGulet } from './gulet.js';
+import { createCats } from './cats.js';
+import { createKonak } from './world/konak.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -112,6 +115,7 @@ let dog = null, istanbul = null, wildlife = null, race = null, sled = null;
 let heli = null, selale = null;
 let dolmus = null, collectibles = null, karsikoy = null;
 let fireworks = null, orchard = null;
+let gulet = null, cats = null, konak = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -185,12 +189,16 @@ createProps(ctx, terrain).then(async (p) => {
   karsikoy = createKarsikoy(ctx, terrain, p.mats);
   fireworks = createFireworks(ctx, audio);
   orchard = createOrchard(ctx, terrain);
-  allColliders.push(...selale.colliders, ...karsikoy.colliders);
+  gulet = createGulet(ctx, player, ui, audio);
+  cats = createCats(ctx, terrain);
+  konak = createKonak(ctx, terrain, p.mats);
+  allColliders.push(...selale.colliders, ...karsikoy.colliders, ...konak.colliders);
   if (state.upgrades.expand) teaField.setExtension(true);   // v9: gekaufte Parzellen laden
   const gameMods = {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
     farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi, dog,
-    race, sled, heli, selale, cc0, dolmus, collectibles, orchard, istanbul: null, npcs: null
+    race, sled, heli, selale, cc0, dolmus, collectibles, orchard,
+    gulet, cats, konak, istanbul: null, npcs: null
   };
   game = createGame(ctx, gameMods);
   minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
@@ -240,6 +248,12 @@ window.addEventListener('keydown', (e) => {
     oc.width = w; oc.height = Math.round(c.height / c.width * w);
     oc.getContext('2d').drawImage(c, 0, 0, oc.width, oc.height);
     ui.albumAdd(oc.toDataURL('image/jpeg', 0.75));
+    // v12: Foto-Mission prüfen (Blickrichtung der Foto-Kamera)
+    if (game) {
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      game.photoTaken(camera.position, dir);
+    }
   }
 });
 window.addEventListener('mousedown', (e) => { if (photoMode && e.button === 0) photo.drag = true; });
@@ -412,6 +426,10 @@ function wireHooks() {
   hooks.collectTotal = () => collectibles.total;
   hooks.buyOrchard = () => game.buyOrchard();
   hooks.setLogi = (r, v) => game.setLogi(r, v);
+  hooks.buyGulet = () => game.buyGulet();
+  hooks.meisterResult = (avg) => game.meisterResult(avg);
+  hooks.restoreKonak = () => game.restoreKonak();
+  hooks.buyJointVenture = () => game.buyJointVenture();
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -534,6 +552,9 @@ window.__game = {
   get collectibles() { return collectibles; },
   get fireworks() { return fireworks; },
   get orchard() { return orchard; },
+  get gulet() { return gulet; },
+  get cats() { return cats; },
+  get konak() { return konak; },
   get story() { return story; },
   get achievements() { return achievements; },
   setPhotoMode,
@@ -654,6 +675,8 @@ function step(rawDt, manual, skipRender = false) {
     selale.update(dt, elapsed);
     dolmus.update(dt);
     collectibles.update(dt, elapsed);
+    gulet.update(dt, elapsed);
+    cats.update(dt, elapsed, player.pos);
     fireworks.setActive(window.__started && game.isFestival() && game.isNight());
     fireworks.update(dt);
     orchard.setAutumn(seasonAutumn > 0.5);
