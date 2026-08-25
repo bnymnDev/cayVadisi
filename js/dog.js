@@ -50,7 +50,7 @@ function buildDogMesh() {
   return { group: g, legs, tail };
 }
 
-export function createDog(ctx, terrain, player, audio) {
+export function createDog(ctx, terrain, player, audio, animals3d) {
   const { scene } = ctx;
   let parts = null;
   let x = CFG.home.x + 3, z = CFG.home.z + 2, yaw = 0;
@@ -60,7 +60,13 @@ export function createDog(ctx, terrain, player, audio) {
 
   function syncOwned() {
     if (state.dog && !parts) {
-      parts = buildDogMesh();
+      // v13.5: geriggter Hund (Kangal-beige getintet) — sonst Prozedural-Mesh
+      if (animals3d && animals3d.has('dog')) {
+        const anim = animals3d.spawn('dog', { tint: 0xd8c49a, scale: 1.15 });
+        parts = { group: anim.group, anim, legs: [], tail: null };
+      } else {
+        parts = buildDogMesh();
+      }
       x = player.pos.x + 1.5;
       z = player.pos.z + 1.5;
       parts.group.position.set(x, terrain.heightAt(x, z), z);
@@ -94,13 +100,18 @@ export function createDog(ctx, terrain, player, audio) {
       const y = terrain.heightAt(x, z);
       parts.group.position.set(x, Math.max(y, 0.35), z);
       parts.group.rotation.y = yaw;
-      // Lauf-Animation
-      phase += speed * dt * 3.2;
-      parts.legs.forEach((leg, i) => {
-        leg.rotation.x = Math.sin(phase + (i % 2 ? Math.PI : 0)) * Math.min(0.7, speed * 0.2);
-      });
-      // Rute wedelt, wenn der Hund nah beim Spieler steht
-      parts.tail.rotation.z = d < 3 ? Math.sin(elapsed * 9) * 0.5 : 0;
+      // Lauf-Animation: Skelett-Walk (Tempo folgt der Geschwindigkeit) oder Beinschwung
+      if (parts.anim) {
+        parts.anim.play(speed > 0.4 ? 'Walk' : 'Idle', 0.2, Math.max(0.8, speed * 0.35));
+        parts.anim.update(dt);
+      } else {
+        phase += speed * dt * 3.2;
+        parts.legs.forEach((leg, i) => {
+          leg.rotation.x = Math.sin(phase + (i % 2 ? Math.PI : 0)) * Math.min(0.7, speed * 0.2);
+        });
+        // Rute wedelt, wenn der Hund nah beim Spieler steht
+        parts.tail.rotation.z = d < 3 ? Math.sin(elapsed * 9) * 0.5 : 0;
+      }
       // gelegentliches Bellen beim Rennen
       barkTimer -= dt;
       if (barkTimer <= 0) {

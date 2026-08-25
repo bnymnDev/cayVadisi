@@ -334,6 +334,11 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   und bewegen sich mit.
 - Fällt der GLB-Load aus, greifen automatisch die prozeduralen
   v13.2-Figuren als Fallback.
+- **Tiere (v13.5):** Kuh, Schaf, Huhn, Kangal und die Dorfkatzen sind
+  ebenfalls geriggte Quaternius-Modelle (CC0, zusammen ~0,8 MB) mit
+  Idle-/Walk-Animationen — der Kangal beschleunigt seine Gangart mit dem
+  Lauftempo, Katzenfell wird pro Tier eingefärbt. Ziege & Bär bleiben
+  vorerst prozedural (kein passendes CC0-Modell), Fallbacks überall.
 
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
