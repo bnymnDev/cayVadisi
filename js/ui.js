@@ -1,7 +1,9 @@
 // DOM-HUD, Menüs, Shop, Overlays
 import * as THREE from 'three';
 import { CFG } from './config.js';
-import { state, basketCapacity, save, resetProgress, hasSave, netWorth } from './state.js';
+import { state, basketCapacity, save, resetProgress, hasSave, netWorth, seasonOf } from './state.js';
+
+const SEASON_ICONS = ['☀️', '🍂', '❄️', '🌸'];
 import { t, tUpgrade, setLang, getLang, applyDom } from './i18n.js';
 import { fmtKg, fmtMoney, clamp } from './util.js';
 
@@ -58,7 +60,7 @@ export function createUI(ctx, hooks) {
     refreshClock(hour) {
       const h = Math.floor(hour), m = Math.floor((hour - h) * 60);
       els.hudClock.textContent = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-      els.hudDay.textContent = t('day') + ' ' + state.day;
+      els.hudDay.textContent = SEASON_ICONS[seasonOf(state.day, CFG)] + ' ' + t('day') + ' ' + state.day;
       els.hudWeather.textContent = state.raining ? '🌧' : (hour >= 19 ? '🌆' : '☀');
     },
     refreshMoney() {
@@ -242,6 +244,21 @@ export function createUI(ctx, hooks) {
       }
       if (!any) body.innerHTML += `<div class="section-info">${t('cityNoGoods')}</div>`;
       show(els.airportS);
+    },
+
+    // ---------- v5: Story-Karte (nutzt das Event-Overlay) ----------
+    showStoryCard(chapterId, done) {
+      $('event-icon').textContent = t('stIcon_' + chapterId);
+      $('event-title').textContent = t('stTitle_' + chapterId);
+      $('event-text').textContent = t('stText_' + chapterId);
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const b = document.createElement('button');
+      b.className = 'big-btn';
+      b.textContent = t('stContinue');
+      b.addEventListener('click', () => { hide(els.eventS); done && done(); });
+      box.appendChild(b);
+      show(els.eventS);
     },
 
     // ---------- v4: Nachbarschafts-Ereignis ----------
@@ -601,6 +618,20 @@ export function createUI(ctx, hooks) {
       btn.textContent = t('sellAll') + (any ? ' · ' + fmtMoney(total, L) : '');
       btn.disabled = !any;
       api.appendFoodRows(list);
+      // v5: Olta (Angel) kaufen
+      if (!state.rod) {
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        row.innerHTML = `
+          <div class="u-icon">🎣</div>
+          <div class="u-body"><div class="u-name">${t('rodName')}</div>
+          <div class="u-desc">${t('rodDesc')}</div></div>
+          <button ${state.money < CFG.fishing.rodCost ? 'disabled' : ''}>${fmtMoney(CFG.fishing.rodCost, L)}</button>`;
+        row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyRod()) api.renderMarket();
+        });
+        list.appendChild(row);
+      }
     },
 
     // Essstand (Survival): an Markt & Supermarkt angehängt
@@ -647,13 +678,29 @@ export function createUI(ctx, hooks) {
         }
         list.appendChild(row);
       }
+      // v5: Tekne (Boot)
+      {
+        const owned = state.boat;
+        const row = document.createElement('div');
+        row.className = 'upgrade-item' + (owned ? ' owned' : '');
+        row.innerHTML = `
+          <div class="u-icon">${CFG.boat.icon}</div>
+          <div class="u-body"><div class="u-name">${t('boatName')}</div>
+          <div class="u-desc">${t('boatDesc')}</div></div>
+          <button ${owned || state.money < CFG.boat.cost ? 'disabled' : ''}>
+            ${owned ? t('owned') + ' ✓' : fmtMoney(CFG.boat.cost, L)}</button>`;
+        if (!owned) row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyBoat()) api.renderDealer();
+        });
+        list.appendChild(row);
+      }
     },
 
     // ---------- v2: Betrieb ----------
     _manageTab: 'workers',
     showManage() { api.renderManage(); show(els.manage); },
     renderManage() {
-      for (const tb of ['workers', 'storage', 'stats']) {
+      for (const tb of ['workers', 'storage', 'stats', 'quests', 'ach']) {
         $('tab-' + tb).classList.toggle('active', api._manageTab === tb);
       }
       const L = state.settings.lang;
@@ -681,14 +728,46 @@ export function createUI(ctx, hooks) {
             <div style="font-weight:700">× ${have}</div></div>`;
         }
         body.innerHTML = html || `<div class="section-info">${t('storageEmpty')}</div>`;
+      } else if (api._manageTab === 'quests') {
+        const cur = hooks.storyCurrent();
+        let html = '';
+        const chapters = ['letter', 'tin', 'ingredients', 'brew', 'legacy'];
+        chapters.forEach((id, i) => {
+          const done = state.story > i;
+          const active = state.story === i;
+          html += `<div class="upgrade-item${done ? ' owned' : ''}">
+            <div class="u-icon">${done ? '✅' : active ? '🎯' : '🔒'}</div>
+            <div class="u-body"><div class="u-name">${i + 1}. ${t('stTitle_' + id)}</div>
+            <div class="u-desc">${done ? t('questDone') : active ? t('stGoal_' + id) : '···'}</div></div>
+          </div>`;
+        });
+        if (state.story >= 5) html += `<div class="section-info">🏆 ${t('questAllDone')}</div>`;
+        body.innerHTML = html;
+      } else if (api._manageTab === 'ach') {
+        let html = `<div class="section-info">${t('achProgress', hooks.achCount(), hooks.achTotal())}</div>`;
+        for (const [id, def] of Object.entries(hooks.achDefs())) {
+          const got = !!state.ach[id];
+          html += `<div class="upgrade-item${got ? '' : ' owned'}">
+            <div class="u-icon">${got ? def.icon : '🔒'}</div>
+            <div class="u-body"><div class="u-name">${t('ach_' + id)}</div>
+            <div class="u-desc">${t('achDesc_' + id)}</div></div>
+            ${got ? '<div style="font-size:20px">🏅</div>' : ''}
+          </div>`;
+        }
+        body.innerHTML = html;
       } else {
+        const share = hooks.playerShare();
         body.innerHTML = `<div class="stat-list">
           <div>${t('statNet')} <b>${fmtMoney(netWorth(CFG), L)}</b></div>
           <div>${t('statMoney')} <b>${fmtMoney(state.money, L)}</b></div>
           <div>${t('statDayEarned')} <b>${fmtMoney(state.dayEarned, L)}</b></div>
           <div>${t('statDaySpent')} <b>${fmtMoney(state.daySpent, L)}</b></div>
           <div>${t('statTotal')} <b>${fmtMoney(state.totalEarned, L)}</b></div>
-        </div>`;
+        </div>
+        <h3>${t('shareTitle')}</h3>
+        <div class="section-info">${t('shareInfo', share, 100 - share)}${state.rivalDump ? ' · ⚠️ ' + t('rivalDumpShort') : ''}</div>
+        <div class="share-bar"><div class="share-me" style="width:${share}%"></div></div>
+        <div class="share-legend"><span>🏷️ ${state.label || 'ÇAY VADİSİ'}</span><span>Kemal Ağa</span></div>`;
       }
     },
 
@@ -777,7 +856,7 @@ export function createUI(ctx, hooks) {
     },
 
     // ---------- v2: Touch-Steuerung verdrahten ----------
-    bindTouch(player, vehicles) {
+    bindTouch(player, vehicles, boat) {
       const joy = $('joystick'), knob = $('joystick-knob');
       let joyId = null;
       const R = 46;
@@ -795,6 +874,7 @@ export function createUI(ctx, hooks) {
           setKnob(dx, dy);
           const nx = dx / R, ny = dy / R;
           if (vehicles.driving) { vehicles.touchSteer = nx; }
+          else if (boat && boat.driving) { boat.touchSteer = nx; }
           else { player.touchMove.x = nx; player.touchMove.y = ny; }
         }
       }
@@ -811,6 +891,7 @@ export function createUI(ctx, hooks) {
           setKnob(0, 0);
           player.touchMove.x = 0; player.touchMove.y = 0;
           vehicles.touchSteer = 0;
+          if (boat) boat.touchSteer = 0;
         }
       };
       joy.addEventListener('touchend', reset);
@@ -819,8 +900,12 @@ export function createUI(ctx, hooks) {
       // Gas / Bremse (nur beim Fahren sichtbar)
       const bindPedal = (id, val) => {
         const b = $(id);
-        b.addEventListener('touchstart', (e) => { vehicles.touchGas = val; e.preventDefault(); }, { passive: false });
-        const off = (e) => { vehicles.touchGas = 0; e.preventDefault(); };
+        b.addEventListener('touchstart', (e) => {
+          vehicles.touchGas = val;
+          if (boat) boat.touchGas = val;
+          e.preventDefault();
+        }, { passive: false });
+        const off = (e) => { vehicles.touchGas = 0; if (boat) boat.touchGas = 0; e.preventDefault(); };
         b.addEventListener('touchend', off, { passive: false });
         b.addEventListener('touchcancel', off, { passive: false });
       };
@@ -864,9 +949,33 @@ export function createUI(ctx, hooks) {
     if (api.manageOpen()) { hooks.closeShop(); return; }
     if (!api.overlayOpen()) { hooks.openManage(); }
   });
-  for (const tb of ['workers', 'storage', 'stats']) {
+  for (const tb of ['workers', 'storage', 'stats', 'quests', 'ach']) {
     $('tab-' + tb).addEventListener('click', () => { api._manageTab = tb; api.renderManage(); });
   }
+  // v5: Spielstand exportieren / importieren
+  $('btn-save-export').addEventListener('click', () => {
+    try {
+      const data = localStorage.getItem('cayvadisi_save_v2') || '{}';
+      const a = document.createElement('a');
+      a.download = 'cayvadisi_save.json';
+      a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(data);
+      a.click();
+    } catch (e) { /* egal */ }
+  });
+  $('inp-save-import').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        JSON.parse(reader.result);   // validieren
+        localStorage.setItem('cayvadisi_save_v2', reader.result);
+        location.reload();
+      } catch (err) { api.toast(t('importBad'), false); }
+    };
+    reader.readAsText(file);
+  });
+  $('btn-save-import').addEventListener('click', () => $('inp-save-import').click());
   $('btn-travel-close').addEventListener('click', () => hooks.closeShop());
   $('btn-airport-close').addEventListener('click', () => hooks.closeShop());
   $('chk-survival').addEventListener('change', (e) => { state.survival = e.target.checked; });

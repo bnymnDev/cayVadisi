@@ -48,6 +48,16 @@ export const state = {
   introSeen: false,
   visited: { zonguldak: false, eregli: false, devrek: false },
 
+  // v5
+  boat: false,
+  rod: false,
+  fishCaught: 0,
+  packsSold: 0,           // kumulativ verkaufte Label-Pakete (Marktanteil)
+  story: 0,               // Kapitel der Dede-Questlinie (0..5 = fertig)
+  dedeBonus: false,       // Dede-Çayı-Rezept: +10 % Teepreis
+  ach: {},                // Achievement-Id -> true
+  rivalDump: false,       // heute Preisdumping von Kemal Ağa (Laufzeit)
+
   // v4
   role: 'farmer',
   homeLevel: 0,
@@ -89,6 +99,11 @@ export function basketCapacity(cfg, cargoMul = 1) {
   return cap * cargoMul;
 }
 
+// v5: Jahreszeit aus dem Tag ableiten (0 Sommer, 1 Herbst, 2 Winter, 3 Frühling)
+export function seasonOf(day, cfg) {
+  return Math.floor((day - 1) / cfg.seasonDays) % 4;
+}
+
 export function netWorth(cfg) {
   let w = state.money;
   for (const [id, owned] of Object.entries(state.vehicles)) if (owned) w += cfg.vehicles[id].cost * 0.7;
@@ -115,7 +130,9 @@ export function save() {
     stocks: s.stocks, stockPrices: s.stockPrices, baston: s.baston,
     blackHeat: s.blackHeat, introSeen: s.introSeen, visited: s.visited,
     role: s.role, homeLevel: s.homeLevel, survival: s.survival,
-    hunger: s.hunger, energy: s.energy, rel: s.rel, gurbetci: s.gurbetci
+    hunger: s.hunger, energy: s.energy, rel: s.rel, gurbetci: s.gurbetci,
+    boat: s.boat, rod: s.rod, fishCaught: s.fishCaught, packsSold: s.packsSold,
+    story: s.story, dedeBonus: s.dedeBonus, ach: s.ach
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -163,6 +180,13 @@ export function load() {
     state.energy = d.energy ?? 100;
     Object.assign(state.rel, d.rel || {});
     state.gurbetci = d.gurbetci ?? 0;
+    state.boat = d.boat ?? false;
+    state.rod = d.rod ?? false;
+    state.fishCaught = d.fishCaught ?? 0;
+    state.packsSold = d.packsSold ?? 0;
+    state.story = d.story ?? 0;
+    state.dedeBonus = d.dedeBonus ?? false;
+    state.ach = d.ach || {};
     return true;
   } catch (e) { return false; }
 }
@@ -200,6 +224,9 @@ export function resetProgress() {
   state.hunger = 100; state.energy = 100;
   state.rel = { temel: 0, dursun: 0 };
   state.gurbetci = 0;
+  state.boat = false; state.rod = false; state.fishCaught = 0;
+  state.packsSold = 0; state.story = 0; state.dedeBonus = false;
+  state.ach = {};
   resetDay();
   save();
   try { localStorage.removeItem(KEY_V1); } catch (e) { /* egal */ }

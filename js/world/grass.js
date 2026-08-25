@@ -10,7 +10,9 @@ export function createGrass(ctx, terrain, maxCount) {
 
   const uniforms = {
     uTime: { value: 0 },
-    uWind: { value: 0.55 }
+    uWind: { value: 0.55 },
+    uSnow: { value: 0 },
+    uAutumn: { value: 0 }
   };
 
   const mat = new THREE.MeshStandardMaterial({
@@ -22,6 +24,7 @@ export function createGrass(ctx, terrain, maxCount) {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
         uniform float uTime; uniform float uWind;
+        uniform float uSnow; uniform float uAutumn;
         attribute vec4 aInfo;   // phase, scale, lean, colorMix
         varying vec3 vGCol;`)
       .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
@@ -40,7 +43,9 @@ export function createGrass(ctx, terrain, maxCount) {
         vec3 gHigh = vec3(0.17, 0.34, 0.085);
         vec3 gDry = vec3(0.26, 0.31, 0.09);
         vGCol = mix(gLow, gHigh, bendT * (0.5 + 0.5 * aInfo.w));
-        vGCol = mix(vGCol, gDry, aInfo.w * aInfo.w * 0.22);`)
+        vGCol = mix(vGCol, gDry, aInfo.w * aInfo.w * 0.22);
+        vGCol = mix(vGCol, vec3(0.34, 0.30, 0.10), uAutumn * 0.75);
+        vGCol = mix(vGCol, vec3(0.44, 0.46, 0.50), uSnow * 0.85);`)
       ;
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vGCol;')
@@ -103,6 +108,11 @@ export function createGrass(ctx, terrain, maxCount) {
       mesh.instanceMatrix.needsUpdate = true;
       geo.attributes.aInfo.needsUpdate = true;
       api._cx = cx; api._cz = cz;
+    },
+
+    setSeason(snow, autumn) {
+      uniforms.uSnow.value = snow;
+      uniforms.uAutumn.value = autumn;
     },
 
     update(dt, elapsed, playerPos, windStrength) {

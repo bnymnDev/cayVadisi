@@ -5,7 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 import { CFG } from './config.js';
-import { state, load, save } from './state.js';
+import { state, load, save, seasonOf } from './state.js';
 import { setLang } from './i18n.js';
 import { createTerrain } from './world/terrain.js';
 import { createSky } from './world/sky.js';
@@ -29,6 +29,9 @@ import { createCc0Props } from './world/cc0props.js';
 import { createAirport } from './world/airport.js';
 import { createAvatar } from './avatar.js';
 import { createEvents } from './events.js';
+import { createBoat } from './boat.js';
+import { createStory } from './story.js';
+import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createUI } from './ui.js';
 import { createGame } from './game.js';
 import { applyDom } from './i18n.js';
@@ -83,7 +86,9 @@ let propsApi = null;
 let game = null;
 let farm = null, city = null, vehicles = null, workers = null, minimap = null, npcs = null, extras = null;
 let cc0 = null, airport = null, avatar = null, events = null;
+let boat = null, story = null, achievements = null;
 let thirdPerson = false;
+let photoMode = false;
 
 const hooks = {};
 const ui = createUI(ctx, hooks);
@@ -137,20 +142,112 @@ createProps(ctx, terrain).then(async (p) => {
   airport = createAirport(ctx, terrain, p.mats);
   events = createEvents(ctx, ui, audio);
   avatar = createAvatar(ctx, player, terrain);
+  boat = createBoat(ctx, terrain, player, audio, ui);
+  story = createStory(ctx, ui, audio, player);
+  achievements = createAchievements(ctx, terrain, ui, audio);
   allColliders.push(...p.colliders, ...farm.colliders, ...city.colliders,
     ...extras.colliders, ...cc0.colliders, ...airport.colliders);
   game = createGame(ctx, {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
-    farm, city, vehicles, workers, extras, events
+    farm, city, vehicles, workers, extras, events, boat
   });
   minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
   npcs = createNpcs(ctx, terrain, ui, player);
-  ui.bindTouch(player, vehicles);
+  ui.bindTouch(player, vehicles, boat);
   wireHooks();
   propsApi = p;      // erst jetzt: der Render-Loop prüft propsApi als "alles bereit"
   propsDone = true;
   maybeReady();
 }).catch((e) => console.error('Props-Fehler:', e));
+
+// ---------- Foto-Modus (F) ----------
+const photo = { pos: new THREE.Vector3(), yaw: 0, pitch: 0, drag: false };
+ctx.photoActive = () => photoMode;
+function setPhotoMode(v) {
+  photoMode = v;
+  document.getElementById('hud').classList.toggle('hidden', v);
+  document.getElementById('vignette').style.display = v ? 'none' : '';
+  if (v) {
+    photo.pos.copy(camera.position);
+    photo.yaw = player.euler.y;
+    photo.pitch = player.euler.x;
+    player.releaseLock();
+    player.setEnabled(false);
+  } else if (game && game.running && !vehicles.driving && !boat.driving) {
+    player.setEnabled(true);
+  }
+}
+window.addEventListener('keydown', (e) => {
+  if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+  if (e.code === 'KeyF' && game && game.running && !ui.overlayOpen()) setPhotoMode(!photoMode);
+  if (e.code === 'KeyC' && photoMode) {
+    composer.render();
+    const a = document.createElement('a');
+    a.download = 'cayvadisi_' + Date.now() + '.png';
+    a.href = renderer.domElement.toDataURL('image/png');
+    a.click();
+  }
+});
+window.addEventListener('mousedown', (e) => { if (photoMode && e.button === 0) photo.drag = true; });
+window.addEventListener('mouseup', () => { photo.drag = false; });
+window.addEventListener('mousemove', (e) => {
+  if (!photoMode || !photo.drag) return;
+  photo.yaw -= e.movementX * 0.0038;
+  photo.pitch = Math.max(-1.5, Math.min(1.5, photo.pitch - e.movementY * 0.0038));
+});
+const _photoFwd = new THREE.Vector3();
+const _photoRight = new THREE.Vector3();
+function updatePhoto(dt) {
+  const keys = player.keys;
+  const sp = (keys.has('ShiftLeft') ? 26 : 10) * dt;
+  _photoFwd.set(-Math.sin(photo.yaw) * Math.cos(photo.pitch), Math.sin(photo.pitch), -Math.cos(photo.yaw) * Math.cos(photo.pitch));
+  _photoRight.set(-_photoFwd.z, 0, _photoFwd.x).normalize();
+  if (keys.has('KeyW')) photo.pos.addScaledVector(_photoFwd, sp);
+  if (keys.has('KeyS')) photo.pos.addScaledVector(_photoFwd, -sp);
+  if (keys.has('KeyD')) photo.pos.addScaledVector(_photoRight, sp);
+  if (keys.has('KeyA')) photo.pos.addScaledVector(_photoRight, -sp);
+  if (keys.has('KeyQ')) photo.pos.y -= sp;
+  if (keys.has('KeyE')) photo.pos.y += sp;
+  photo.pos.y = Math.max(photo.pos.y, terrain.heightAt(photo.pos.x, photo.pos.z) + 0.3);
+  camera.position.copy(photo.pos);
+  camera.rotation.set(photo.pitch, photo.yaw, 0, 'YXZ');
+}
+
+// ---------- Gamepad ----------
+let padInteractHeld = false, padViewHeld = false;
+function pollGamepad(dt) {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  const pad = pads && pads[0];
+  if (!pad || !game || !game.running) return;
+  const dz = (v) => Math.abs(v) > 0.16 ? v : 0;
+  const lx = dz(pad.axes[0] || 0), ly = dz(pad.axes[1] || 0);
+  const rx = dz(pad.axes[2] || 0), ry = dz(pad.axes[3] || 0);
+  const rt = pad.buttons[7] ? pad.buttons[7].value : 0;
+  const lt = pad.buttons[6] ? pad.buttons[6].value : 0;
+  if (vehicles.driving) {
+    vehicles.touchSteer = lx;
+    vehicles.touchGas = rt - lt;
+  } else if (boat.driving) {
+    boat.touchSteer = lx;
+    boat.touchGas = rt - lt;
+  } else {
+    player.touchMove.x = lx;
+    player.touchMove.y = ly;
+  }
+  // Rechter Stick: Umsehen
+  player.euler.y -= rx * 2.4 * dt;
+  player.euler.x = Math.max(-1.45, Math.min(1.45, player.euler.x - ry * 1.8 * dt));
+  // A = Benutzen, Y = Ansicht
+  const a = pad.buttons[0] && pad.buttons[0].pressed;
+  if (a && !padInteractHeld && !ui.overlayOpen()) game.doInteract();
+  padInteractHeld = a;
+  const y = pad.buttons[3] && pad.buttons[3].pressed;
+  if (y && !padViewHeld && !vehicles.driving) {
+    thirdPerson = !thirdPerson;
+    avatar.setVisible(thirdPerson);
+  }
+  padViewHeld = y;
+}
 
 // ---------- Third-Person (V) ----------
 window.addEventListener('keydown', (e) => {
@@ -219,6 +316,13 @@ function wireHooks() {
   hooks.setRole = (r) => { const ok = game.setRole(r); if (ok && avatar) avatar.rebuild(); return ok; };
   hooks.buyFood = (id) => game.buyFood(id);
   hooks.rebuildAvatar = () => avatar && avatar.rebuild();
+  hooks.buyRod = () => game.buyRod();
+  hooks.buyBoat = () => game.buyBoat();
+  hooks.playerShare = () => game.playerShare();
+  hooks.storyCurrent = () => story.current();
+  hooks.achCount = () => achievements.count();
+  hooks.achTotal = () => achievements.total;
+  hooks.achDefs = () => ACH_DEFS;
   hooks.resume = () => game.pause(false);
   hooks.nextDay = () => game.nextDay();
   hooks.nextDay2 = () => game.startDay();
@@ -323,6 +427,10 @@ window.__game = {
   get cc0() { return cc0; },
   get events() { return events; },
   get avatar() { return avatar; },
+  get boat() { return boat; },
+  get story() { return story; },
+  get achievements() { return achievements; },
+  setPhotoMode,
   setThirdPerson(v) { thirdPerson = v; },
   setHour(h) { state.timeSec = (h - CFG.startHour) / (CFG.endHour - CFG.startHour) * CFG.dayLengthSec; },
   give(m) { state.money += m; ui.refreshMoney(); },
@@ -358,6 +466,7 @@ function tick() {
 
 let menuYaw = Math.PI * 0.86;
 const menuEuler = new THREE.Euler(-0.05, 0, 0, 'YXZ');
+let seasonSnow = 0, seasonAutumn = 0;
 
 function step(rawDt, manual, skipRender = false) {
   const dt = Math.min(rawDt, 0.05);
@@ -389,8 +498,10 @@ function step(rawDt, manual, skipRender = false) {
   const playing = game && game.running && !game.paused;
 
   if (game) game.update(dt, elapsed);
+  if (game && vehicles) pollGamepad(dt);
   player.update(dt, state.upgrades.boots, game ? game.speedMul() : 1);
-  if (thirdPerson && !vehicles?.driving && playing) applyThirdPerson(dt);
+  if (photoMode) updatePhoto(dt);
+  else if (thirdPerson && !vehicles?.driving && !boat?.driving && playing) applyThirdPerson(dt);
   if (avatar) {
     avatar.setVisible(thirdPerson && !vehicles?.driving);
     avatar.update(dt);
@@ -402,7 +513,18 @@ function step(rawDt, manual, skipRender = false) {
   sky.update(dt, player.pos, state);
   ocean.update(dt, elapsed, sky.rainT);
   grass.update(dt, elapsed, player.pos, wind);
-  rain.update(dt, camera.position, sky.rainT);
+
+  // v5: Jahreszeiten-Übergang weich blenden
+  {
+    const S = CFG.seasonCycle;
+    const idx = window.__started ? seasonOf(state.day, CFG) : 0;
+    seasonSnow += (S.snow[idx] - seasonSnow) * Math.min(1, dt * 0.4);
+    seasonAutumn += (S.autumnTint[idx] - seasonAutumn) * Math.min(1, dt * 0.4);
+    terrain.setSeason(seasonSnow, seasonAutumn);
+    teaField.setSeason(seasonSnow, seasonAutumn);
+    grass.setSeason(seasonSnow, seasonAutumn);
+  }
+  rain.update(dt, camera.position, sky.rainT * (1 - seasonSnow), sky.rainT * seasonSnow);
   birds.update(dt, elapsed);
   particles.update(dt);
   if (propsApi) {
@@ -411,11 +533,13 @@ function step(rawDt, manual, skipRender = false) {
     farm.update(dt, elapsed);
     city.update(dt, elevN, sky.rainT, elapsed);
     vehicles.update(dt, elevN, sky.rainT);
-    workers.update(dt, elapsed, playing);
+    workers.update(dt, elapsed, playing && !game.winterRest());
     npcs.update(dt, elapsed);
     extras.update(dt, elevN, elapsed);
     airport.update(dt, elapsed);
     cc0.update(dt, player, vehicles.driving ? vehicles.speedKmh() / 3.6 : 0);
+    boat.update(dt, elapsed);
+    if (playing) { story.update(dt); achievements.update(dt); }
     minimap.update(dt);
   }
 
