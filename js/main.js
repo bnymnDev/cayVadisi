@@ -22,6 +22,9 @@ import { createVehicles } from './vehicles.js';
 import { createWorkers } from './workers.js';
 import { createPlayer } from './player.js';
 import { createAudio } from './audio.js';
+import { createMinimap } from './minimap.js';
+import { createNpcs } from './npcs.js';
+import { createExtras } from './world/extras.js';
 import { createUI } from './ui.js';
 import { createGame } from './game.js';
 import { applyDom } from './i18n.js';
@@ -74,7 +77,7 @@ const audio = createAudio();
 
 let propsApi = null;
 let game = null;
-let farm = null, city = null, vehicles = null, workers = null;
+let farm = null, city = null, vehicles = null, workers = null, minimap = null, npcs = null, extras = null;
 
 const hooks = {};
 const ui = createUI(ctx, hooks);
@@ -124,11 +127,14 @@ createProps(ctx, terrain).then((p) => {
   city = createCity(ctx, terrain, p.mats);
   vehicles = createVehicles(ctx, terrain, player, () => allColliders);
   workers = createWorkers(ctx, terrain, teaField, particles);
-  allColliders.push(...p.colliders, ...farm.colliders, ...city.colliders);
+  extras = createExtras(ctx, terrain, p.mats);
+  allColliders.push(...p.colliders, ...farm.colliders, ...city.colliders, ...extras.colliders);
   game = createGame(ctx, {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
-    farm, city, vehicles, workers
+    farm, city, vehicles, workers, extras
   });
+  minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
+  npcs = createNpcs(ctx, terrain, ui, player);
   ui.bindTouch(player, vehicles);
   wireHooks();
   propsDone = true;
@@ -147,6 +153,21 @@ function wireHooks() {
   hooks.hireWorker = () => game.hireWorker();
   hooks.fireWorker = () => game.fireWorker();
   hooks.openManage = () => { player.releaseLock(); ui.showManage(); };
+  hooks.openLife = () => { player.releaseLock(); ui.showLife(); };
+  hooks.travelTo = (id) => game.travelTo(id);
+  hooks.canTravel = (id) => game.canTravel(id);
+  hooks.buyTravelGood = (c, g) => game.buyTravelGood(c, g);
+  hooks.sellAtCity = (c, p2, n) => game.sellAtCity(c, p2, n);
+  hooks.cityPrice = (c, p2) => game.cityPrice(c, p2);
+  hooks.buyFactory = () => game.buyFactory();
+  hooks.packBasket = () => game.packBasket();
+  hooks.sellSuper = (n) => game.sellSuper(n);
+  hooks.fulfillExport = (i) => game.fulfillExport(i);
+  hooks.setIdentity = (n, l, o) => game.setIdentity(n, l, o);
+  hooks.marry = () => game.marry();
+  hooks.haveChild = () => game.haveChild();
+  hooks.buyProperty = (id) => game.buyProperty(id);
+  hooks.tradeStock = (id, n) => game.tradeStock(id, n);
   hooks.resume = () => game.pause(false);
   hooks.nextDay = () => game.nextDay();
   hooks.nextDay2 = () => game.startDay();
@@ -160,12 +181,76 @@ function beginPlay(fresh) {
   window.__started = true;
   if (state.settings.sound) audio.ensure();
   audio.setEnabled(state.settings.sound);
-  ui.hideStart();
-  ui.refreshMoney();
-  ui.refreshBasket();
-  game.startDay();
-  game.tutorialStart();
-  save();
+  const startNow = () => {
+    ui.hideStart();
+    ui.refreshMoney();
+    ui.refreshBasket();
+    game.startDay();
+    game.tutorialStart();
+    save();
+  };
+  if (fresh && !state.introSeen) {
+    state.introSeen = true;
+    document.getElementById('start-screen').classList.add('hidden');
+    runCinematic(startNow);
+  } else startNow();
+}
+
+// ---------- Cinematic-Intro ----------
+import { t } from './i18n.js';
+let cinema = null;
+function runCinematic(done) {
+  const camCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(70, 26, -168),
+    new THREE.Vector3(20, 15, -128),
+    new THREE.Vector3(-14, 11, -104),
+    new THREE.Vector3(-2, 12, -70),
+    new THREE.Vector3(10, 8, -96)
+  ]);
+  const lookCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-30, 4, -110),
+    new THREE.Vector3(CFG.hut.x, 3, CFG.hut.z),
+    new THREE.Vector3(0, 8, -45),
+    new THREE.Vector3(4, 9, -30),
+    new THREE.Vector3(CFG.home.x, 3, CFG.home.z)
+  ]);
+  cinema = { t: 0, dur: 16, camCurve, lookCurve, done, textIdx: -1 };
+  const el = document.getElementById('cinema');
+  el.classList.remove('hidden');
+  const skip = document.getElementById('btn-skip-cinema');
+  skip.textContent = t('introSkip');
+  skip.onclick = () => endCinematic();
+  audio.gull && setTimeout(() => audio.gull(), 1200);
+}
+
+function endCinematic() {
+  if (!cinema) return;
+  document.getElementById('cinema').classList.add('hidden');
+  const done = cinema.done;
+  cinema = null;
+  done();
+}
+
+function updateCinematic(dt) {
+  const c = cinema;
+  c.t += dt;
+  const u = Math.min(c.t / c.dur, 1);
+  const eased = u;   // konstante Fahrt wirkt ruhiger
+  camera.position.copy(c.camCurve.getPointAt(eased));
+  camera.lookAt(c.lookCurve.getPointAt(eased));
+  // Text-Karten
+  const idx = Math.min(2, Math.floor(u * 3));
+  if (idx !== c.textIdx) {
+    c.textIdx = idx;
+    const te = document.getElementById('cinema-text');
+    te.style.opacity = 0;
+    setTimeout(() => {
+      if (!cinema) return;
+      te.textContent = t('intro' + (idx + 1));
+      te.style.opacity = 1;
+    }, 350);
+  }
+  if (u >= 1) endCinematic();
 }
 
 // ---------- Auto-Qualität ----------
@@ -224,6 +309,8 @@ function step(rawDt, manual, skipRender = false) {
   elapsedTime += dt;
   const elapsed = elapsedTime;
 
+  if (cinema) updateCinematic(dt);
+
   // Idle-Kamera hinter dem Startscreen (bis zum ersten Spielstart)
   if (!window.__started) {
     menuYaw += dt * 0.022;
@@ -247,7 +334,7 @@ function step(rawDt, manual, skipRender = false) {
   const playing = game && game.running && !game.paused;
 
   if (game) game.update(dt, elapsed);
-  player.update(dt, state.upgrades.boots);
+  player.update(dt, state.upgrades.boots, state.baston ? CFG.life.bastonSpeed : 1);
 
   const growSpeed = game ? game.growSpeedFactor() : 1;
   const wind = game ? game.windStrength() : 0.5;
@@ -265,6 +352,9 @@ function step(rawDt, manual, skipRender = false) {
     city.update(dt, elevN, sky.rainT, elapsed);
     vehicles.update(dt, elevN, sky.rainT);
     workers.update(dt, elapsed, playing);
+    npcs.update(dt, elapsed);
+    extras.update(dt, elevN, elapsed);
+    minimap.update(dt);
   }
 
   if (game) {

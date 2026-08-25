@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { CFG } from '../config.js';
 import { lerp, clamp, smoothstep } from '../util.js';
+import { mulberry32 } from '../util.js';
 
 export function createSky(ctx) {
   const { scene, renderer } = ctx;
@@ -28,6 +29,79 @@ export function createSky(ctx) {
 
   const hemi = new THREE.HemisphereLight(0xbcd4e4, 0x46583b, 0.5);
   scene.add(hemi);
+
+  // ---- Sternenhimmel (abends einblenden) ----
+  const stars = (() => {
+    const rng = mulberry32(9001);
+    const N = 900;
+    const pos = new Float32Array(N * 3);
+    const sz = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      // obere Halbkugel, Richtung Zenit verdichtet
+      const a = rng() * Math.PI * 2;
+      const e = Math.asin(0.06 + rng() * 0.94);     // Elevation > Horizont
+      const r = 950;
+      pos[i * 3] = Math.cos(a) * Math.cos(e) * r;
+      pos[i * 3 + 1] = Math.sin(e) * r;
+      pos[i * 3 + 2] = Math.sin(a) * Math.cos(e) * r;
+      sz[i] = 1.2 + rng() * rng() * 2.6;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('aSize', new THREE.BufferAttribute(sz, 1));
+    const m = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false,
+      uniforms: { uOpacity: { value: 0 }, uTime: { value: 0 } },
+      vertexShader: `
+        attribute float aSize;
+        varying float vTw;
+        uniform float uTime;
+        void main() {
+          vTw = 0.7 + 0.3 * sin(uTime * (1.0 + fract(aSize) * 3.0) + position.x);
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = aSize;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        varying float vTw;
+        uniform float uOpacity;
+        void main() {
+          vec2 d = gl_PointCoord - 0.5;
+          float a = smoothstep(0.5, 0.12, length(d));
+          gl_FragColor = vec4(vec3(0.92, 0.95, 1.0), a * uOpacity * vTw);
+        }`
+    });
+    const pts = new THREE.Points(g, m);
+    pts.frustumCulled = false;
+    pts.renderOrder = 1;
+    scene.add(pts);
+    return { pts, mat: m };
+  })();
+
+  // ---- Mond ----
+  const moonMat = new THREE.MeshBasicMaterial({
+    color: 0xf5f0dd, transparent: true, opacity: 0, fog: false
+  });
+  const moon = new THREE.Mesh(new THREE.SphereGeometry(16, 16, 12), moonMat);
+  scene.add(moon);
+  const moonGlowMat = new THREE.SpriteMaterial({
+    color: 0xdfe6f0, transparent: true, opacity: 0, fog: false,
+    map: (() => {
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      const g2 = c.getContext('2d');
+      const grad = g2.createRadialGradient(32, 32, 4, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(255,255,255,0.8)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      g2.fillStyle = grad;
+      g2.fillRect(0, 0, 64, 64);
+      const t = new THREE.CanvasTexture(c);
+      return t;
+    })()
+  });
+  const moonGlow = new THREE.Sprite(moonGlowMat);
+  moonGlow.scale.setScalar(90);
+  scene.add(moonGlow);
 
   scene.fog = new THREE.FogExp2(0xc3d2d8, 0.0018);
 
@@ -113,6 +187,23 @@ export function createSky(ctx) {
     renderer.setClearColor(fogCol);
 
     renderer.toneMappingExposure = lerp(lerp(0.6, 0.8, 0.2 + 0.8 * elevN), 0.52, r * 0.8);
+
+    // Sterne & Mond: bei tiefer Sonne einblenden
+    const nightT = smoothstep(0.16, 0.02, elevN) * (1 - r * 0.7);
+    stars.mat.uniforms.uOpacity.value = nightT * 0.9;
+    stars.mat.uniforms.uTime.value += dt;
+    stars.pts.position.set(playerPos.x, 0, playerPos.z);
+    moonMat.opacity = nightT;
+    moonGlowMat.opacity = nightT * 0.55;
+    // Mond steht der Sonne grob gegenüber
+    const mAz = azim + Math.PI * 0.85;
+    const mEl = 0.45 + 0.25 * (1 - elevN);
+    moon.position.set(
+      playerPos.x + Math.cos(mEl) * Math.sin(mAz) * 800,
+      Math.sin(mEl) * 800,
+      playerPos.z - Math.cos(mEl) * Math.cos(mAz) * 800
+    );
+    moonGlow.position.copy(moon.position);
 
     // Environment nur gelegentlich neu backen
     api._envTimer += dt;
