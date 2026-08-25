@@ -2,7 +2,7 @@
 // v2: Arbeiter, Bauernhof, Markt, Fahrzeuge, Stadt, Wohlstand
 import * as THREE from 'three';
 import { CFG } from './config.js';
-import { state, save, basketCapacity, resetDay, netWorth, seasonOf } from './state.js';
+import { state, save, basketCapacity, resetDay, netWorth, seasonOf, prestigeMul, addRep, resetProgress } from './state.js';
 import { t } from './i18n.js';
 import { clamp, fmtMoney } from './util.js';
 
@@ -162,9 +162,16 @@ export function createGame(ctx, mods) {
         state.money += CFG.festival.prize;
         state.dayEarned += CFG.festival.prize;
         state.totalEarned += CFG.festival.prize;
+        addRep(CFG.rep.festivalWin);
         lines.push({ k: 'sumFestivalWin', v: '+' + fmtMoney(CFG.festival.prize, L), sub: Math.round(mine) + ' kg' });
       } else {
         lines.push({ k: 'sumFestivalLose', v: Math.round(mine) + ' / ' + Math.round(kemal) + ' kg' });
+      }
+      // v7: Kooperativen-Dividende am Festivaltag (wächst mit dem Ruf)
+      if (state.koop && state.rep > 0) {
+        const div = state.rep * CFG.koop.dividendPerRep;
+        state.money += div; state.dayEarned += div; state.totalEarned += div;
+        lines.push({ k: 'sumKoopDiv', v: '+' + fmtMoney(div, L), sub: t('repShort') + ' ' + state.rep });
       }
     }
     // v6: Bank — Zinsen & Versicherung
@@ -256,8 +263,32 @@ export function createGame(ctx, mods) {
       state.inventory.honey += state.hives;
     }
 
+    // v7: Nachts schleicht der Fuchs um den Hühnerstall — der Kangal hält Wache
+    if ((state.animals.chicken || 0) > 0 && Math.random() < CFG.dog.foxChance) {
+      if (state.dog) {
+        setTimeout(() => ui.toast(t('dogGuard'), true, 6000), 3200);
+      } else {
+        const stolen = Math.min(3, Math.floor(state.inventory.egg));
+        if (stolen > 0) {
+          state.inventory.egg -= stolen;
+          setTimeout(() => ui.toast(t('foxAttack', stolen), false, 7000), 3200);
+        }
+      }
+    }
+
     // v3: Aktienkurse, neue Export-Angebote, Fahndungsdruck kühlt ab
     updateStocks();
+    // v7: Tageshistorie für die Charts fortschreiben
+    {
+      const H = CFG.history.days;
+      for (const id of Object.keys(CFG.life.stocks)) {
+        const arr = state.hist.stocks[id] = state.hist.stocks[id] || [];
+        arr.push(state.stockPrices[id]);
+        if (arr.length > H) arr.shift();
+      }
+      state.hist.earned.push(Math.round(state.dayEarned));
+      if (state.hist.earned.length > H) state.hist.earned.shift();
+    }
     regenExports();
     if (state.blackHeat > 0) state.blackHeat = Math.max(0, state.blackHeat - 1);
 
@@ -288,7 +319,8 @@ export function createGame(ctx, mods) {
   function famBonus() {
     return (state.married ? CFG.life.marriedBonus : 1)
       * (state.child ? CFG.life.childBonus : 1)
-      * (state.homeLevel >= 2 ? 1.05 : 1);
+      * (state.homeLevel >= 2 ? 1.05 : 1)
+      * prestigeMul(CFG);   // v7: New-Game+-Sterne
   }
 
   function initStocks() {
@@ -380,7 +412,8 @@ export function createGame(ctx, mods) {
 
   // ---------- Verkauf ----------
   function sellValue() {
-    return state.basketValueKg * CFG.eco.pricePerKg * (state.dedeBonus ? 1.1 : 1);
+    return state.basketValueKg * CFG.eco.pricePerKg * (state.dedeBonus ? 1.1 : 1)
+      * (state.koop ? CFG.koop.priceBonus : 1) * prestigeMul(CFG);
   }
 
   function trackPacks(n) {
@@ -405,6 +438,7 @@ export function createGame(ctx, mods) {
     if (!state.orderRewarded && state.orderDelivered >= state.orderTarget) {
       state.orderRewarded = true;
       state.ordersDone += 1;
+      addRep(CFG.rep.order);   // v7: erfüllte Aufträge stärken den Dorf-Ruf
       const bonus = state.orderTarget * CFG.eco.pricePerKg * CFG.eco.orderFactor;
       state.money += bonus;
       state.dayEarned += bonus;
@@ -487,14 +521,19 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // v7: Koop-Mitglieder kaufen Saatgut günstiger
+  function seedPrice(type) {
+    return Math.round(CFG.crops[type].seed * (state.koop ? CFG.koop.seedDiscount : 1));
+  }
+
   function plantCrop(type) {
     const spec = CFG.crops[type];
-    if (!spec || state.money < spec.seed) { audio.deny(); return false; }
+    if (!spec || state.money < seedPrice(type)) { audio.deny(); return false; }
     if (spec.lock && !state.unlocks[type]) { audio.deny(); return false; }
     const idx = state.plots.findIndex(p => !p);
     if (idx < 0) { ui.toast(t('noFreePlot'), false); audio.deny(); return false; }
-    state.money -= spec.seed;
-    state.daySpent += spec.seed;
+    state.money -= seedPrice(type);
+    state.daySpent += seedPrice(type);
     state.plots[idx] = { type, daysLeft: spec.days };
     farm.refreshPlots();
     audio.plant();
@@ -520,7 +559,7 @@ export function createGame(ctx, mods) {
     const have = Math.floor(state.inventory[id] || 0);
     const n = Math.min(have, count);
     if (n <= 0) { audio.deny(); return 0; }
-    const price = CFG.products[id].sell * (state.marketMul[id] || 1);
+    const price = CFG.products[id].sell * (state.marketMul[id] || 1) * prestigeMul(CFG);
     const sum = n * price;
     state.inventory[id] -= n;
     state.money += sum;
@@ -768,6 +807,7 @@ export function createGame(ctx, mods) {
       state.daySpent += fine;
       state.blackHeat += 1;
       audio.thunderish();
+      addRep(-CFG.rep.blackCaught);
       ui.toast(t('blackCaught', fmtMoney(fine, state.settings.lang)), false, 7000);
     } else {
       state.money += value;
@@ -985,6 +1025,131 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ---------- v7: Kooperative, Kaçak, Werkstatt, Kangal, New Game+ ----------
+  function joinKoop() {
+    if (state.koop || state.rep < CFG.koop.minRep || state.money < CFG.koop.fee) { audio.deny(); return false; }
+    state.money -= CFG.koop.fee;
+    state.daySpent += CFG.koop.fee;
+    state.koop = true;
+    audio.tierUp();
+    ui.toast(t('koopJoined'), true, 8000);
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function isNight() {
+    return sky.hour >= CFG.endHour;
+  }
+
+  function nearKacakShip() {
+    const K = CFG.night.kacak;
+    if (!boat.driving || sky.hour < K.hourFrom) return false;
+    const p = boat.pos;
+    return Math.hypot(p.x - K.ship.x, p.z - K.ship.z) < 16;
+  }
+
+  function sellKacak() {
+    const K = CFG.night.kacak;
+    if (state.role === 'jandarma') { ui.toast(t('blackJandarma'), false); audio.deny(); return false; }
+    const packs = Math.floor(state.inventory.tea_pack || 0);
+    if (packs < 1) { ui.toast(t('kacakNoPacks'), false); audio.deny(); return false; }
+    const value = packs * CFG.products.tea_pack.sell * K.priceMul * prestigeMul(CFG);
+    let risk = K.baseRisk + state.blackHeat * K.heatRisk;
+    state.inventory.tea_pack -= packs;
+    if (Math.random() < risk) {
+      // Küstenwache! Ware weg + Bußgeld + Ruf leidet
+      const fine = Math.round(packs * CFG.products.tea_pack.sell * K.fineFactor);
+      state.money = Math.max(0, state.money - fine);
+      state.daySpent += fine;
+      state.blackHeat += 2;
+      addRep(-K.repLoss);
+      audio.thunderish();
+      ui.toast(t('kacakCaught', fmtMoney(fine, state.settings.lang)), false, 8000);
+    } else {
+      state.money += value;
+      state.dayEarned += value;
+      state.totalEarned += value;
+      state.blackHeat += 1;
+      trackPacks(packs);
+      audio.cash();
+      ui.toast(t('kacakOk', packs, fmtMoney(value, state.settings.lang)), true, 7000);
+    }
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function repairVehicle(id) {
+    const wear = Math.round(state.vehWear[id] || 0);
+    if (wear <= 0) { audio.deny(); return false; }
+    const cost = wear * CFG.workshop.repairPerPoint;
+    if (state.money < cost) { audio.deny(); return false; }
+    state.money -= cost;
+    state.daySpent += cost;
+    state.vehWear[id] = 0;
+    audio.harvest();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function buyTuning(id, part) {
+    const spec = CFG.workshop.tuning[part];
+    if (!spec || !state.vehicles[id]) { audio.deny(); return false; }
+    const tun = state.vehTuning[id] = state.vehTuning[id] || {};
+    if (tun[part]) { audio.deny(); return false; }
+    const cost = Math.round(CFG.vehicles[id].cost * spec.costFactor);
+    if (state.money < cost) { audio.deny(); return false; }
+    state.money -= cost;
+    state.daySpent += cost;
+    tun[part] = true;
+    audio.buy();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function buyDog() {
+    if (state.dog || state.money < CFG.dog.cost) { audio.deny(); return false; }
+    state.money -= CFG.dog.cost;
+    state.daySpent += CFG.dog.cost;
+    state.dog = true;
+    if (mods.dog) mods.dog.syncOwned();
+    audio.bark ? audio.bark() : audio.buy();
+    ui.toast(t('dogBought'), true, 7000);
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function ngpEligible() {
+    return state.story >= 5 || state.wealthTier >= 5;
+  }
+
+  function newGamePlus() {
+    if (!ngpEligible()) { audio.deny(); return false; }
+    const keep = {
+      money: Math.round(state.money * CFG.prestige.moneyKeep),
+      ach: state.ach, name: state.playerName, label: state.label,
+      outfit: state.outfit, prestige: state.prestige + 1,
+      survival: state.survival
+    };
+    resetProgress();
+    state.prestige = keep.prestige;
+    state.money = keep.money;
+    state.ach = keep.ach;
+    state.playerName = keep.name;
+    state.label = keep.label;
+    state.outfit = keep.outfit;
+    state.survival = keep.survival;
+    state.introSeen = true;
+    save();
+    location.reload();
+    return true;
+  }
+
   function playTavla(stake) {
     if (state.money < stake) { audio.deny(); return null; }
     const rounds = [];
@@ -1057,6 +1222,8 @@ export function createGame(ctx, mods) {
   function doInteract() {
     if (boat.driving) {
       if (boat.fishingState !== 'idle') { boat.reel(); return; }
+      // v7: Nachts am Schmugglerschiff — Kaçak-Deal
+      if (nearKacakShip()) { sellKacak(); return; }
       // Am Ufer: anlegen. Auf offener See mit Olta: angeln.
       if (boat.canExitHere()) {
         boat.exit();
@@ -1096,6 +1263,7 @@ export function createGame(ctx, mods) {
     else if (act.id === 'reel') boat.reel();
     else if (act.id === 'tavla') { player.releaseLock(); ui.showTavla(); }
     else if (act.id === 'hive') buyHive();
+    else if (act.id === 'workshop') { player.releaseLock(); ui.showWorkshop(); }
   }
 
   window.addEventListener('keydown', (e) => {
@@ -1159,6 +1327,7 @@ export function createGame(ctx, mods) {
     if (distTo(CFG.farm.sign.x, CFG.farm.sign.z) < CFG.interactDist + 1) return { id: 'farm' };
     if (distTo(CFG.city.market.x, CFG.city.market.z) < CFG.interactDist + 1.5) return { id: 'market' };
     if (distTo(CFG.city.dealer.x, CFG.city.dealer.z) < CFG.interactDist + 3.5) return { id: 'dealer' };
+    if (distTo(CFG.workshop.x, CFG.workshop.z) < CFG.interactDist + 3) return { id: 'workshop' };
     if (distTo(CFG.travel.spot.x, CFG.travel.spot.z) < CFG.interactDist + 2.5) return { id: 'travel' };
     if (distTo(CFG.factory.x, CFG.factory.z) < CFG.interactDist + 5) return { id: 'factory' };
     if (distTo(CFG.supermarket.x, CFG.supermarket.z) < CFG.interactDist + 1.5) return { id: 'super' };
@@ -1176,9 +1345,20 @@ export function createGame(ctx, mods) {
   function update(dt, elapsed) {
     if (!running || paused) return;
 
-    // Zeit
+    // Zeit (v7: nach endHour beginnt die freiwillige Nacht bis night.endHour)
     state.timeSec += dt;
-    if (state.timeSec >= CFG.dayLengthSec) { endDay(); return; }
+    const nightLen = CFG.dayLengthSec * (CFG.night.endHour - CFG.endHour) / (CFG.endHour - CFG.startHour);
+    if (state.timeSec >= CFG.dayLengthSec + nightLen) {
+      ui.toast(t('nightCollapse'), false, 7000);
+      endDay();
+      return;
+    }
+    if (state.timeSec >= CFG.dayLengthSec && !state._nightToast) {
+      state._nightToast = true;
+      ui.toast(t('nightStart'), true, 9000);
+      audio.gondola();
+    }
+    boat.nightMode = isNight();
 
     // v4: Nachbarschafts-Ereignisse
     if (events) events.update();
@@ -1250,6 +1430,7 @@ export function createGame(ctx, mods) {
       const fs = boat.fishingState;
       ui.setPrompt(
         fs === 'bite' ? t('prompt_reelNow') : fs === 'wait' ? t('prompt_waiting')
+          : nearKacakShip() ? t('prompt_kacak')
           : boat.canExitHere() ? t('prompt_exitBoat')
           : state.rod ? t('prompt_fish') : t('prompt_exitBoat'),
         () => doInteract()
@@ -1340,6 +1521,8 @@ export function createGame(ctx, mods) {
     buyRod, buyBoat, playerShare, isFestival,
     takeLoan, repayLoan, toggleInsurance,
     setTeaStyle, buyGreenLine, promoteSofor, buyHive, playTavla,
+    joinKoop, sellKacak, nearKacakShip, repairVehicle, buyTuning, buyDog,
+    newGamePlus, ngpEligible, isNight, seedPrice,
     update,
     get running() { return running; },
     get paused() { return paused; },

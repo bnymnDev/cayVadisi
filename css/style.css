@@ -394,3 +394,26 @@ body {
   width: 100%; background: var(--tea); border: 1px solid var(--tea-bright);
   color: var(--cream); border-radius: 10px; padding: 12px; font-size: 16px; cursor: pointer;
 }
+
+/* ---- v7: Werkstatt, Fotoalbum, Charts ---- */
+.ws-card {
+  background: rgba(244,239,228,0.06); border: 1px solid rgba(244,239,228,0.12);
+  border-radius: 12px; padding: 12px 14px; margin: 8px 0;
+}
+.ws-wear-row { display: flex; align-items: center; gap: 10px; font-size: 13px; margin: 8px 0; }
+.ws-wear { flex: 1; height: 9px; border-radius: 5px; background: rgba(244,239,228,0.12); overflow: hidden; }
+.ws-wear > div { height: 100%; border-radius: 5px; transition: width 0.3s; }
+
+.album-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.album-thumb {
+  width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 10px;
+  border: 1px solid rgba(244,239,228,0.2); cursor: pointer; transition: transform 0.15s;
+}
+.album-thumb:hover { transform: scale(1.04); }
+.album-big { width: 100%; border-radius: 12px; border: 1px solid rgba(244,239,228,0.25); }
+
+.spark {
+  display: block; width: 100%; max-width: 340px; height: 52px;
+  background: rgba(244,239,228,0.05); border: 1px solid rgba(244,239,228,0.1);
+  border-radius: 10px; margin: 6px 0 10px;
+}

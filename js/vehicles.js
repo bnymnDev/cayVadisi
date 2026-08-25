@@ -357,9 +357,18 @@ export function createVehicles(ctx, terrain, player, getColliders) {
       f.braking = (gas < -0.1 && f.v > 0.5) || handbrake;
       f.drifting = handbrake && Math.abs(f.v) > 4;
 
-      // Beschleunigung / Widerstand
-      const topSpeed = spec.speed * (state.raining ? 0.85 : 1);
+      // Beschleunigung / Widerstand (v7: Tuning & Verschleiß)
+      const W = CFG.workshop;
+      const tun = state.vehTuning[driving] || {};
+      const wear = state.vehWear[driving] || 0;
+      const rainMul = state.raining ? (tun.tires ? 1 - 0.15 * W.tuning.tires.rainSave : 0.85) : 1;
+      const topSpeed = spec.speed
+        * (tun.engine ? W.tuning.engine.speedMul : 1)
+        * (1 - wear / 100 * W.maxSlow)
+        * rainMul;
       const accel = spec.accel * (gas >= 0 ? 1 : 1.6);
+      // Verschleiß wächst mit gefahrener Geschwindigkeit
+      state.vehWear[driving] = Math.min(100, wear + Math.abs(f.v) * 3.6 * W.wearPerKmh * dt);
       f.v += gas * accel * dt;
       f.v -= f.v * (0.6 + Math.abs(steer) * 0.25) * dt;     // Roll-/Kurvenwiderstand
       f.v = clamp(f.v, -topSpeed * 0.4, topSpeed);
@@ -370,7 +379,8 @@ export function createVehicles(ctx, terrain, player, getColliders) {
 
       // Lenkung (geschwindigkeitsabhängig; Drift lenkt schärfer)
       const driftMul = f.drifting ? 2.1 : 1;
-      const steerEff = steer * clamp(Math.abs(f.v) / 3, 0, 1) * 1.4 * driftMul * Math.sign(f.v || 1);
+      const tireMul = tun.tires ? W.tuning.tires.steerMul : 1;
+      const steerEff = steer * clamp(Math.abs(f.v) / 3, 0, 1) * 1.4 * driftMul * tireMul * Math.sign(f.v || 1);
       f.yaw += steerEff * dt;
       f.steer = lerp(f.steer, steer, Math.min(1, dt * 8));
 

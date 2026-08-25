@@ -212,6 +212,15 @@ export function createAudio() {
       }
     },
     harvest() { noiseBurst(1200, 0.8, 0.12, 0.14); blip(440, 0.12, 'triangle', 0.08, 0.05); },
+    // v7: Kangal-Bellen — zwei kurze, tiefe "Woff"s
+    bark() {
+      if (!started) return;
+      for (let i = 0; i < 2; i++) {
+        const t0 = i * 0.22;
+        blip(140 + Math.random() * 30, 0.14, 'sawtooth', 0.09, t0);
+        noiseBurst(500, 0.9, 0.1, 0.1, t0 + 0.01);
+      }
+    },
     horn(kind = 'sedan') {
       if (!started) return;
       // Traktor tief und rau, Lux zweistimmig-edel, Rest klassisch

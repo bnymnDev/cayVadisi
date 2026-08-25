@@ -18,6 +18,7 @@ export function createUI(ctx, hooks) {
     travel: $('travel-screen'), factory: $('factory-screen'),
     superS: $('super-screen'), life: $('life-screen'),
     airportS: $('airport-screen'), eventS: $('event-screen'),
+    workshop: $('workshop-screen'), album: $('album-screen'),
     svHud: $('survival-hud'),
     speed: $('hud-speed'), tier: $('hud-tier'), touch: $('touch-controls'),
     loadFill: $('load-fill'), loadLabel: $('load-label'),
@@ -67,7 +68,8 @@ export function createUI(ctx, hooks) {
       els.hudMoney.textContent = fmtMoney(state.money, state.settings.lang);
     },
     refreshWealth() {
-      els.tier.textContent = t('tierName' + state.wealthTier);
+      const stars = state.prestige > 0 ? '★'.repeat(Math.min(state.prestige, CFG.prestige.maxShown)) + ' ' : '';
+      els.tier.textContent = stars + t('tierName' + state.wealthTier);
     },
     setSpeed(kmh) {
       if (kmh == null) {
@@ -175,7 +177,9 @@ export function createUI(ctx, hooks) {
         || !els.superS.classList.contains('hidden')
         || !els.life.classList.contains('hidden')
         || !els.airportS.classList.contains('hidden')
-        || !els.eventS.classList.contains('hidden');
+        || !els.eventS.classList.contains('hidden')
+        || !els.workshop.classList.contains('hidden')
+        || !els.album.classList.contains('hidden');
     },
     manageOpen() { return !els.manage.classList.contains('hidden'); },
     lifeOpen() { return !els.life.classList.contains('hidden'); },
@@ -184,6 +188,7 @@ export function createUI(ctx, hooks) {
       hide(els.farm); hide(els.market); hide(els.dealer); hide(els.manage);
       hide(els.travel); hide(els.factory); hide(els.superS); hide(els.life);
       hide(els.airportS); hide(els.eventS);
+      hide(els.workshop); hide(els.album);
     },
 
     // ---------- v4: Survival-HUD ----------
@@ -244,6 +249,128 @@ export function createUI(ctx, hooks) {
       }
       if (!any) body.innerHTML += `<div class="section-info">${t('cityNoGoods')}</div>`;
       show(els.airportS);
+    },
+
+    // ---------- v7: Werkstatt (Sanayi) ----------
+    showWorkshop() { api.renderWorkshop(); show(els.workshop); },
+    renderWorkshop() {
+      const L = state.settings.lang;
+      const body = $('workshop-body');
+      body.innerHTML = '';
+      const T = CFG.workshop.tuning;
+      let any = false;
+      for (const [id, v] of Object.entries(CFG.vehicles)) {
+        if (!state.vehicles[id]) continue;
+        any = true;
+        const wear = Math.round(state.vehWear[id] || 0);
+        const tun = state.vehTuning[id] || {};
+        const repairCost = wear * CFG.workshop.repairPerPoint;
+        const engCost = Math.round(v.cost * T.engine.costFactor);
+        const tireCost = Math.round(v.cost * T.tires.costFactor);
+        const row = document.createElement('div');
+        row.className = 'ws-card';
+        row.innerHTML = `
+          <div class="u-name">${v.icon} ${t('veh_' + id)}</div>
+          <div class="ws-wear-row"><span>${t('wearLabel')}</span>
+            <div class="ws-wear"><div style="width:${wear}%;background:${wear > 60 ? '#c0533a' : wear > 30 ? '#c9a13a' : '#5d9138'}"></div></div>
+            <b>${wear}%</b></div>
+          <div class="btn-mini-row">
+            <button data-a="repair" ${wear <= 0 || state.money < repairCost ? 'disabled' : ''}>🔧 ${t('repairBtn')} · ${fmtMoney(repairCost, L)}</button>
+            <button data-a="engine" ${tun.engine ? 'disabled' : state.money < engCost ? 'disabled' : ''}>${tun.engine ? '✓ ' : ''}⚙️ ${t('tunEngine')} · ${fmtMoney(engCost, L)}</button>
+            <button data-a="tires" ${tun.tires ? 'disabled' : state.money < tireCost ? 'disabled' : ''}>${tun.tires ? '✓ ' : ''}🛞 ${t('tunTires')} · ${fmtMoney(tireCost, L)}</button>
+          </div>`;
+        row.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+          const a = b.dataset.a;
+          const ok = a === 'repair' ? hooks.repairVehicle(id) : hooks.buyTuning(id, a);
+          if (ok) api.renderWorkshop();
+        }));
+        body.appendChild(row);
+      }
+      if (!any) body.innerHTML = `<div class="section-info">${t('wsNoVehicles')}</div>`;
+    },
+
+    // ---------- v7: Fotoalbum ----------
+    _albumLoad() {
+      try { return JSON.parse(localStorage.getItem('cayvadisi_album_v1') || '[]'); }
+      catch (e) { return []; }
+    },
+    albumAdd(dataURL) {
+      try {
+        const album = api._albumLoad();
+        album.push({ d: state.day, img: dataURL });
+        while (album.length > CFG.album.max) album.shift();
+        localStorage.setItem('cayvadisi_album_v1', JSON.stringify(album));
+        api.toast(t('albumSaved'), true);
+      } catch (e) { /* Speicher voll: Foto wurde trotzdem heruntergeladen */ }
+    },
+    showAlbum() { api.renderAlbum(); show(els.album); },
+    renderAlbum(viewIdx = -1) {
+      const grid = $('album-grid');
+      const album = api._albumLoad();
+      grid.innerHTML = '';
+      if (!album.length) {
+        grid.innerHTML = `<div class="section-info">${t('albumEmpty')}</div>`;
+        return;
+      }
+      if (viewIdx >= 0 && album[viewIdx]) {
+        // Großansicht mit Löschen
+        const ph = album[viewIdx];
+        grid.innerHTML = `
+          <img class="album-big" src="${ph.img}" alt="">
+          <div class="section-info">${t('day')} ${ph.d}</div>
+          <div class="btn-row">
+            <button id="btn-album-back" class="big-btn ghost">${t('back')}</button>
+            <button id="btn-album-del" class="big-btn danger">🗑</button>
+          </div>`;
+        $('btn-album-back').addEventListener('click', () => api.renderAlbum());
+        $('btn-album-del').addEventListener('click', () => {
+          album.splice(viewIdx, 1);
+          try { localStorage.setItem('cayvadisi_album_v1', JSON.stringify(album)); } catch (e) {}
+          api.renderAlbum();
+        });
+        return;
+      }
+      const wrap = document.createElement('div');
+      wrap.className = 'album-wrap';
+      album.forEach((ph, i) => {
+        const im = document.createElement('img');
+        im.className = 'album-thumb';
+        im.src = ph.img;
+        im.title = t('day') + ' ' + ph.d;
+        im.addEventListener('click', () => api.renderAlbum(i));
+        wrap.appendChild(im);
+      });
+      grid.appendChild(wrap);
+    },
+
+    // ---------- v7: Sparkline-Chart auf Canvas ----------
+    drawSpark(canvas, data, color) {
+      const g2 = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      g2.clearRect(0, 0, W, H);
+      if (!data || data.length < 2) {
+        g2.fillStyle = 'rgba(255,255,255,0.35)';
+        g2.font = '11px sans-serif';
+        g2.fillText(t('chartSoon'), 6, H / 2 + 4);
+        return;
+      }
+      const min = Math.min(...data), max = Math.max(...data);
+      const span = Math.max(max - min, 1e-6);
+      g2.strokeStyle = color;
+      g2.lineWidth = 2;
+      g2.beginPath();
+      data.forEach((v, i) => {
+        const x = 4 + i / (data.length - 1) * (W - 8);
+        const y = H - 6 - (v - min) / span * (H - 12);
+        i === 0 ? g2.moveTo(x, y) : g2.lineTo(x, y);
+      });
+      g2.stroke();
+      // Endpunkt markieren
+      const lx = W - 4, ly = H - 6 - (data[data.length - 1] - min) / span * (H - 12);
+      g2.fillStyle = color;
+      g2.beginPath();
+      g2.arc(lx, ly, 3, 0, Math.PI * 2);
+      g2.fill();
     },
 
     // ---------- v6: Tavla-Würfelduell (nutzt das Event-Overlay) ----------
@@ -506,7 +633,16 @@ export function createUI(ctx, hooks) {
           </div>
           <div class="section-info">${t('roleInfo_' + state.role)}</div>
           <div class="section-info">${t('bastonState')}: <b>${state.baston ? t('owned') + ' ✓ (+8 %)' : t('bastonHint')}</b></div>
-          <div class="section-info">${t('viewHint')}</div>`;
+          <div class="section-info">${t('viewHint')}</div>
+          <h3>⭐ ${t('ngpTitle')}${state.prestige > 0 ? ' · ' + '★'.repeat(Math.min(state.prestige, CFG.prestige.maxShown)) : ''}</h3>
+          <div class="section-info">${hooks.ngpEligible() ? t('ngpInfo') : t('ngpLocked')}</div>
+          ${hooks.ngpEligible() ? `<button id="btn-ngp" class="big-btn danger">${t('ngpBtn')}</button>` : ''}`;
+        const ngp = $('btn-ngp');
+        if (ngp) ngp.addEventListener('click', () => {
+          if (ngp.dataset.armed) { hooks.newGamePlus(); return; }
+          ngp.dataset.armed = '1';
+          ngp.textContent = t('ngpConfirm');
+        });
         body.querySelectorAll('.role-btn').forEach(b => b.addEventListener('click', () => {
           hooks.setRole(b.dataset.r);
           api.renderLife();
@@ -614,6 +750,12 @@ export function createUI(ctx, hooks) {
             api.renderLife();
           }));
           body.appendChild(row);
+          // v7: Kursverlauf als Sparkline
+          const cv = document.createElement('canvas');
+          cv.className = 'spark';
+          cv.width = 300; cv.height = 44;
+          body.appendChild(cv);
+          api.drawSpark(cv, (state.hist.stocks || {})[id], chg >= 0 ? '#7ba24a' : '#c0533a');
         }
       }
     },
@@ -628,14 +770,15 @@ export function createUI(ctx, hooks) {
       plantList.innerHTML = '';
       for (const [id, c] of Object.entries(CFG.crops)) {
         const locked = c.lock && !state.unlocks[id];
+        const seed = hooks.seedPrice ? hooks.seedPrice(id) : c.seed;
         const row = document.createElement('div');
         row.className = 'upgrade-item' + (locked ? ' owned' : '');
         row.innerHTML = `
           <div class="u-icon">${locked ? '🔒' : c.icon}</div>
-          <div class="u-body"><div class="u-name">${t('crop_' + id)}</div>
+          <div class="u-body"><div class="u-name">${t('crop_' + id)}${state.koop && !locked ? ' <span class="price-up">🤝 −15 %</span>' : ''}</div>
           <div class="u-desc">${locked ? t('cropLocked', t('city_' + c.lock)) : t('cropInfo', c.days, c.yield, c.sell)}</div></div>
-          <button ${locked || state.money < c.seed || free === 0 ? 'disabled' : ''} data-id="${id}">
-            ${fmtMoney(c.seed, L)}
+          <button ${locked || state.money < seed || free === 0 ? 'disabled' : ''} data-id="${id}">
+            ${fmtMoney(seed, L)}
           </button>`;
         row.querySelector('button').addEventListener('click', () => {
           if (hooks.plantCrop(id)) api.renderFarm();
@@ -657,6 +800,22 @@ export function createUI(ctx, hooks) {
           </button>`;
         row.querySelector('button').addEventListener('click', () => {
           if (hooks.buyAnimal(id)) api.renderFarm();
+        });
+        animalList.appendChild(row);
+      }
+      // v7: Kangal-Hund
+      {
+        const owned = state.dog;
+        const row = document.createElement('div');
+        row.className = 'upgrade-item' + (owned ? ' owned' : '');
+        row.innerHTML = `
+          <div class="u-icon">🐕</div>
+          <div class="u-body"><div class="u-name">${t('dogName')}</div>
+          <div class="u-desc">${t('dogDesc')}</div></div>
+          <button ${owned || state.money < CFG.dog.cost ? 'disabled' : ''}>
+            ${owned ? t('owned') + ' ✓' : fmtMoney(CFG.dog.cost, L)}</button>`;
+        if (!owned) row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyDog()) api.renderFarm();
         });
         animalList.appendChild(row);
       }
@@ -856,10 +1015,23 @@ export function createUI(ctx, hooks) {
           <div>${t('statDaySpent')} <b>${fmtMoney(state.daySpent, L)}</b></div>
           <div>${t('statTotal')} <b>${fmtMoney(state.totalEarned, L)}</b></div>
         </div>
+        <h3>${t('chartEarned')}</h3>
+        <canvas id="chart-earned" class="spark" width="300" height="56"></canvas>
+        <h3>${t('repTitle')}</h3>
+        <div class="section-info">${t('repInfo')}</div>
+        <div class="share-bar"><div class="share-me" style="width:${state.rep}%;background:#3f6d9a"></div></div>
+        <div class="share-legend"><span>${t('repShort')}: ${state.rep} / 100</span>
+          <span>${state.koop ? '🤝 ' + t('koopMember') : ''}</span></div>
+        ${!state.koop ? `<button id="btn-koop" class="big-btn" ${state.rep >= CFG.koop.minRep && state.money >= CFG.koop.fee ? '' : 'disabled'}>
+            🤝 ${t('koopJoin')} · ${fmtMoney(CFG.koop.fee, L)}</button>
+          <div class="section-info">${t('koopInfo', CFG.koop.minRep)}</div>` : ''}
         <h3>${t('shareTitle')}</h3>
         <div class="section-info">${t('shareInfo', share, 100 - share)}${state.rivalDump ? ' · ⚠️ ' + t('rivalDumpShort') : ''}</div>
         <div class="share-bar"><div class="share-me" style="width:${share}%"></div></div>
         <div class="share-legend"><span>🏷️ ${state.label || 'ÇAY VADİSİ'}</span><span>Kemal Ağa</span></div>`;
+        api.drawSpark($('chart-earned'), state.hist.earned, '#7ba24a');
+        const kb = $('btn-koop');
+        if (kb) kb.addEventListener('click', () => { if (hooks.joinKoop()) api.renderManage(); });
       }
     },
 
@@ -1069,6 +1241,9 @@ export function createUI(ctx, hooks) {
   });
   $('btn-save-import').addEventListener('click', () => $('inp-save-import').click());
   $('btn-travel-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-workshop-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-album-close').addEventListener('click', () => { hide(els.album); if (!els.pause.classList.contains('hidden')) return; hooks.closeShop(); });
+  $('btn-album').addEventListener('click', () => { api.showAlbum(); });
   $('btn-airport-close').addEventListener('click', () => hooks.closeShop());
   $('chk-survival').addEventListener('change', (e) => { state.survival = e.target.checked; });
   $('btn-factory-close').addEventListener('click', () => hooks.closeShop());
