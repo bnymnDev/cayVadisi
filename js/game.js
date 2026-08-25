@@ -111,6 +111,7 @@ export function createGame(ctx, mods) {
   function startDay() {
     resetDay();
     planWeather();
+    planHeliJob();
     planMarket();
     initStocks();
     if (!state.exportOffers.length) regenExports();
@@ -230,6 +231,77 @@ export function createGame(ctx, mods) {
         lines.push({ k: 'sumRestaurant', v: '+' + fmtMoney(sum, L), sub: dishes + ' 🫕' });
       }
     }
+    // v11: Haselnuss-Plantage — Ernte jeden Herbstabend
+    if (state.orchard && season() === CFG.orchard.season) {
+      state.inventory.hazel += CFG.orchard.perDay;
+      lines.push({ k: 'sumOrchard', v: '+' + CFG.orchard.perDay + ' 🌰' });
+    }
+    // v11: Preistier-Wettbewerb am Festival
+    if (isFestival()) {
+      const total = Object.values(state.animals).reduce((a, b) => a + b, 0);
+      if (total >= CFG.breeding.contestMinAnimals) {
+        if (total + Math.random() * 6 > 8) {
+          state.money += CFG.breeding.contestPrize;
+          state.dayEarned += CFG.breeding.contestPrize;
+          state.totalEarned += CFG.breeding.contestPrize;
+          addRep(CFG.breeding.contestRep);
+          const names = Object.values(state.animalNames).flat();
+          lines.push({ k: 'sumContest', v: '+' + fmtMoney(CFG.breeding.contestPrize, L), sub: '🏵️ ' + (names[0] || '—') });
+        } else {
+          lines.push({ k: 'sumContestLose', v: '—' });
+        }
+      }
+    }
+    // v11: Şoför 2.0 — Lieferketten-Automation (braucht Şoför + Pickup)
+    if (state.sofor && state.vehicles.pickup
+        && (state.logi.packs || state.logi.goods || state.logi.exportA)) {
+      const LG = CFG.logistics;
+      // 1) Exporte automatisch erfüllen
+      if (state.logi.exportA) {
+        for (let i = state.exportOffers.length - 1; i >= 0; i--) {
+          const o = state.exportOffers[i];
+          if (Math.floor(state.inventory.tea_pack) >= o.qty) {
+            state.inventory.tea_pack -= o.qty;
+            trackPacks(o.qty);
+            const sum = o.qty * o.price;
+            state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+            state.exportsDone += 1;
+            state.exportOffers.splice(i, 1);
+            lines.push({ k: 'sumAutoExport', v: '+' + fmtMoney(sum, L), sub: o.country });
+          }
+        }
+      }
+      // 2) Pakete in den Supermarkt
+      if (state.logi.packs) {
+        const n = Math.min(LG.maxPacks, Math.floor(state.inventory.tea_pack));
+        if (n > 0) {
+          const price = CFG.products.tea_pack.sell * CFG.supermarket.retailFactor * (state.marketMul.tea_pack || 1);
+          const sum = n * price * famBonus();
+          state.inventory.tea_pack -= n;
+          trackPacks(n);
+          state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+          lines.push({ k: 'sumAutoPacks', v: '+' + fmtMoney(sum, L), sub: n + ' 📦' });
+        }
+      }
+      // 3) Hofprodukte zum Karşıköy-Premium
+      if (state.logi.goods) {
+        let sum = 0;
+        for (const pid of ['cheese', 'honey', 'egg', 'milk']) {
+          const have = Math.floor(state.inventory[pid] || 0);
+          if (have > 0) {
+            sum += have * karsikoyPrice(pid) * famBonus();
+            state.inventory[pid] -= have;
+          }
+        }
+        if (sum > 0) {
+          state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+          lines.push({ k: 'sumAutoGoods', v: '+' + fmtMoney(sum, L) });
+        }
+      }
+      state.money -= LG.upkeep;
+      state.daySpent += LG.upkeep;
+      lines.push({ k: 'sumLogiUpkeep', v: '−' + fmtMoney(LG.upkeep, L) });
+    }
     // v10: Dolmuş-Linie — Fahrgeld minus Diesel
     if (state.dolmus) {
       const D = CFG.dolmus;
@@ -336,6 +408,17 @@ export function createGame(ctx, mods) {
     // v6: Honig von der Yayla (Frühling & Sommer)
     if (state.hives > 0 && CFG.yayla.honeySeasons.includes(season())) {
       state.inventory.honey += state.hives;
+    }
+
+    // v11: Tierzucht — über Nacht kommt Nachwuchs zur Welt
+    for (const [id, spec] of Object.entries(CFG.animals)) {
+      const n = state.animals[id] || 0;
+      if (n >= 2 && n < spec.max && Math.random() < CFG.breeding.chance) {
+        state.animals[id] = n + 1;
+        const bname = assignAnimalName(id);
+        setTimeout(() => ui.toast(t('animalBorn', spec.icon, bname), true, 7000), 2200);
+        farm.syncAnimals();
+      }
     }
 
     // v7: Nachts schleicht der Fuchs um den Hühnerstall — der Kangal hält Wache
@@ -603,6 +686,8 @@ export function createGame(ctx, mods) {
     state.money -= spec.cost;
     state.daySpent += spec.cost;
     state.animals[id] = (state.animals[id] || 0) + 1;
+    const aname = assignAnimalName(id);
+    ui.toast(t('animalNamed', spec.icon, aname), false, 4500);
     farm.syncAnimals();
     audio.animal(id);
     checkWealth();
@@ -1673,6 +1758,91 @@ export function createGame(ctx, mods) {
     return { goals, opp, won };
   }
 
+  // ---------- v11: Heli-Aufträge, Zucht, Logistik, Plantage, Ezan ----------
+  let heliJob = null;        // {type, stage, points, label}
+  let heliJobAt = -1;
+
+  function planHeliJob() {
+    heliJob = null;
+    heliJobAt = state.heli && Math.random() < CFG.heliJobs.chance
+      ? CFG.dayLengthSec * (0.15 + Math.random() * 0.45) : -1;
+  }
+
+  function spawnHeliJob(forceType = null) {
+    const HJ = CFG.heliJobs;
+    const type = forceType || (Math.random() < 0.6 ? 'rescue' : 'express');
+    if (type === 'rescue') {
+      const i = Math.floor(Math.random() * HJ.rescue.spots.length);
+      heliJob = { type, stage: 0, points: [HJ.rescue.spots[i]], spotIdx: i };
+      ui.toast(t('heliRescue', t('heliSpot' + i)), true, 10000);
+    } else {
+      heliJob = { type, stage: 0, points: [HJ.express.from, HJ.express.to] };
+      ui.toast(t('heliExpress'), true, 10000);
+    }
+    audio.orderDone();
+  }
+
+  function updateHeliJobs(dt) {
+    if (!state.heli) return;
+    if (!heliJob && heliJobAt >= 0 && state.timeSec >= heliJobAt) {
+      heliJobAt = -1;
+      spawnHeliJob();
+    }
+    if (!heliJob || !mods.heli || !mods.heli.driving || !mods.heli.grounded()) return;
+    const p = heliJob.points[heliJob.stage];
+    const hp = mods.heli.pos;
+    if (Math.hypot(hp.x - p.x, hp.z - p.z) > CFG.heliJobs.landRadius) return;
+    heliJob.stage += 1;
+    if (heliJob.stage < heliJob.points.length) {
+      audio.pickDone();
+      ui.toast(t('heliPickup'), true, 7000);
+      return;
+    }
+    const spec = heliJob.type === 'rescue' ? CFG.heliJobs.rescue : CFG.heliJobs.express;
+    heliJob = null;
+    state.money += spec.pay;
+    state.dayEarned += spec.pay;
+    state.totalEarned += spec.pay;
+    state.heliJobsDone += 1;
+    addRep(spec.rep);
+    audio.tierUp();
+    ui.toast(t('heliJobDone', fmtMoney(spec.pay, state.settings.lang)), true, 9000);
+    ui.refreshMoney();
+    save();
+  }
+
+  function assignAnimalName(type) {
+    const pool = CFG.breeding.names;
+    const used = state.animalNames[type] = state.animalNames[type] || [];
+    const free = pool.filter(n => !used.includes(n));
+    const name = free.length ? free[Math.floor(Math.random() * free.length)]
+      : pool[Math.floor(Math.random() * pool.length)];
+    used.push(name);
+    return name;
+  }
+
+  function buyOrchard() {
+    if (state.orchard || state.money < CFG.orchard.cost) { audio.deny(); return false; }
+    state.money -= CFG.orchard.cost;
+    state.daySpent += CFG.orchard.cost;
+    state.orchard = true;
+    if (mods.orchard) mods.orchard.syncOwned();
+    audio.plant();
+    ui.toast(t('orchardBought'), true, 7000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function setLogi(rule, v) {
+    if (!(rule in state.logi)) return false;
+    state.logi[rule] = !!v;
+    audio.buy();
+    save();
+    return true;
+  }
+
   function doSelaleRest() {
     if (state._selaleDone) { ui.toast(t('selaleAgain'), false); audio.deny(); return false; }
     state._selaleDone = true;
@@ -1984,6 +2154,19 @@ export function createGame(ctx, mods) {
     boat.nightMode = isNight();
     boat.netSeasonWinter = season() === 2;   // v8: Hamsi-Akını im Winter
 
+    // v11: Heli-Aufträge (muss VOR dem Heli-Early-Return laufen)
+    updateHeliJobs(dt);
+
+    // v11: Ezan — bewusst dezent: kurzer Hinweis, das Dorf sammelt sich
+    CFG.ezan.hours.forEach((h, i) => {
+      const key = '_ezan' + i;
+      if (!state[key] && sky.hour >= h && sky.hour < h + 0.5) {
+        state[key] = true;
+        ui.toast(t('ezanTime'), false, 6000);
+        if (mods.npcs) mods.npcs.gather(CFG.ezan.gatherSec);
+      }
+    });
+
     // v8: Rodeln hat eigene Steuerung/Kamera
     if (mods.sled && mods.sled.riding) {
       ui.setSpeed(null);
@@ -2012,6 +2195,7 @@ export function createGame(ctx, mods) {
     }
     // v10: Angel-Turnier auswerten
     if (fishTourn && state.timeSec >= fishTourn.end) endFishTourn();
+
 
     // v8: geführte Pansiyon-Tour
     if (tour) {
@@ -2215,6 +2399,8 @@ export function createGame(ctx, mods) {
     startDerby, buyMandira, buyRestaurant, buyHeli, doHalay, doSelaleRest,
     buyDolmus, placeSandbag, startFishTourn, collectItem, hiveReward,
     karsikoyPrice, sellKarsikoy, macResult, floodHit,
+    buyOrchard, setLogi, spawnHeliJob,
+    get heliJob() { return heliJob; },
     get derby() { return derby; },
     get floodToday() { return floodToday; },
     get fishTourn() { return fishTourn; },

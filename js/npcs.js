@@ -57,10 +57,23 @@ export function createNpcs(ctx, terrain, ui, player, shareFn) {
   })();
   npcs.push(kemal);
 
+  let gatherTimer = 0;
+
   return {
     count: npcs.length,
     list: () => npcs,
+    // v11: Ezan — die Kasaba-Bewohner sammeln sich ruhig beim Çayevi
+    gather(sec = 45) {
+      gatherTimer = sec;
+      for (const p of npcs) {
+        if (p.isKemal || p.zone.cx !== CFG.city.x) continue;
+        p.tx = CFG.city.x + 10 + (Math.random() - 0.5) * 5;
+        p.tz = CFG.city.z - 3 + (Math.random() - 0.5) * 4;
+        p.idle = sec;
+      }
+    },
     update(dt, elapsed) {
+      if (gatherTimer > 0) gatherTimer -= dt;
       greetCooldown -= dt;
       for (const p of npcs) {
         p.idle -= dt;

@@ -227,6 +227,15 @@ export function createAudio() {
         }
       }
     },
+    // v11: Feuerwerk — dumpfer Abschuss + Knall + Knistern
+    fireworkBoom() {
+      if (!started) return;
+      blip(70, 0.5, 'sine', 0.12);
+      noiseBurst(220, 0.6, 0.5, 0.14, 0.05);
+      for (let i = 0; i < 5; i++) {
+        noiseBurst(3200 + Math.random() * 2000, 2, 0.06, 0.04, 0.2 + i * 0.09);
+      }
+    },
     // v9: Davul & Zurna — kurzes Fest-Motiv, komplett prozedural
     davulZurna() {
       if (!started) return;

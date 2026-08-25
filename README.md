@@ -263,6 +263,26 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   Mini-Moschee, eigenem **Pazar** (Premium für Peynir, Honig & Hofprodukte)
   und dem Bolzplatz der „Karşıköy Gençlik" — Elfmeter-Duell mit Einsatz.
 
+### Heli-Aufträge, Feste & Automation (v11)
+- **🚁 Heli-Aufträge:** Mit eigenem Helikopter kommen Notrufe rein —
+  Bergrettung an Şelale, Yayla oder Nordkamm und Express-Lieferungen
+  Fabrik → Karşıköy. Landen im Zielgebiet genügt.
+- **🎆 Festivalnacht-Feuerwerk:** Am Abend jedes Festivals steigen
+  prozedurale Raketen überm Meer (Points + Additive Blending, mit Knall
+  und Knistern aus der WebAudio-Engine).
+- **🐄 Tierzucht:** Jedes Tier bekommt einen Namen (Sarıkız, Pamuk,
+  Karabaş…), ab zwei Tieren gibt es nachts Nachwuchs, und am Festival
+  läuft der **Preistier-Wettbewerb**.
+- **🚚 Şoför 2.0 (Lieferketten-Automation):** Neue Telefon-App „Lojistik"
+  mit drei Regeln — Auto-Export, Auto-Supermarkt (bis 10 Pakete/Tag) und
+  Auto-Pazar (Hofprodukte zum Karşıköy-Premium). Braucht Şoför + Pickup,
+  kostet Spesen pro Abend.
+- **🌰 Haselnuss-Plantage:** Eigener Hain am Osthang (20 strauchige
+  Bäume, Nüsse im Herbst sichtbar) — erntet jeden Herbstabend von selbst.
+- **🕌 Ezan-Tagesrhythmus:** Zweimal täglich ruft der Ezan — bewusst
+  dezent umgesetzt (kein Melodie-Imitat): kurzer Hinweis, und die
+  Kasaba-Bewohner sammeln sich ruhig beim Çayevi.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,
