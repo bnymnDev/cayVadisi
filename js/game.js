@@ -361,9 +361,10 @@ export function createGame(ctx, mods) {
     // Löhne zahlen (Winterpause: kein Lohn, keine Arbeit)
     if (state.workers > 0 && !CFG.seasonCycle.workersRest[season()]) {
       const mesai = CFG.decrees.list[state.decree] && CFG.decrees.list[state.decree].wageMul || 1;
-      const wages = Math.round(state.workers * CFG.workers.wage * mesai);
+      const okulRebate = state.village.okul === 2 ? CFG.village.wageRebate : 1;   // v13
+      const wages = Math.round(state.workers * CFG.workers.wage * mesai * okulRebate);
       state.money -= wages; state.daySpent += wages;
-      lines.push({ k: 'sumWages', v: '−' + fmtMoney(wages, L), sub: state.workers + ' 👷' });
+      lines.push({ k: 'sumWages', v: '−' + fmtMoney(wages, L), sub: state.workers + ' 👷' + (okulRebate < 1 ? ' 🏫−10%' : '') });
     }
     // Silo: Lager automatisch verkaufen (Basispreis)
     if (state.upgrades.silo) {
@@ -376,6 +377,16 @@ export function createGame(ctx, mods) {
         state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
         lines.push({ k: 'sumSilo', v: '+' + fmtMoney(sum, L) });
       }
+    }
+    // v13: fertige Dorfprojekte zahlen zurück
+    if (state.village.cayevi2 === 2) {
+      const inc = CFG.village.cayeviIncome;
+      state.money += inc; state.dayEarned += inc; state.totalEarned += inc;
+      lines.push({ k: 'sumCayevi', v: '+' + fmtMoney(inc, L) });
+    }
+    if (state.village.cami === 2 && isFestival()) {
+      state.moralDays += CFG.village.camiMoralDays;
+      lines.push({ k: 'sumCami', v: '+' + CFG.village.camiMoralDays + ' ☀️' });
     }
     // v12: Konak-Museum — Eintrittsgelder, Bonus bei kompletter Sammlung
     if (state.konak >= 3) {
@@ -407,6 +418,20 @@ export function createGame(ctx, mods) {
     if (season() !== prevSeason) {
       ui.toast(t('seasonChange', t('season_' + CFG.seasonCycle.names[season()])), true, 8000);
       if (season() === 2) ui.toast(t('winterInfo'), false, 8000);
+    }
+
+    // v13: Dorfprojekte bauen über Nacht weiter
+    for (const id of Object.keys(CFG.village.projects)) {
+      if (state.village[id] === 1) {
+        state.villageDays[id] -= 1;
+        if (state.villageDays[id] <= 0) {
+          state.village[id] = 2;
+          addRep(CFG.village.projects[id].rep);
+          if (mods.village) mods.village.sync();
+          ui.toast(t('villageFinished', t('vproj_' + id)), true, 9000);
+          audio.tierUp();
+        }
+      }
     }
 
     // Felder wachsen einen Tag weiter (Bewässerung: ein Extra-Tag; Winter: Frost)
@@ -2000,6 +2025,29 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ---------- v13: Dorf-Ausbau übers Muhtarlık ----------
+  function buyVillage(id) {
+    const P = CFG.village.projects[id];
+    if (!P || state.village[id] !== 0) { audio.deny(); return false; }
+    if (state.rep < CFG.village.minRep) {
+      ui.toast(t('villageNeedRep', CFG.village.minRep), false, 5000);
+      audio.deny();
+      return false;
+    }
+    if (state.money < P.cost) { audio.deny(); return false; }
+    state.money -= P.cost;
+    state.daySpent += P.cost;
+    state.village[id] = 1;
+    state.villageDays[id] = P.days;
+    if (mods.village) mods.village.sync();
+    audio.harvest();
+    ui.toast(t('villageFinanced', t('vproj_' + id)), true, 7000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
   function doSelaleRest() {
     if (state._selaleDone) { ui.toast(t('selaleAgain'), false); audio.deny(); return false; }
     state._selaleDone = true;
@@ -2188,6 +2236,7 @@ export function createGame(ctx, mods) {
     else if (act.id === 'konak') { player.releaseLock(); ui.showKonak(); }
     else if (act.id === 'meister') { if (startMeister()) { player.releaseLock(); ui.showMeister(); } }
     else if (act.id === 'cat') feedCat();
+    else if (act.id === 'muhtarlik') { player.releaseLock(); ui.showVillage(); }
   }
 
   window.addEventListener('keydown', (e) => {
@@ -2266,6 +2315,8 @@ export function createGame(ctx, mods) {
         && distTo(CFG.yayla.x + 6, CFG.yayla.z + 2) < CFG.interactDist + 2) return { id: 'hivegame' };
     if (distTo(CFG.karsikoy.market.x, CFG.karsikoy.market.z) < CFG.interactDist + 1.5) return { id: 'koymarket' };
     if (distTo(CFG.karsikoy.pitch.x, CFG.karsikoy.pitch.z) < CFG.interactDist + 2) return { id: 'mac' };
+    // v13
+    if (mods.village && mods.village.nearMuhtar(player.pos.x, player.pos.z)) return { id: 'muhtarlik' };
     // v12
     if (mods.gulet && mods.gulet.nearMooring(player.pos.x, player.pos.z)) return { id: 'gulet' };
     if (mods.konak && state.konak < 3 && mods.konak.near(player.pos.x, player.pos.z)) return { id: 'konak' };
@@ -2588,7 +2639,7 @@ export function createGame(ctx, mods) {
     karsikoyPrice, sellKarsikoy, macResult, floodHit,
     buyOrchard, setLogi, spawnHeliJob,
     planPhotoMission, photoTaken, buyGulet, startMeister, meisterResult,
-    restoreKonak, feedCat, buyJointVenture,
+    restoreKonak, feedCat, buyJointVenture, buyVillage,
     get photoMission() { return photoMission; },
     set photoMission(v) { photoMission = v; },
     get heliJob() { return heliJob; },
