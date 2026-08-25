@@ -68,6 +68,14 @@ export const state = {
   dog: false,               // Kangal-Hund
   prestige: 0,              // New-Game+-Sterne
 
+  // v8
+  net: false,               // Hamsi-Schleppnetz
+  decree: '',               // aktives Kararname ('' = keins)
+  moralDays: 0,             // Urlaubs-Moral-Bonus (Resttage)
+  holidays: 0,              // absolvierte Urlaube
+  maldivDone: false,        // Malediven-Prestige einmalig
+  raceBest: 0,              // Kayık-Bestzeit in s (0 = noch nie)
+
   // v5
   boat: false,
   rod: false,
@@ -169,7 +177,9 @@ export function save() {
     debt: s.debt, insured: s.insured, workerData: s.workerData, sofor: s.sofor,
     teaStyle: s.teaStyle, greenLine: s.greenLine, hives: s.hives, tavlaWins: s.tavlaWins,
     rep: s.rep, koop: s.koop, vehWear: s.vehWear, vehTuning: s.vehTuning,
-    dog: s.dog, prestige: s.prestige, hist: s.hist
+    dog: s.dog, prestige: s.prestige, hist: s.hist,
+    net: s.net, decree: s.decree, moralDays: s.moralDays, holidays: s.holidays,
+    maldivDone: s.maldivDone, raceBest: s.raceBest
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -239,6 +249,12 @@ export function load() {
     state.dog = d.dog ?? false;
     state.prestige = d.prestige ?? 0;
     state.hist = (d.hist && Array.isArray(d.hist.earned)) ? d.hist : { stocks: {}, earned: [] };
+    state.net = d.net ?? false;
+    state.decree = d.decree ?? '';
+    state.moralDays = d.moralDays ?? 0;
+    state.holidays = d.holidays ?? 0;
+    state.maldivDone = d.maldivDone ?? false;
+    state.raceBest = d.raceBest ?? 0;
     return true;
   } catch (e) { return false; }
 }
@@ -287,6 +303,9 @@ export function resetProgress() {
   state.vehWear = {}; state.vehTuning = {};
   state.dog = false;
   state.hist = { stocks: {}, earned: [] };
+  state.net = false; state.decree = '';
+  state.moralDays = 0; state.holidays = 0; state.maldivDone = false;
+  state.raceBest = 0;
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();

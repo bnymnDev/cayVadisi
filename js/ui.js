@@ -19,6 +19,7 @@ export function createUI(ctx, hooks) {
     superS: $('super-screen'), life: $('life-screen'),
     airportS: $('airport-screen'), eventS: $('event-screen'),
     workshop: $('workshop-screen'), album: $('album-screen'),
+    phone: $('phone-screen'),
     svHud: $('survival-hud'),
     speed: $('hud-speed'), tier: $('hud-tier'), touch: $('touch-controls'),
     loadFill: $('load-fill'), loadLabel: $('load-label'),
@@ -179,7 +180,8 @@ export function createUI(ctx, hooks) {
         || !els.airportS.classList.contains('hidden')
         || !els.eventS.classList.contains('hidden')
         || !els.workshop.classList.contains('hidden')
-        || !els.album.classList.contains('hidden');
+        || !els.album.classList.contains('hidden')
+        || !els.phone.classList.contains('hidden');
     },
     manageOpen() { return !els.manage.classList.contains('hidden'); },
     lifeOpen() { return !els.life.classList.contains('hidden'); },
@@ -188,7 +190,7 @@ export function createUI(ctx, hooks) {
       hide(els.farm); hide(els.market); hide(els.dealer); hide(els.manage);
       hide(els.travel); hide(els.factory); hide(els.superS); hide(els.life);
       hide(els.airportS); hide(els.eventS);
-      hide(els.workshop); hide(els.album);
+      hide(els.workshop); hide(els.album); hide(els.phone);
     },
 
     // ---------- v4: Survival-HUD ----------
@@ -219,9 +221,24 @@ export function createUI(ctx, hooks) {
           <div class="u-body"><div class="u-name">Almanya — Gurbetçi</div>
           <div class="u-desc">${t('almanyaDesc')}${state.gurbetci > 0 ? ` · ${t('gurbetciCount', state.gurbetci)}` : ''}</div></div>
           <button id="btn-fly-alm" ${state.money >= A.flights.almanya.cost ? '' : 'disabled'}>${fmtMoney(A.flights.almanya.cost, L)}</button>
-        </div>`;
+        </div>
+        <h3>🌴 ${t('vacTitle')}</h3>
+        <div class="section-info">${t('vacHint')}</div>`;
       $('btn-fly-ist').addEventListener('click', () => hooks.flyIstanbul());
       $('btn-fly-alm').addEventListener('click', () => hooks.flyAlmanya());
+      // v8: Urlaubsziele
+      for (const [id, V] of Object.entries(CFG.vacation.spots)) {
+        const locked = state.wealthTier < V.tier;
+        const row = document.createElement('div');
+        row.className = 'upgrade-item' + (locked ? ' owned' : '');
+        row.innerHTML = `
+          <div class="u-icon">${locked ? '🔒' : V.icon}</div>
+          <div class="u-body"><div class="u-name">${t('vac_' + id)}</div>
+          <div class="u-desc">${locked ? t('vacLocked', t('tierName' + V.tier)) : t('vacDesc_' + id)}</div></div>
+          <button ${locked || state.money < V.cost ? 'disabled' : ''}>${fmtMoney(V.cost, L)}</button>`;
+        if (!locked) row.querySelector('button').addEventListener('click', () => hooks.bookVacation(id));
+        body.appendChild(row);
+      }
     },
     showIstanbul() {
       const L = state.settings.lang;
@@ -249,6 +266,213 @@ export function createUI(ctx, hooks) {
       }
       if (!any) body.innerHTML += `<div class="section-info">${t('cityNoGoods')}</div>`;
       show(els.airportS);
+    },
+
+    // ---------- v8: Telefon ----------
+    _phoneApp: null,
+    phoneOpen() { return !els.phone.classList.contains('hidden'); },
+    showPhone(app = null) {
+      api._phoneApp = app;
+      api.renderPhone();
+      show(els.phone);
+    },
+    renderPhone() {
+      const L = state.settings.lang;
+      $('phone-clock').textContent = els.hudClock.textContent || '';
+      const body = $('phone-body');
+      const title = $('phone-title');
+      const app = api._phoneApp;
+      $('btn-phone-back').classList.toggle('hidden', !app);
+      if (!app) {
+        title.textContent = t('phoneTitle');
+        const APPS = [
+          ['hava', '⛅'], ['piyasa', '📊'], ['banka', '💳'],
+          ['borsa', '📈'], ['taksi', '🚕'], ['karar', '📜'],
+          ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
+        ];
+        body.innerHTML = `<div class="app-grid">${APPS.map(([id, ic]) =>
+          `<button class="app-btn" data-app="${id}"><span>${ic}</span><em>${t('app_' + id)}</em></button>`).join('')}</div>`;
+        body.querySelectorAll('.app-btn').forEach(b => b.addEventListener('click', () => {
+          const id = b.dataset.app;
+          if (id === 'album') { hide(els.phone); api.showAlbum(); return; }
+          if (id === 'kamera') { hooks.enterPhoto(); return; }
+          api._phoneApp = id;
+          api.renderPhone();
+        }));
+        return;
+      }
+      title.textContent = t('app_' + app);
+      if (app === 'hava') {
+        const f = hooks.forecast();
+        const fmtH = (h) => String(Math.floor(h)).padStart(2, '0') + ':' + String(Math.floor((h % 1) * 60)).padStart(2, '0');
+        let html = `<div class="section-info">${SEASON_ICONS[f.season]} ${t('season_' + CFG.seasonCycle.names[f.season])}${f.fog ? ' · 🌫️ ' + t('fogWarn') : ''}</div>`;
+        if (!f.showers.length) html += `<div class="upgrade-item"><div class="u-icon">☀️</div><div class="u-body"><div class="u-name">${t('noRainToday')}</div></div></div>`;
+        for (const s of f.showers) {
+          html += `<div class="upgrade-item"><div class="u-icon">${s.storm ? '⛈️' : '🌧️'}</div>
+            <div class="u-body"><div class="u-name">${fmtH(s.from)} – ${fmtH(s.to)}</div>
+            <div class="u-desc">${s.storm ? t('stormWarn') : t('rainPlain')}</div></div></div>`;
+        }
+        body.innerHTML = html;
+      } else if (app === 'piyasa') {
+        const tips = hooks.marketTips();
+        let html = `<div class="section-info">${t('piyasaHint')}</div>`;
+        for (const [id, mul] of tips.top) {
+          html += `<div class="upgrade-item"><div class="u-icon">${CFG.products[id].icon}</div>
+            <div class="u-body"><div class="u-name">${t('prod_' + id)} <span class="price-up">▲ ${Math.round((mul - 1) * 100)} %</span></div></div></div>`;
+        }
+        for (const s of tips.stocks) {
+          html += `<div class="upgrade-item"><div class="u-icon">📈</div>
+            <div class="u-body"><div class="u-name">${CFG.life.stocks[s.id].name}
+            <span class="${s.chg >= 0 ? 'price-up' : 'price-down'}">${s.chg >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(s.chg * 100))} %</span></div></div></div>`;
+        }
+        body.innerHTML = html;
+      } else if (app === 'banka') {
+        const B = CFG.bank;
+        let html = `<div class="manage-count">${state.debt > 0 ? '💳 −' + fmtMoney(state.debt, L) : '✅'}</div>`;
+        if (state.debt > 0) {
+          html += `<button id="ph-repay" class="big-btn">${t('repayBtn', fmtMoney(Math.min(state.debt, state.money), L))}</button>`;
+        } else {
+          html += `<div class="btn-row">${B.loans.map((amt, i) =>
+            `<button class="big-btn ph-loan" data-i="${i}">${t('loanBtn')} ${fmtMoney(amt, L)}</button>`).join('')}</div>`;
+        }
+        html += `<button id="ph-insure" class="big-btn ${state.insured ? '' : 'ghost'}">
+          ${state.insured ? '🛡️ ' + t('insuranceOn') : t('insuranceOff')}</button>`;
+        body.innerHTML = html;
+        const rp = $('ph-repay');
+        if (rp) rp.addEventListener('click', () => { hooks.repayLoan(); api.renderPhone(); });
+        body.querySelectorAll('.ph-loan').forEach(b => b.addEventListener('click', () => {
+          hooks.takeLoan(parseInt(b.dataset.i, 10));
+          api.renderPhone();
+        }));
+        $('ph-insure').addEventListener('click', () => { hooks.toggleInsurance(); api.renderPhone(); });
+      } else if (app === 'borsa') {
+        body.innerHTML = '';
+        for (const [id, s] of Object.entries(CFG.life.stocks)) {
+          const price = state.stockPrices[id] || s.p0;
+          const row = document.createElement('div');
+          row.className = 'upgrade-item';
+          row.innerHTML = `<div class="u-icon">📈</div>
+            <div class="u-body"><div class="u-name">${s.name}</div>
+            <div class="u-desc">${fmtMoney(price, L)} · ${t('stockOwned', state.stocks[id] || 0)}</div></div>
+            <div class="btn-mini-row"><button data-n="-5">−5</button><button data-n="5">+5</button></div>`;
+          row.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+            hooks.tradeStock(id, parseInt(b.dataset.n, 10));
+            api.renderPhone();
+          }));
+          body.appendChild(row);
+        }
+      } else if (app === 'taksi') {
+        let html = `<div class="section-info">${t('taxiHint')}</div>`;
+        body.innerHTML = html;
+        for (const id of Object.keys(CFG.phone.taxi.spots)) {
+          const cost = hooks.taxiCost(id);
+          const row = document.createElement('div');
+          row.className = 'upgrade-item';
+          row.innerHTML = `<div class="u-icon">🚕</div>
+            <div class="u-body"><div class="u-name">${t('taxi_' + id)}</div></div>
+            <button ${state.money < cost ? 'disabled' : ''}>${fmtMoney(cost, L)}</button>`;
+          row.querySelector('button').addEventListener('click', () => {
+            if (hooks.callTaxi(id)) hooks.closeShop();
+          });
+          body.appendChild(row);
+        }
+      } else if (app === 'karar') {
+        const D = CFG.decrees;
+        let html = `<div class="section-info">${t('decreeHint', fmtMoney(D.switchCost, L))}</div>`;
+        body.innerHTML = html;
+        for (const id of Object.keys(D.list)) {
+          const activeD = state.decree === id;
+          const row = document.createElement('div');
+          row.className = 'upgrade-item' + (activeD ? ' owned' : '');
+          row.innerHTML = `<div class="u-icon">${activeD ? '✅' : '📜'}</div>
+            <div class="u-body"><div class="u-name">${t('decree_' + id)}</div>
+            <div class="u-desc">${t('decreeDesc_' + id)}</div></div>
+            <button ${activeD ? 'disabled' : ''}>${activeD ? '✓' : t('decreeUse')}</button>`;
+          if (!activeD) row.querySelector('button').addEventListener('click', () => {
+            if (hooks.setDecree(id)) api.renderPhone();
+          });
+          body.appendChild(row);
+        }
+        if (state.decree) {
+          const off = document.createElement('button');
+          off.className = 'big-btn ghost';
+          off.textContent = t('decreeAbolish');
+          off.addEventListener('click', () => { hooks.setDecree(''); api.renderPhone(); });
+          body.appendChild(off);
+        }
+      } else if (app === 'radyo') {
+        const name = hooks.radioNext();
+        body.innerHTML = `<div class="manage-count">📻</div>
+          <div class="section-info" style="text-align:center">${name || t('radioOff')}</div>
+          <div class="section-info">${t('radioHint')}</div>`;
+      }
+    },
+
+    // ---------- v8: Urlaubs-Postkarte ins Album ----------
+    albumAddPostcard(spot) {
+      const c = document.createElement('canvas');
+      c.width = 640; c.height = 360;
+      const g2 = c.getContext('2d');
+      const skyG = g2.createLinearGradient(0, 0, 0, 200);
+      const seaCol = spot === 'maldiv' ? '#31c6b4' : spot === 'fethiye' ? '#2795c9' : '#2e6f9e';
+      skyG.addColorStop(0, spot === 'izmir' ? '#f2a65e' : '#7ec3e8');
+      skyG.addColorStop(1, '#e8ddc8');
+      g2.fillStyle = skyG;
+      g2.fillRect(0, 0, 640, 220);
+      g2.fillStyle = '#f7d774';
+      g2.beginPath(); g2.arc(520, 70, 34, 0, Math.PI * 2); g2.fill();
+      g2.fillStyle = seaCol;
+      g2.fillRect(0, 200, 640, 160);
+      g2.fillStyle = 'rgba(255,255,255,0.35)';
+      for (let i = 0; i < 7; i++) g2.fillRect(20 + i * 90, 226 + (i % 3) * 26, 52, 3);
+      if (spot === 'antalya' || spot === 'fethiye') {
+        g2.fillStyle = '#e8d9ad'; g2.beginPath();
+        g2.moveTo(0, 360); g2.quadraticCurveTo(240, 280, 640, 356); g2.lineTo(640, 360); g2.fill();
+        g2.strokeStyle = '#5a3d20'; g2.lineWidth = 7;
+        g2.beginPath(); g2.moveTo(90, 330); g2.quadraticCurveTo(102, 260, 130, 232); g2.stroke();
+        g2.fillStyle = '#2f7d32';
+        for (let i = 0; i < 5; i++) {
+          g2.beginPath();
+          g2.ellipse(130 + Math.cos(i * 1.26) * 38, 232 + Math.sin(i * 1.26) * 14, 34, 9, i * 1.26, 0, Math.PI * 2);
+          g2.fill();
+        }
+      }
+      if (spot === 'fethiye') {
+        g2.fillStyle = '#d0392b';
+        g2.beginPath(); g2.moveTo(430, 60); g2.quadraticCurveTo(470, 30, 510, 60);
+        g2.quadraticCurveTo(470, 74, 430, 60); g2.fill();
+        g2.strokeStyle = '#333'; g2.lineWidth = 1.5;
+        g2.beginPath(); g2.moveTo(452, 66); g2.lineTo(468, 96); g2.lineTo(486, 66); g2.stroke();
+        g2.fillStyle = '#333'; g2.fillRect(464, 94, 8, 10);
+      }
+      if (spot === 'maldiv') {
+        g2.fillStyle = '#c9a06a';
+        for (let i = 0; i < 3; i++) {
+          g2.fillRect(150 + i * 140, 236, 8, 60);
+          g2.fillRect(190 + i * 140, 236, 8, 60);
+          g2.fillStyle = '#8a5c36';
+          g2.fillRect(130 + i * 140, 214, 90, 34);
+          g2.beginPath(); g2.moveTo(120 + i * 140, 216); g2.lineTo(175 + i * 140, 186); g2.lineTo(230 + i * 140, 216); g2.closePath();
+          g2.fillStyle = '#d9c9a0'; g2.fill();
+          g2.fillStyle = '#c9a06a';
+        }
+      }
+      if (spot === 'izmir') {
+        g2.fillStyle = '#e8e2d4';
+        g2.fillRect(300, 90, 40, 140);
+        g2.fillRect(290, 84, 60, 10);
+        g2.beginPath(); g2.moveTo(292, 84); g2.lineTo(320, 48); g2.lineTo(348, 84); g2.closePath(); g2.fill();
+        g2.fillStyle = '#3a3f45';
+        g2.beginPath(); g2.arc(320, 120, 12, 0, Math.PI * 2); g2.fill();
+        g2.fillStyle = '#e8e2d4';
+        g2.beginPath(); g2.arc(320, 120, 9, 0, Math.PI * 2); g2.fill();
+      }
+      g2.fillStyle = 'rgba(30,40,35,0.75)';
+      g2.fillRect(0, 316, 640, 44);
+      g2.fillStyle = '#f4efe4';
+      g2.font = 'bold 24px Georgia, serif';
+      g2.fillText('🌴 ' + t('vac_' + spot) + ' — ' + t('day') + ' ' + state.day, 18, 346);
+      api.albumAdd(c.toDataURL('image/jpeg', 0.85));
     },
 
     // ---------- v7: Werkstatt (Sanayi) ----------
@@ -406,11 +630,75 @@ export function createUI(ctx, hooks) {
         });
         box.appendChild(b);
       }
+      // v8: Çay-Ustası-Minispiel
+      const brew = document.createElement('button');
+      brew.className = 'big-btn ghost';
+      brew.textContent = '🫖 ' + t('brewBtn');
+      brew.addEventListener('click', () => api.showBrew());
+      box.appendChild(brew);
       const leave = document.createElement('button');
       leave.className = 'big-btn ghost';
       leave.textContent = t('back');
       leave.addEventListener('click', () => hooks.closeShop());
       box.appendChild(leave);
+      show(els.eventS);
+    },
+
+    // ---------- v8: Çay-Ustası (Demlik-Timing) ----------
+    showBrew() {
+      $('event-icon').textContent = '🫖';
+      $('event-title').textContent = t('brewTitle');
+      $('event-text').innerHTML = `${t('brewIntro')}<div class="brew-bar"><div class="brew-zone"></div><div id="brew-pin"></div></div>`;
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const scores = [];
+      let u = 0, dir = 1, raf = 0, running2 = true;
+      const pin = () => $('brew-pin');
+      const speed = 0.9;
+      let last = performance.now();
+      const loop = (now) => {
+        if (!running2) return;
+        const dt2 = Math.min((now - last) / 1000, 0.05);
+        last = now;
+        u += dir * speed * dt2;
+        if (u > 1) { u = 1; dir = -1; }
+        if (u < 0) { u = 0; dir = 1; }
+        const p = pin();
+        if (p) p.style.left = (u * 100) + '%';
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      const b = document.createElement('button');
+      b.className = 'big-btn';
+      b.textContent = t('brewNow') + ' (1/3)';
+      b.addEventListener('click', () => {
+        const score = Math.max(0, 1 - Math.abs(u - 0.5) / 0.5 * 1.6);
+        scores.push(Math.min(1, score));
+        if (scores.length >= 3) {
+          running2 = false;
+          cancelAnimationFrame(raf);
+          const sum = hooks.brewReward(scores);
+          const avg = scores.reduce((a2, b2) => a2 + b2, 0) / 3;
+          $('event-text').innerHTML = `${avg > 0.85 ? t('brewPerfect') : avg > 0.5 ? t('brewOk') : t('brewWeak')}<br><b>+${fmtMoney(sum, state.settings.lang)}</b>`;
+          box.innerHTML = '';
+          const again = document.createElement('button');
+          again.className = 'big-btn';
+          again.textContent = t('tavlaAgain');
+          again.addEventListener('click', () => api.showBrew());
+          const done = document.createElement('button');
+          done.className = 'big-btn ghost';
+          done.textContent = t('back');
+          done.addEventListener('click', () => hooks.closeShop());
+          box.append(again, done);
+        } else {
+          b.textContent = t('brewNow') + ' (' + (scores.length + 1) + '/3)';
+        }
+      });
+      const leave2 = document.createElement('button');
+      leave2.className = 'big-btn ghost';
+      leave2.textContent = t('back');
+      leave2.addEventListener('click', () => { running2 = false; cancelAnimationFrame(raf); hooks.closeShop(); });
+      box.append(b, leave2);
       show(els.eventS);
     },
 
@@ -843,9 +1131,14 @@ export function createUI(ctx, hooks) {
           <div class="u-icon">${p.icon}</div>
           <div class="u-body"><div class="u-name">${t('prod_' + id)} × ${have} ${trend}</div>
           <div class="u-desc">${fmtMoney(price, L)} / Stk</div></div>
+          <button class="mk-haggle" title="${t('haggleTitle')}">🗣️</button>
           <button data-id="${id}">${fmtMoney(have * price, L)}</button>`;
-        row.querySelector('button').addEventListener('click', () => {
+        row.querySelector('button[data-id]').addEventListener('click', () => {
           hooks.sellProduct(id, have);
+          api.renderMarket();
+        });
+        row.querySelector('.mk-haggle').addEventListener('click', () => {
+          hooks.haggleSell(id);
           api.renderMarket();
         });
         list.appendChild(row);
@@ -866,6 +1159,20 @@ export function createUI(ctx, hooks) {
           <button ${state.money < CFG.fishing.rodCost ? 'disabled' : ''}>${fmtMoney(CFG.fishing.rodCost, L)}</button>`;
         row.querySelector('button').addEventListener('click', () => {
           if (hooks.buyRod()) api.renderMarket();
+        });
+        list.appendChild(row);
+      }
+      // v8: Hamsi-Schleppnetz
+      if (!state.net) {
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        row.innerHTML = `
+          <div class="u-icon">🕸️</div>
+          <div class="u-body"><div class="u-name">${t('netName')}</div>
+          <div class="u-desc">${t('netDesc')}</div></div>
+          <button ${state.money < CFG.net.cost ? 'disabled' : ''}>${fmtMoney(CFG.net.cost, L)}</button>`;
+        row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyNet()) api.renderMarket();
         });
         list.appendChild(row);
       }
@@ -1242,6 +1549,15 @@ export function createUI(ctx, hooks) {
   $('btn-save-import').addEventListener('click', () => $('inp-save-import').click());
   $('btn-travel-close').addEventListener('click', () => hooks.closeShop());
   $('btn-workshop-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-phone-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-phone-back').addEventListener('click', () => {
+    if (api._phoneApp) { api._phoneApp = null; api.renderPhone(); }
+    else hooks.closeShop();
+  });
+  $('btn-phone').addEventListener('click', () => {
+    if (api.phoneOpen()) { hooks.closeShop(); return; }
+    if (!api.overlayOpen()) api.showPhone();
+  });
   $('btn-album-close').addEventListener('click', () => { hide(els.album); if (!els.pause.classList.contains('hidden')) return; hooks.closeShop(); });
   $('btn-album').addEventListener('click', () => { api.showAlbum(); });
   $('btn-airport-close').addEventListener('click', () => hooks.closeShop());

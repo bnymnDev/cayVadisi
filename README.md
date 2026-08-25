@@ -40,6 +40,7 @@ alles liegt im Repo (offline lauffähig, direkt hostbar auf jedem Webspace).
 | `Tab` | Betriebs-Panel (Arbeiter · Lager · Bilanz) |
 | `P` | Privatleben (Profil · Familie · Immobilien · Börse) |
 | `M` | Minimap ein/aus |
+| `N` | 📱 ÇayFon-Telefon (Wetter · Taxi · Bank · Dekrete …) |
 | `V` | First-/Third-Person-Ansicht |
 | `H` | Hupe (im Fahrzeug) |
 | `Leertaste` | Handbremse / Drift (im Fahrzeug) |
@@ -139,11 +140,11 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
 - **Gamepad-Support** und **Spielstand-Export/-Import** als Datei.
 
 ### Wirtschaft, Alltag & Teilen (v6)
-- **🌐 Online spielbar:** Das Spiel deployt automatisch auf GitHub Pages
-  (Workflow in `.github/workflows/pages.yml`). Auf `*.github.io` schützt ein
-  **PIN-Gate** (Standard-Code: `cay1453`, änderbar in `js/gate.js`) vor
-  zufälligen Besuchern — echter Zugriffsschutz ist auf Pages technisch nicht
-  möglich, der Code bleibt öffentlich.
+- **🌐 Deployment:** bewusst **kein GitHub Pages** (Repo bleibt privat).
+  Geplant ist eine **Subdomain auf nesbun.de** — einfach alle Dateien 1:1 auf
+  statisches Hosting laden (kein Build-Schritt nötig). Das **PIN-Gate**
+  (Standard-Code: `cay1453`, änderbar in `js/gate.js`) ist auf `*.nesbun.de`
+  bereits aktiv; localhost bleibt offen.
 - **📱 PWA:** „Zum Startbildschirm hinzufügen" — läuft dank Service Worker
   komplett offline wie eine echte App.
 - **📻 Autoradio [R]:** Prozedural erzeugte Musik im Fahrzeug — Radyo
@@ -187,6 +188,40 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   Erfolge bleiben.
 - **📈 Preis-Charts:** Kursverläufe aller Aktien und deiner Tageseinnahmen
   als Mini-Charts in Börse und Bilanz.
+
+### İstanbul, Urlaub & das große Leben (v8)
+- **🕌 İstanbul begehbar:** Der Flug landet jetzt in einem eigenen
+  Bosporus-Viertel — Kai mit Kapalıçarşı (Premium-Verkauf), Moscheen,
+  Galata-Turm, beleuchtete Bosporus-Brücke, Kız Kulesi, fahrende Fähren,
+  Passanten und **echte Wasserspiegelung** (three.js Reflector). Der Vapur
+  bringt dich zurück ins Tal.
+- **🌴 Urlaub:** İzmir, Antalya, Fethiye-Ölüdeniz — und die **Malediven** als
+  Luxusreise (bringt einmalig Dorf-Ruf). Urlaub kostet den Resttag, gibt volle
+  Energie, 3 Tage +10 % auf alle Verkäufe und eine gezeichnete **Postkarte im
+  Album**.
+- **📱 ÇayFon [N]:** In-Game-Smartphone mit 9 Apps — ehrliche
+  **Wettervorhersage** (echte Schauer-/Sturmzeiten des Tages!),
+  Piyasa-Markttipps, Bank, Börse, **Dolmuş-Taxi** (Fast Travel, GTA-Style),
+  Kararname, Album, Radio und Kamera.
+- **📜 Kararname (Tropico-Feeling):** Ein Dekret gleichzeitig — Çay-Subvention,
+  Reklam-Kampagne, Gece Mesaisi oder Pazar-Steuer, jedes mit Preis und
+  Nebenwirkung.
+- **🐟 Hamsi-Fischerei:** Schleppnetz (Ağ) kaufen und in voller Fahrt
+  auswerfen — im Winter läuft der **Hamsi-Akını** mit doppeltem Schwarm.
+  🐬 Delfine begleiten schnelle Boote.
+- **🐻 Bär:** Streift nachts durchs Teefeld und klaut Korbernte — der Kangal
+  stellt sich ihm in den Weg.
+- **🏁 Kayık-Rennen:** Bojen-Zeitrennen vor der Küste gegen Temels Bestzeit
+  (Preisgeld + Ruf).
+- **🫖 Çay-Ustası:** Aufbrüh-Minispiel im Çayevi — dreimal die grüne Zone
+  treffen, dann ist der Tee „tavşan kanı".
+- **🗣️ Pazarlık:** Am Markt feilschen — mit gutem Ruf steigen die Chancen
+  auf +30 %.
+- **🏨 Pansiyon-Tourismus:** Eigene Pension mit ruf-abhängigen
+  Gäste-Einnahmen, Touristen im Sommer und geführter **Tal-Tour** (Teefeld →
+  Alım Yeri → İskele) gegen Geld & Ruf.
+- **🛷 Rodelhang:** Im Winter mit dem Holzschlitten den Hang hinunter.
+- **📻 Radyo-News:** Beim Fahren tickern echte Wetter- und Markt-Nachrichten.
 
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.

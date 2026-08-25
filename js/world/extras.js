@@ -393,10 +393,78 @@ export function createExtras(ctx, terrain, mats) {
     scene.add(kacakShip);
   }
 
+  // ---------- v8: Pansiyon am Küstenweg (sichtbar nach Kauf) ----------
+  const pensionGroup = new THREE.Group();
+  const tourists = [];
+  {
+    const P = CFG.pension;
+    const y = terrain.heightAt(P.x, P.z);
+    pensionGroup.position.set(P.x, y, P.z);
+    pensionGroup.rotation.y = P.ry;
+    const bodyM = new THREE.Mesh(new THREE.BoxGeometry(7, 5.4, 5.5), mats.woodMat);
+    bodyM.position.y = 2.7;
+    pensionGroup.add(bodyM);
+    for (const sgn of [-1, 1]) {
+      const r = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.1, 6.1), mats.steelMat);
+      r.position.set(sgn * 1.75, 6.1, 0);
+      r.rotation.z = -sgn * 0.5;
+      pensionGroup.add(r);
+    }
+    const winM = new THREE.MeshStandardMaterial({ color: 0x27333d, roughness: 0.2, emissive: 0xffb066, emissiveIntensity: 0.5 });
+    for (let i = 0; i < 3; i++) {
+      for (let fl = 0; fl < 2; fl++) {
+        const win = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.8), winM);
+        win.position.set(-2.1 + i * 2.1, 1.6 + fl * 2.2, 2.78);
+        pensionGroup.add(win);
+      }
+    }
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.6, 0.8),
+      new THREE.MeshStandardMaterial({ map: makeSignTexture('ÇAY VADİSİ PANSİYON', '#3f6d9a'), roughness: 0.6 })
+    );
+    sign.position.set(0, 5.2, 2.85);
+    pensionGroup.add(sign);
+    pensionGroup.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    pensionGroup.visible = false;
+    scene.add(pensionGroup);
+
+    // Touristen (sommers vor dem Haus)
+    const cols = [0xe3c24f, 0x4a7d8a, 0xc9762c];
+    for (let i = 0; i < 3; i++) {
+      const tg = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.7, 4, 8),
+        new THREE.MeshStandardMaterial({ color: cols[i], roughness: 0.9 }));
+      body.position.y = 0.8;
+      tg.add(body);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 8, 6),
+        new THREE.MeshStandardMaterial({ color: 0xdcb695, roughness: 0.8 }));
+      head.position.y = 1.5;
+      tg.add(head);
+      const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.06, 10),
+        new THREE.MeshStandardMaterial({ color: 0xf0e8d0, roughness: 0.9 }));
+      hat.position.y = 1.66;
+      tg.add(hat);
+      tg.visible = false;
+      scene.add(tg);
+      tourists.push({ m: tg, a: i * 2.1, r: 3.5 + i });
+    }
+  }
+  function syncPension() {
+    pensionGroup.visible = !!state.properties.pansiyon;
+    const has = colliders.some(c => c._pen);
+    if (state.properties.pansiyon && !has) {
+      colliders.push({ x: CFG.pension.x, z: CFG.pension.z, r: 4.2, _pen: true });
+    }
+  }
+  syncPension();
+  let summerNow = false;
+
   return {
     colliders,
     syncFactory,
     syncHome,
+    syncPension,
+    setSummer(v) { summerNow = !!v; },
     setLabel,
     setFestival(v) { bunting.visible = !!v; },
     setNight(v) { kacakShip.visible = !!v; },
@@ -416,6 +484,17 @@ export function createExtras(ctx, terrain, mats) {
           p.s.scale.setScalar(0.8 + p.t * 2.6);
           p.s.material.opacity = 0.34 * (1 - p.t);
         }
+      }
+      // v8: Touristen schlendern im Sommer vor der Pansiyon
+      const showTour = pensionGroup.visible && summerNow;
+      for (const tr2 of tourists) {
+        tr2.m.visible = showTour;
+        if (!showTour) continue;
+        tr2.a += dt * 0.25;
+        const tx = CFG.pension.x + Math.cos(tr2.a) * tr2.r;
+        const tz = CFG.pension.z + 4 + Math.sin(tr2.a) * 2.2;
+        tr2.m.position.set(tx, terrain.heightAt(tx, tz), tz);
+        tr2.m.rotation.y = -tr2.a;
       }
       // Jandarma-Blaulicht blitzt abends
       const dark = Math.max(0, 1 - elevN * 2.5);

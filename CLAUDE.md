@@ -17,5 +17,9 @@ komplett offline, DE/TR). Start: `npm start` → `http://localhost:8137`.
 ## Roadmap / Merker
 - **Multiplayer (Koop im Tal): vom Nutzer gewünscht, bewusst NOCH NICHT eingebaut.**
   Wenn es soweit ist: kleiner WebSocket-Server + Positions-/State-Sync, Save bleibt lokal.
-- Ideen-Backlog: Bootfahren, Angeln, Jahreszeiten (Schnee), Foto-Modus,
-  TRELLIS-2-Pipeline für eigene Bild→3D-Assets (lokal generieren, als glTF ablegen).
+- **Deployment: KEIN GitHub Pages** (Repo bleibt privat, kein Plan-Upgrade). Ziel ist
+  eine **Subdomain auf nesbun.de** — statisches Hosting reicht (Dateien 1:1 hochladen),
+  das PIN-Gate (js/gate.js, PIN cay1453) ist bereits auf `*.nesbun.de` scharf.
+- İstanbul-Viertel: eigene Höhen-Zone via `terrain.addHeightZone` — wird bewusst NACH
+  Terrain-Mesh & Minimap registriert, sonst erscheint die Kai-Platte im Gelände.
+- Ideen-Backlog: TRELLIS-2-Pipeline für eigene Bild→3D-Assets (lokal generieren, als glTF ablegen).

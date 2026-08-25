@@ -152,7 +152,8 @@ export const CFG = {
     properties: {
       yayla:     { cost: 8000,  rent: 90,  icon: '🛖' },
       townhouse: { cost: 22000, rent: 260, icon: '🏘️' },
-      villa:     { cost: 65000, rent: 750, icon: '🏛️' }
+      villa:     { cost: 65000, rent: 750, icon: '🏛️' },
+      pansiyon:  { cost: 15000, rent: 0,   icon: '🏨' }   // v8: Gäste zahlen je nach Ruf
     },
     stocks: {
       krd: { name: 'Kardemir Çelik', p0: 45 },
@@ -341,6 +342,74 @@ export const CFG = {
 
   // ---- v7: Preis-Historie ----
   history: { days: 28 },
+
+  // ---- v8: İstanbul-Ausflug (begehbares Viertel in der SW-Seeecke) ----
+  istanbul: {
+    zone: { x0: -196, x1: -104, z0: -197, z1: -146, h: 0.5 },   // Kai-Plattform
+    spawn: { x: -150, z: -168 },
+    gate: { x: -118, z: -168 },        // Rückflug-Punkt (Vapur-Anleger)
+    bazaar: { x: -168, z: -186 }       // Kapalıçarşı-Stände (Premium-Verkauf)
+  },
+
+  // ---- v8: Urlaub ----
+  vacation: {
+    moralDays: 3, moralBonus: 1.1,     // nach dem Urlaub: +10 % Verkauf für 3 Tage
+    spots: {
+      izmir:   { cost: 1800,  tier: 0, icon: '🕰️' },
+      antalya: { cost: 2600,  tier: 1, icon: '🏖️' },
+      fethiye: { cost: 3400,  tier: 2, icon: '🪂' },
+      maldiv:  { cost: 24000, tier: 4, icon: '🏝️' }
+    },
+    maldivPrestigeRep: 6               // Malediven: einmalig +Ruf (man redet im Dorf!)
+  },
+
+  // ---- v8: Telefon ----
+  phone: {
+    taxi: {
+      perMeter: 1.6, min: 60, hours: 0.4,
+      spots: {
+        home:    { x: 16,  z: -100 },
+        hut:     { x: -25, z: -106 },
+        farm:    { x: -94, z: -94 },
+        city:    { x: 112, z: -100 },
+        factory: { x: -66, z: -110 },
+        yayla:   { x: 26,  z: 92 },
+        airport: { x: 146, z: -60 }
+      }
+    }
+  },
+
+  // ---- v8: Kararname (Tropico-Dekrete, eins aktiv) ----
+  decrees: {
+    switchCost: 500,
+    list: {
+      subvansiyon: { upkeep: 100, teaMul: 1.1 },
+      reklam:      { upkeep: 150, packsPerDay: 3 },
+      mesai:       { upkeep: 0,   workerSpeed: 1.2, wageMul: 1.25 },
+      vergi:       { upkeep: 0,   income: 250, repPerDay: 1 }
+    }
+  },
+
+  // ---- v8: Hamsi-Netz & Wildtiere ----
+  net: { cost: 400, trawlSec: 12, min: 6, max: 14, winterMul: 2, minSpeed: 2.2 },
+  bear: { hourFrom: 21, chance: 0.5, basketLoss: 0.25, speed: 2.6 },
+
+  // ---- v8: Kayık-Rennen ----
+  race: {
+    start: { x: 96, z: -170 },
+    buoys: [ { x: 60, z: -186 }, { x: 30, z: -160 }, { x: 64, z: -148 }, { x: 96, z: -152 } ],
+    radius: 9, targetSec: 75, prize: 800, rep: 2
+  },
+
+  // ---- v8: Pansiyon-Tourismus ----
+  pension: {
+    x: 46, z: -116, ry: 0.3,
+    guestPay: 140, maxGuests: 4,
+    tour: { pay: 400, rep: 2, stops: [ { x: 4, z: -30 }, { x: -25, z: -106 }, { x: 108, z: -132 } ] }
+  },
+
+  // ---- v8: Winter-Rodelhang ----
+  sled: { top: { x: 60, z: -26 }, minSnow: 0.6 },   // offener Hang östlich vom Teefeld
 
   // ---- v4: Rollen ----
   roles: {

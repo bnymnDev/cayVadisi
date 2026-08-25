@@ -59,8 +59,16 @@ const FLATS = [
 ];
 for (const f of FLATS) f.h = baseHeight(f.x, f.z);
 
+// v8: nachträglich registrierte Flach-Zonen (z. B. İstanbul-Kai) — werden erst
+// NACH dem Mesh-Bau angemeldet, damit das sichtbare Gelände unverändert bleibt.
+const ZONES = [];
+export function addHeightZone(zn) { ZONES.push(zn); }
+
 const TERRACE = 1.15;
 export function heightAt(x, z) {
+  for (const zn of ZONES) {
+    if (x >= zn.x0 && x <= zn.x1 && z >= zn.z0 && z <= zn.z1) return zn.h;
+  }
   let h = baseHeight(x, z);
   const w = fieldMask(x, z);
   if (w > 0.001) {
@@ -226,7 +234,7 @@ export function createTerrain(ctx) {
   mesh.name = 'terrain';
   ctx.scene.add(mesh);
   return {
-    mesh, heightAt, normalAt, fieldMask, pathWeight,
+    mesh, heightAt, normalAt, fieldMask, pathWeight, addHeightZone,
     setSeason(snow, autumn) {
       seasonUniforms.uSnow.value = snow;
       seasonUniforms.uAutumn.value = autumn;

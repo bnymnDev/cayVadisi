@@ -154,6 +154,33 @@ export function createBoat(ctx, terrain, player, audio, ui) {
   const camTarget = new THREE.Vector3();
   const camPos = new THREE.Vector3();
 
+  // ---- v8: Delfin-Schule begleitet das Boot auf offener See ----
+  const dolphins = [];
+  {
+    const gray = new THREE.MeshStandardMaterial({ color: 0x7a8a96, roughness: 0.5 });
+    for (let i = 0; i < 3; i++) {
+      const d = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.9, 4, 8), gray);
+      body.rotation.x = Math.PI / 2;
+      d.add(body);
+      const fin = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.32, 5), gray);
+      fin.position.set(0, 0.28, -0.1);
+      d.add(fin);
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.3, 5), gray);
+      tail.rotation.x = -Math.PI / 2;
+      tail.position.set(0, 0, -0.75);
+      d.add(tail);
+      d.visible = false;
+      scene.add(d);
+      dolphins.push({ m: d, phase: i * 2.1, side: i === 0 ? -1 : 1, off: 3 + i * 1.4 });
+    }
+  }
+  let dolphinTimer = 14;
+  let dolphinShow = 0;
+
+  // ---- v8: Hamsi-Schleppnetz ----
+  const netState = { active: false, timer: 0 };
+
   // Ufer in der Nähe? (dann legt E an, statt zu angeln)
   function canExitHere() {
     for (let r = 3; r <= 10; r += 3) {
@@ -171,6 +198,22 @@ export function createBoat(ctx, terrain, player, audio, ui) {
     get pos() { return { x, z }; },
     teleport(nx, nz) { x = nx; z = nz; },   // Debug/Tests
     nightMode: false,        // wird von game.update gesetzt
+
+    // v8: Schleppnetz — nur in Fahrt und mit gekauftem Ağ
+    get netting() { return netState.active; },
+    canNet() {
+      return state.net && driving && Math.abs(v) >= CFG.net.minSpeed
+        && fishing.st === 'idle' && !netState.active && !canExitHere();
+    },
+    startNet() {
+      if (!this.canNet()) return false;
+      netState.active = true;
+      netState.timer = CFG.net.trawlSec;
+      audio.plant();
+      ui.toast(t('netDown'), false, 3000);
+      return true;
+    },
+    netSeasonWinter: false,   // von game gesetzt (Hamsi-Akını)
     canExitHere,
     syncOwned,
     canFishHere,
@@ -244,6 +287,56 @@ export function createBoat(ctx, terrain, player, audio, ui) {
           bobber.material.emissiveIntensity = 0;
           ui.toast(t('fishLost'), false, 2200);
           stopFishing();
+        }
+      }
+
+      // v8: Delfine — tauchen gelegentlich neben dem fahrenden Boot auf
+      if (driving && Math.abs(v) > 4 && terrain.heightAt(x, z) < -2) {
+        dolphinTimer -= dt;
+        if (dolphinTimer <= 0 && dolphinShow <= 0) {
+          dolphinTimer = 22 + Math.random() * 25;
+          dolphinShow = 11;
+          ui.toast(t('dolphins'), true, 4000);
+        }
+      }
+      if (dolphinShow > 0) {
+        dolphinShow -= dt;
+        for (const d of dolphins) {
+          d.phase += dt * 2.6;
+          const jump = Math.sin(d.phase);
+          d.m.visible = dolphinShow > 0 && jump > -0.4;
+          const lx = d.side * d.off;
+          const lz = -1 - ((d.phase * 2) % 6);
+          d.m.position.set(
+            x + Math.cos(yaw) * lx + Math.sin(yaw) * lz,
+            jump * 1.1 - 0.35,
+            z - Math.sin(yaw) * lx + Math.cos(yaw) * lz
+          );
+          d.m.rotation.y = yaw;
+          d.m.rotation.x = -Math.cos(d.phase) * 0.7;
+        }
+      } else {
+        for (const d of dolphins) d.m.visible = false;
+      }
+
+      // v8: Schleppnetz einholen
+      if (netState.active) {
+        if (!driving || Math.abs(v) < 1.2) {
+          netState.active = false;
+          ui.toast(t('netLost'), false, 4000);
+        } else {
+          netState.timer -= dt;
+          if (netState.timer <= 0) {
+            netState.active = false;
+            const N = CFG.net;
+            let n = N.min + Math.floor(Math.random() * (N.max - N.min + 1));
+            if (api.netSeasonWinter) n = Math.round(n * N.winterMul);
+            state.inventory.hamsi = (state.inventory.hamsi || 0) + n;
+            state.fishCaught += n;
+            audio.cash();
+            ui.toast(t('netCatch', n) + (api.netSeasonWinter ? ' ' + t('netWinter') : ''), true, 6500);
+            save();
+          }
         }
       }
 

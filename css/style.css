@@ -417,3 +417,48 @@ body {
   background: rgba(244,239,228,0.05); border: 1px solid rgba(244,239,228,0.1);
   border-radius: 10px; margin: 6px 0 10px;
 }
+
+/* ---- v8: Telefon ---- */
+#phone-screen { align-items: center; }
+.phone-frame {
+  position: relative; width: min(360px, 92vw); max-height: 86vh; overflow-y: auto;
+  background: linear-gradient(160deg, #182420, #101a16);
+  border: 3px solid #3a4a42; border-radius: 30px; padding: 40px 16px 16px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.6);
+}
+.phone-notch {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  width: 110px; height: 16px; border-radius: 9px; background: #0a0f0c;
+}
+#phone-status {
+  position: absolute; top: 10px; left: 18px; right: 18px;
+  display: flex; justify-content: space-between; font-size: 11px; opacity: 0.7;
+}
+.phone-frame h2 { text-align: center; margin: 0 0 10px; font-size: 19px; }
+#btn-phone-close { position: absolute; top: 34px; right: 12px; width: auto; padding: 4px 10px; margin: 0; }
+.app-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 8px 0 14px; }
+.app-btn {
+  background: rgba(244,239,228,0.08); border: 1px solid rgba(244,239,228,0.14);
+  border-radius: 16px; padding: 12px 4px; cursor: pointer; color: var(--cream);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: transform 0.12s, background 0.12s;
+}
+.app-btn:hover { transform: scale(1.05); background: rgba(244,239,228,0.14); }
+.app-btn span { font-size: 30px; }
+.app-btn em { font-style: normal; font-size: 11px; opacity: 0.85; }
+
+/* ---- v8: Çay-Ustası ---- */
+.brew-bar {
+  position: relative; height: 22px; margin: 14px 0 4px;
+  background: rgba(244,239,228,0.12); border-radius: 11px; overflow: hidden;
+}
+.brew-zone {
+  position: absolute; left: 38%; width: 24%; top: 0; bottom: 0;
+  background: rgba(125,200,110,0.45);
+}
+#brew-pin {
+  position: absolute; top: -2px; bottom: -2px; width: 5px; left: 0;
+  background: var(--cream); border-radius: 3px;
+}
+
+.mk-haggle { margin-right: 6px; }
