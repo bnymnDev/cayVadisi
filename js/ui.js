@@ -1828,6 +1828,7 @@ export function createUI(ctx, hooks) {
     const open = document.querySelector('.overlay:not(.hidden)');
     if (!open || X_SKIP.has(open.id)) return;
     e.preventDefault();
+    e.stopImmediatePropagation();   // sonst pausiert der Esc-Handler in game.js sofort wieder
     closeOverlayAny(open);
   });
 
