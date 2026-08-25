@@ -13,6 +13,8 @@ export function createUI(ctx, hooks) {
     pause: $('pause-screen'), day: $('day-screen'), season: $('season-screen'),
     farm: $('farm-screen'), market: $('market-screen'),
     dealer: $('dealer-screen'), manage: $('manage-screen'),
+    travel: $('travel-screen'), factory: $('factory-screen'),
+    superS: $('super-screen'), life: $('life-screen'),
     speed: $('hud-speed'), tier: $('hud-tier'), touch: $('touch-controls'),
     loadFill: $('load-fill'), loadLabel: $('load-label'),
     btnStart: $('btn-start'), btnContinue: $('btn-continue'),
@@ -162,12 +164,249 @@ export function createUI(ctx, hooks) {
         || !els.farm.classList.contains('hidden')
         || !els.market.classList.contains('hidden')
         || !els.dealer.classList.contains('hidden')
-        || !els.manage.classList.contains('hidden');
+        || !els.manage.classList.contains('hidden')
+        || !els.travel.classList.contains('hidden')
+        || !els.factory.classList.contains('hidden')
+        || !els.superS.classList.contains('hidden')
+        || !els.life.classList.contains('hidden');
     },
     manageOpen() { return !els.manage.classList.contains('hidden'); },
+    lifeOpen() { return !els.life.classList.contains('hidden'); },
     hideOverlays() {
       hide(els.shop); hide(els.pause); hide(els.day); hide(els.season);
       hide(els.farm); hide(els.market); hide(els.dealer); hide(els.manage);
+      hide(els.travel); hide(els.factory); hide(els.superS); hide(els.life);
+    },
+
+    // ---------- v3: Reisen ----------
+    showTravel() { api.renderTravel(); show(els.travel); },
+    renderTravel() {
+      const L = state.settings.lang;
+      els.travel.querySelector('h2').textContent = t('travelTitle');
+      const list = $('travel-list');
+      list.innerHTML = '';
+      for (const [id, c] of Object.entries(CFG.travel.cities)) {
+        const can = hooks.canTravel(id);
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        row.innerHTML = `
+          <div class="u-icon">${id === 'zonguldak' ? '⛏️' : id === 'eregli' ? '🍓' : '🥜'}</div>
+          <div class="u-body"><div class="u-name">${t('city_' + id)} ${state.visited[id] ? '✓' : ''}</div>
+          <div class="u-desc">${t('cityDesc_' + id)} · ~${c.hours} h</div></div>
+          <button ${can ? '' : 'disabled'} data-id="${id}">${fmtMoney(c.cost, L)}</button>`;
+        row.querySelector('button').addEventListener('click', () => hooks.travelTo(id));
+        list.appendChild(row);
+      }
+    },
+    showTravelCity(cityId) {
+      const L = state.settings.lang;
+      els.travel.querySelector('h2').textContent = t('city_' + cityId);
+      const list = $('travel-list');
+      list.innerHTML = `<div class="section-info">${t('cityDesc_' + cityId)}</div>`;
+      // Einkaufen
+      for (const [gid, price] of Object.entries(CFG.travel.goods[cityId].buy)) {
+        const owned = (gid === 'strawSeed' && state.unlocks.straw)
+          || (gid === 'walnutSeed' && state.unlocks.walnut)
+          || (gid === 'baston' && state.baston);
+        const row = document.createElement('div');
+        row.className = 'upgrade-item' + (owned ? ' owned' : '');
+        row.innerHTML = `
+          <div class="u-icon">${gid === 'coal' ? '🪨' : gid === 'strawSeed' ? '🍓' : gid === 'walnutSeed' ? '🥜' : '🦯'}</div>
+          <div class="u-body"><div class="u-name">${t('good_' + gid)}</div>
+          <div class="u-desc">${t('goodDesc_' + gid)}</div></div>
+          <button ${owned || state.money < price ? 'disabled' : ''}>${owned ? t('owned') + ' ✓' : fmtMoney(price, L)}</button>`;
+        if (!owned) row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyTravelGood(cityId, gid)) api.showTravelCity(cityId);
+        });
+        list.appendChild(row);
+      }
+      // Premium-Verkauf
+      let anySell = false;
+      for (const pid of Object.keys(CFG.travel.goods[cityId].premium || {})) {
+        const have = Math.floor(state.inventory[pid] || 0);
+        if (have <= 0) continue;
+        anySell = true;
+        const price = Math.round(hooks.cityPrice(cityId, pid));
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        row.innerHTML = `
+          <div class="u-icon">${CFG.products[pid].icon}</div>
+          <div class="u-body"><div class="u-name">${t('prod_' + pid)} × ${have} <span class="price-up">▲ ${t('premiumHere')}</span></div>
+          <div class="u-desc">${fmtMoney(price, L)} / Stk</div></div>
+          <button>${fmtMoney(have * price, L)}</button>`;
+        row.querySelector('button').addEventListener('click', () => {
+          hooks.sellAtCity(cityId, pid, have);
+          api.showTravelCity(cityId);
+        });
+        list.appendChild(row);
+      }
+      if (!anySell) {
+        const d = document.createElement('div');
+        d.className = 'section-info';
+        d.textContent = t('cityNoGoods');
+        list.appendChild(d);
+      }
+      show(els.travel);
+    },
+
+    // ---------- v3: Fabrik ----------
+    showFactory() { api.renderFactory(); show(els.factory); },
+    renderFactory() {
+      const L = state.settings.lang;
+      const body = $('factory-body');
+      if (!state.factory) {
+        body.innerHTML = `
+          <div class="section-info">${t('factoryPitch')}</div>
+          <button id="btn-buy-factory" class="big-btn" ${state.money < CFG.factory.cost ? 'disabled' : ''}>
+            ${t('buy')} · ${fmtMoney(CFG.factory.cost, L)}</button>`;
+        $('btn-buy-factory').addEventListener('click', () => { if (hooks.buyFactory()) api.renderFactory(); });
+      } else {
+        const packs = Math.floor(state.inventory.tea_pack);
+        const coal = Math.floor(state.inventory.coal);
+        const canPack = state.basketKg >= 1;
+        body.innerHTML = `
+          <div class="stat-list">
+            <div>📦 ${t('packStock')} <b>${packs}</b></div>
+            <div>🪨 ${t('coalStock')} <b>${coal}</b></div>
+            <div>🏷️ ${t('yourLabel')} <b>${state.label || 'ÇAY VADİSİ'}</b></div>
+            <div>${t('packedToday')} <b>${state.packedToday} 📦</b></div>
+          </div>
+          <button id="btn-pack" class="big-btn" ${canPack ? '' : 'disabled'}>
+            ${t('packNow', Math.floor(state.basketKg))}</button>
+          <div class="section-info">${t('factoryInfo')}</div>`;
+        $('btn-pack').addEventListener('click', () => { if (hooks.packBasket()) api.renderFactory(); });
+      }
+      const exp = $('export-list');
+      exp.innerHTML = '';
+      const flags = { DE: '🇩🇪', NL: '🇳🇱', AZ: '🇦🇿', JP: '🇯🇵', US: '🇺🇸' };
+      state.exportOffers.forEach((o, i) => {
+        const can = state.factory && Math.floor(state.inventory.tea_pack) >= o.qty;
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        row.innerHTML = `
+          <div class="u-icon">${flags[o.country] || '🌍'}</div>
+          <div class="u-body"><div class="u-name">${t('exportOffer', o.qty, o.country)}</div>
+          <div class="u-desc">${fmtMoney(o.price, L)} / 📦</div></div>
+          <button ${can ? '' : 'disabled'}>${fmtMoney(o.qty * o.price, L)}</button>`;
+        row.querySelector('button').addEventListener('click', () => {
+          if (hooks.fulfillExport(i)) api.renderFactory();
+        });
+        exp.appendChild(row);
+      });
+      if (!state.exportOffers.length) exp.innerHTML = `<div class="section-info">${t('noOffers')}</div>`;
+    },
+
+    // ---------- v3: Supermarkt ----------
+    showSuper() { api.renderSuper(); show(els.superS); },
+    renderSuper() {
+      const L = state.settings.lang;
+      const body = $('super-body');
+      const have = Math.floor(state.inventory.tea_pack);
+      const price = Math.round(CFG.products.tea_pack.sell * CFG.supermarket.retailFactor * (state.marketMul.tea_pack || 1));
+      if (!state.factory) {
+        body.innerHTML = `<div class="section-info">${t('superNoFactory')}</div>`;
+        return;
+      }
+      body.innerHTML = `
+        <div class="section-info">${t('superInfo', state.label || 'ÇAY VADİSİ', fmtMoney(price, L))}</div>
+        <div class="manage-count">📦 ${have}</div>
+        <div class="btn-row">
+          <button id="btn-super-1" class="big-btn" ${have < 1 ? 'disabled' : ''}>1 · ${fmtMoney(price, L)}</button>
+          <button id="btn-super-all" class="big-btn" ${have < 1 ? 'disabled' : ''}>${t('sellAll')} · ${fmtMoney(have * price, L)}</button>
+        </div>`;
+      if (have >= 1) {
+        $('btn-super-1').addEventListener('click', () => { hooks.sellSuper(1); api.renderSuper(); });
+        $('btn-super-all').addEventListener('click', () => { hooks.sellSuper(have); api.renderSuper(); });
+      }
+    },
+
+    // ---------- v3: Leben ----------
+    _lifeTab: 'profile',
+    showLife() { api.renderLife(); show(els.life); },
+    renderLife() {
+      for (const tb of ['profile', 'family', 'estate', 'stocks']) {
+        $('ltab-' + tb).classList.toggle('active', api._lifeTab === tb);
+      }
+      const L = state.settings.lang;
+      const body = $('life-body');
+      if (api._lifeTab === 'profile') {
+        const colors = ['#6a7ba0', '#9a5f4a', '#5f8a5a', '#8a5f7d', '#b8963f', '#4a7d8a'];
+        body.innerHTML = `
+          <label class="life-label">${t('yourName')}</label>
+          <input id="inp-name" class="life-input" maxlength="18" value="${state.playerName || ''}" placeholder="Çaycı">
+          <label class="life-label">${t('yourLabel')}</label>
+          <input id="inp-label" class="life-input" maxlength="18" value="${state.label || ''}" placeholder="ÇAY VADİSİ">
+          <label class="life-label">${t('outfit')}</label>
+          <div class="swatch-row">${colors.map(c =>
+            `<button class="swatch ${state.outfit === c ? 'active' : ''}" data-c="${c}" style="background:${c}"></button>`).join('')}
+          </div>
+          <button id="btn-save-profile" class="big-btn">${t('saveProfile')}</button>
+          <div class="section-info">${t('bastonState')}: <b>${state.baston ? t('owned') + ' ✓ (+8 %)' : t('bastonHint')}</b></div>`;
+        body.querySelectorAll('.swatch').forEach(sw => sw.addEventListener('click', () => {
+          state.outfit = sw.dataset.c;
+          api.renderLife();
+        }));
+        $('btn-save-profile').addEventListener('click', () => {
+          hooks.setIdentity($('inp-name').value, $('inp-label').value, state.outfit);
+          api.toast(t('profileSaved'), true);
+        });
+      } else if (api._lifeTab === 'family') {
+        const Lf = CFG.life;
+        body.innerHTML = `
+          <div class="manage-count">${state.married ? (state.child ? '👨‍👩‍👧' : '💑') : '🧍'}</div>
+          <div class="section-info" style="text-align:center">${
+            state.child ? t('famChild') : state.married ? t('famMarried') : t('famSingle')}</div>
+          ${!state.married ? `<button id="btn-marry" class="big-btn" ${state.wealthTier >= Lf.weddingTier && state.money >= Lf.weddingCost ? '' : 'disabled'}>
+              ${t('marryBtn')} · ${fmtMoney(Lf.weddingCost, L)}</button>
+            <div class="section-info">${t('marryReq', t('tierName' + Lf.weddingTier))}</div>` : ''}
+          ${state.married && !state.child ? `<button id="btn-child" class="big-btn" ${state.wealthTier >= Lf.childTier && state.money >= Lf.childCost ? '' : 'disabled'}>
+              ${t('childBtn')} · ${fmtMoney(Lf.childCost, L)}</button>
+            <div class="section-info">${t('marryReq', t('tierName' + Lf.childTier))}</div>` : ''}
+          <div class="section-info">${t('famBonusInfo')}</div>`;
+        const bm = $('btn-marry');
+        if (bm) bm.addEventListener('click', () => { if (hooks.marry()) api.renderLife(); });
+        const bc = $('btn-child');
+        if (bc) bc.addEventListener('click', () => { if (hooks.haveChild()) api.renderLife(); });
+      } else if (api._lifeTab === 'estate') {
+        body.innerHTML = '';
+        for (const [id, p] of Object.entries(CFG.life.properties)) {
+          const owned = state.properties[id];
+          const row = document.createElement('div');
+          row.className = 'upgrade-item' + (owned ? ' owned' : '');
+          row.innerHTML = `
+            <div class="u-icon">${p.icon}</div>
+            <div class="u-body"><div class="u-name">${t('prop_' + id)}</div>
+            <div class="u-desc">${t('rentPerDay', fmtMoney(p.rent, L))}</div></div>
+            <button ${owned || state.money < p.cost ? 'disabled' : ''}>${owned ? t('owned') + ' ✓' : fmtMoney(p.cost, L)}</button>`;
+          if (!owned) row.querySelector('button').addEventListener('click', () => {
+            if (hooks.buyProperty(id)) api.renderLife();
+          });
+          body.appendChild(row);
+        }
+      } else {
+        body.innerHTML = `<div class="section-info">${t('stockHint')}</div>`;
+        for (const [id, s] of Object.entries(CFG.life.stocks)) {
+          const price = state.stockPrices[id] || s.p0;
+          const owned = state.stocks[id] || 0;
+          const chg = price / s.p0 - 1;
+          const row = document.createElement('div');
+          row.className = 'upgrade-item';
+          row.innerHTML = `
+            <div class="u-icon">📈</div>
+            <div class="u-body"><div class="u-name">${s.name}
+              <span class="${chg >= 0 ? 'price-up' : 'price-down'}">${chg >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(chg * 100))} %</span></div>
+            <div class="u-desc">${fmtMoney(price, L)} / ${t('stockUnit')} · ${t('stockOwned', owned)}</div></div>
+            <div class="btn-mini-row">
+              <button data-n="-10">−10</button><button data-n="-1">−1</button>
+              <button data-n="1">+1</button><button data-n="10">+10</button>
+            </div>`;
+          row.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+            hooks.tradeStock(id, parseInt(b.dataset.n, 10));
+            api.renderLife();
+          }));
+          body.appendChild(row);
+        }
+      }
     },
 
     // ---------- v2: Hof ----------
@@ -179,13 +418,14 @@ export function createUI(ctx, hooks) {
       const plantList = $('plant-list');
       plantList.innerHTML = '';
       for (const [id, c] of Object.entries(CFG.crops)) {
+        const locked = c.lock && !state.unlocks[id];
         const row = document.createElement('div');
-        row.className = 'upgrade-item';
+        row.className = 'upgrade-item' + (locked ? ' owned' : '');
         row.innerHTML = `
-          <div class="u-icon">${c.icon}</div>
+          <div class="u-icon">${locked ? '🔒' : c.icon}</div>
           <div class="u-body"><div class="u-name">${t('crop_' + id)}</div>
-          <div class="u-desc">${t('cropInfo', c.days, c.yield, c.sell)}</div></div>
-          <button ${state.money < c.seed || free === 0 ? 'disabled' : ''} data-id="${id}">
+          <div class="u-desc">${locked ? t('cropLocked', t('city_' + c.lock)) : t('cropInfo', c.days, c.yield, c.sell)}</div></div>
+          <button ${locked || state.money < c.seed || free === 0 ? 'disabled' : ''} data-id="${id}">
             ${fmtMoney(c.seed, L)}
           </button>`;
         row.querySelector('button').addEventListener('click', () => {
@@ -489,6 +729,17 @@ export function createUI(ctx, hooks) {
   });
   for (const tb of ['workers', 'storage', 'stats']) {
     $('tab-' + tb).addEventListener('click', () => { api._manageTab = tb; api.renderManage(); });
+  }
+  $('btn-travel-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-factory-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-super-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-life-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-life').addEventListener('click', () => {
+    if (api.lifeOpen()) { hooks.closeShop(); return; }
+    if (!api.overlayOpen()) hooks.openLife();
+  });
+  for (const tb of ['profile', 'family', 'estate', 'stocks']) {
+    $('ltab-' + tb).addEventListener('click', () => { api._lifeTab = tb; api.renderLife(); });
   }
   $('btn-resume').addEventListener('click', () => hooks.resume());
   $('btn-help').addEventListener('click', () => {

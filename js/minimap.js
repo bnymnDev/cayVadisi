@@ -124,6 +124,7 @@ export function createMinimap(ctx, terrain, player, getWorkers, getVehicles) {
   }
 
   window.addEventListener('keydown', (e) => {
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     if (e.code === 'KeyM') {
       visible = !visible;
       el.classList.toggle('hidden', !visible);

@@ -83,7 +83,9 @@ export const CFG = {
     corn:    { seed: 60,  days: 1, sell: 95,  yield: 4, icon: '🌽' },
     tomato:  { seed: 90,  days: 2, sell: 210, yield: 4, icon: '🍅' },
     cabbage: { seed: 70,  days: 2, sell: 160, yield: 5, icon: '🥬' },
-    hazel:   { seed: 220, days: 3, sell: 520, yield: 3, icon: '🌰' }   // Karadeniz-Klassiker
+    hazel:   { seed: 220, days: 3, sell: 520, yield: 3, icon: '🌰' },  // Karadeniz-Klassiker
+    straw:   { seed: 140, days: 1, sell: 300, yield: 5, icon: '🍓', lock: 'eregli' },   // Osmanlı çileği
+    walnut:  { seed: 280, days: 3, sell: 640, yield: 3, icon: '🥜', lock: 'devrek' }    // Devrek cevizi
   },
 
   animals: {
@@ -99,7 +101,61 @@ export const CFG = {
     corn: { sell: 95,  icon: '🌽' },
     tomato: { sell: 210, icon: '🍅' },
     cabbage: { sell: 160, icon: '🥬' },
-    hazel: { sell: 520, icon: '🌰' }
+    hazel: { sell: 520, icon: '🌰' },
+    straw: { sell: 300, icon: '🍓' },
+    walnut: { sell: 640, icon: '🥜' },
+    coal: { sell: 40, icon: '🪨' },          // Zonguldak-Kohle: Fabrik-Energie
+    tea_pack: { sell: 58, icon: '📦' }       // eigenes Tee-Label, 1 kg pro Paket
+  },
+
+  // ---- v3: Reisen (İskele in der Stadt) ----
+  travel: {
+    spot: { x: 112, z: -118 },
+    cities: {
+      zonguldak: { cost: 240, hours: 3 },    // Kohlestadt
+      eregli:    { cost: 190, hours: 2.5 },  // Osmanlı çileği
+      devrek:    { cost: 150, hours: 2 }     // Baston & Ceviz
+    },
+    // Was es dort gibt (Einkauf) und was dort Premium bringt (Verkauf ×Faktor)
+    goods: {
+      zonguldak: { buy: { coal: 22 }, premium: { tea_pack: 1.25, corn: 1.2 } },
+      eregli:    { buy: { strawSeed: 500 }, premium: { straw: 1.5, egg: 1.3 } },
+      devrek:    { buy: { walnutSeed: 900, baston: 2400 }, premium: { wool: 1.4, milk: 1.3, walnut: 1.4 } }
+    }
+  },
+
+  // ---- v3: Fabrik & Handel ----
+  factory: {
+    cost: 12000,
+    x: -70, z: -112, ry: 0.5,
+    packFactor: 1.9,        // Paketwert vs. Rohtee
+    energyCoal: 1,          // Kohle pro Produktionstag …
+    energyCost: 90          // … sonst Stromkosten
+  },
+  supermarket: { x: 132, z: -88, ry: -2.6, retailFactor: 1.15 },
+  export: {
+    countries: ['DE', 'NL', 'AZ', 'JP', 'US'],
+    minQty: 15, maxQty: 60,
+    minPrice: 62, maxPrice: 82
+  },
+
+  // ---- v3: Privatleben ----
+  life: {
+    weddingCost: 5000, weddingTier: 2, marriedBonus: 1.05,
+    childCost: 3000, childTier: 3, childBonus: 1.03,
+    properties: {
+      yayla:     { cost: 8000,  rent: 90,  icon: '🛖' },
+      townhouse: { cost: 22000, rent: 260, icon: '🏘️' },
+      villa:     { cost: 65000, rent: 750, icon: '🏛️' }
+    },
+    stocks: {
+      krd: { name: 'Kardemir Çelik', p0: 45 },
+      lim: { name: 'Karadeniz Liman', p0: 28 },
+      fnd: { name: 'Fındık Birliği', p0: 63 }
+    },
+    stockDrift: 0.09,
+    black: { bonus: 1.6, baseRisk: 0.22, heatRisk: 0.08, fineFactor: 2.2, hourFrom: 19, spot: { x: 136, z: -86 } },
+    bastonSpeed: 1.08
   },
 
   // ---- v2: Stadt (Ostküste) ----

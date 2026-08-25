@@ -49,6 +49,7 @@
     <div id="hud-money"></div>
     <div id="hud-tier"></div>
     <button id="btn-manage" class="hud-btn" title="Betrieb [Tab]">💼</button>
+    <button id="btn-life" class="hud-btn" title="Leben [P]">👤</button>
   </div>
   <div id="hud-speed" class="hidden"></div>
   <div id="minimap"><canvas id="minimap-canvas"></canvas></div>
@@ -143,6 +144,51 @@
   </div>
 </div>
 
+<!-- ===== Reisen (İskele) ===== -->
+<div id="travel-screen" class="overlay hidden">
+  <div class="panel">
+    <h2 data-i18n="travelTitle"></h2>
+    <div class="section-info" data-i18n="travelHint"></div>
+    <div id="travel-list"></div>
+    <button id="btn-travel-close" class="big-btn ghost" data-i18n="back"></button>
+  </div>
+</div>
+
+<!-- ===== Fabrik ===== -->
+<div id="factory-screen" class="overlay hidden">
+  <div class="panel">
+    <h2 data-i18n="factoryTitle"></h2>
+    <div id="factory-body"></div>
+    <h3 data-i18n="exportTitle"></h3>
+    <div id="export-list"></div>
+    <button id="btn-factory-close" class="big-btn ghost" data-i18n="back"></button>
+  </div>
+</div>
+
+<!-- ===== Supermarkt ===== -->
+<div id="super-screen" class="overlay hidden">
+  <div class="panel">
+    <h2 data-i18n="superTitle"></h2>
+    <div id="super-body"></div>
+    <button id="btn-super-close" class="big-btn ghost" data-i18n="back"></button>
+  </div>
+</div>
+
+<!-- ===== Leben (Profil, Familie, Immobilien, Aktien) ===== -->
+<div id="life-screen" class="overlay hidden">
+  <div class="panel">
+    <h2 data-i18n="lifeTitle"></h2>
+    <div class="tab-row">
+      <button id="ltab-profile" class="tab-btn active" data-i18n="ltabProfile"></button>
+      <button id="ltab-family" class="tab-btn" data-i18n="ltabFamily"></button>
+      <button id="ltab-estate" class="tab-btn" data-i18n="ltabEstate"></button>
+      <button id="ltab-stocks" class="tab-btn" data-i18n="ltabStocks"></button>
+    </div>
+    <div id="life-body"></div>
+    <button id="btn-life-close" class="big-btn ghost" data-i18n="back"></button>
+  </div>
+</div>
+
 <!-- ===== Pause ===== -->
 <div id="pause-screen" class="overlay hidden">
   <div class="panel narrow">
@@ -182,6 +228,14 @@
     <div id="season-stats"></div>
     <button id="btn-season-continue" class="big-btn" data-i18n="keepPlaying"></button>
   </div>
+</div>
+
+<!-- ===== Cinematic-Intro ===== -->
+<div id="cinema" class="hidden">
+  <div class="cinema-bar top"></div>
+  <div class="cinema-bar bottom"></div>
+  <div id="cinema-text"></div>
+  <button id="btn-skip-cinema" data-i18n="introSkip"></button>
 </div>
 
 <div id="vignette"></div>

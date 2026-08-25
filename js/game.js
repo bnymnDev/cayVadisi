@@ -7,7 +7,7 @@ import { t } from './i18n.js';
 import { clamp, fmtMoney } from './util.js';
 
 export function createGame(ctx, mods) {
-  const { terrain, tea, props, player, audio, ui, particles, sky, farm, vehicles, workers } = mods;
+  const { terrain, tea, props, player, audio, ui, particles, sky, farm, vehicles, workers, extras } = mods;
   const { camera } = ctx;
 
   let showers = [];          // {start, end}
@@ -59,6 +59,8 @@ export function createGame(ctx, mods) {
     resetDay();
     planWeather();
     planMarket();
+    initStocks();
+    if (!state.exportOffers.length) regenExports();
     newOrder();
     ui.refreshOrder();
     ui.hideOverlays();
@@ -78,11 +80,44 @@ export function createGame(ctx, mods) {
     // ---- Abend-Abrechnung ----
     const L = state.settings.lang;
     const lines = [];
-    // Arbeiter-Ernte verkaufen
+    // Arbeiter-Ernte: mit Fabrik zu Marken-Paketen verarbeiten, sonst roh verkaufen
     if (state.workerKg > 0.01) {
-      const sum = state.workerKg * CFG.eco.pricePerKg * CFG.workers.sellFactor;
-      state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
-      lines.push({ k: 'sumWorkerTea', v: '+' + fmtMoney(sum, L), sub: Math.round(state.workerKg * 10) / 10 + ' kg' });
+      if (state.factory) {
+        const packs = Math.floor(state.workerKg);
+        const rest = state.workerKg - packs;
+        state.inventory.tea_pack += packs;
+        state.packedToday = packs;
+        // Energie: Kohle aus Zonguldak oder Stromrechnung
+        if (packs > 0) {
+          if (Math.floor(state.inventory.coal) >= CFG.factory.energyCoal) {
+            state.inventory.coal -= CFG.factory.energyCoal;
+            lines.push({ k: 'sumFactory', v: '+' + packs + ' 📦', sub: '🪨 −' + CFG.factory.energyCoal });
+          } else {
+            state.money -= CFG.factory.energyCost;
+            state.daySpent += CFG.factory.energyCost;
+            lines.push({ k: 'sumFactory', v: '+' + packs + ' 📦', sub: '⚡ −' + fmtMoney(CFG.factory.energyCost, L) });
+          }
+        }
+        if (rest > 0.01) {
+          const sum = rest * CFG.eco.pricePerKg * CFG.workers.sellFactor;
+          state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+        }
+      } else {
+        const sum = state.workerKg * CFG.eco.pricePerKg * CFG.workers.sellFactor * famBonus();
+        state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+        lines.push({ k: 'sumWorkerTea', v: '+' + fmtMoney(sum, L), sub: Math.round(state.workerKg * 10) / 10 + ' kg' });
+      }
+    }
+    // Mieteinnahmen
+    {
+      let rent = 0;
+      for (const [id, p] of Object.entries(CFG.life.properties)) {
+        if (state.properties[id]) rent += p.rent;
+      }
+      if (rent > 0) {
+        state.money += rent; state.dayEarned += rent; state.totalEarned += rent;
+        lines.push({ k: 'sumRent', v: '+' + fmtMoney(rent, L) });
+      }
     }
     // Löhne zahlen
     if (state.workers > 0) {
@@ -123,6 +158,11 @@ export function createGame(ctx, mods) {
       if (n > 0) state.inventory[spec.product] += n * spec.perDay;
     }
 
+    // v3: Aktienkurse, neue Export-Angebote, Fahndungsdruck kühlt ab
+    updateStocks();
+    regenExports();
+    if (state.blackHeat > 0) state.blackHeat = Math.max(0, state.blackHeat - 1);
+
     tea.newDay();
     if (!state.seasonOver && state.day > CFG.seasonDays) {
       state.seasonOver = true;
@@ -136,6 +176,39 @@ export function createGame(ctx, mods) {
     // Morgen-Info über Tierprodukte
     const prodCount = Object.values(state.inventory).reduce((a, b) => a + Math.floor(b), 0);
     if (prodCount > 0) ui.toast(t('morningProducts', prodCount), false, 4500);
+  }
+
+  // ---------- v3: Familie/Bonus & Aktien ----------
+  function famBonus() {
+    return (state.married ? CFG.life.marriedBonus : 1) * (state.child ? CFG.life.childBonus : 1);
+  }
+
+  function initStocks() {
+    for (const [id, s] of Object.entries(CFG.life.stocks)) {
+      if (!state.stockPrices[id]) state.stockPrices[id] = s.p0;
+    }
+  }
+
+  function updateStocks() {
+    for (const id of Object.keys(CFG.life.stocks)) {
+      const p = state.stockPrices[id] || CFG.life.stocks[id].p0;
+      const drift = (Math.random() * 2 - 1) * CFG.life.stockDrift;
+      // sanfte Rückkehr zum Ausgangskurs, damit nichts gegen 0 läuft
+      const revert = (CFG.life.stocks[id].p0 - p) * 0.03;
+      state.stockPrices[id] = Math.max(2, Math.round((p * (1 + drift) + revert) * 100) / 100);
+    }
+  }
+
+  function regenExports() {
+    const E = CFG.export;
+    state.exportOffers = [];
+    for (let i = 0; i < 2; i++) {
+      state.exportOffers.push({
+        country: E.countries[Math.floor(Math.random() * E.countries.length)],
+        qty: E.minQty + Math.floor(Math.random() * (E.maxQty - E.minQty)),
+        price: E.minPrice + Math.floor(Math.random() * (E.maxPrice - E.minPrice))
+      });
+    }
   }
 
   // ---------- Wohlstand ----------
@@ -296,6 +369,7 @@ export function createGame(ctx, mods) {
   function plantCrop(type) {
     const spec = CFG.crops[type];
     if (!spec || state.money < spec.seed) { audio.deny(); return false; }
+    if (spec.lock && !state.unlocks[type]) { audio.deny(); return false; }
     const idx = state.plots.findIndex(p => !p);
     if (idx < 0) { ui.toast(t('noFreePlot'), false); audio.deny(); return false; }
     state.money -= spec.seed;
@@ -353,6 +427,238 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ---------- v3: Reisen ----------
+  const secPerHour = () => CFG.dayLengthSec / (CFG.endHour - CFG.startHour);
+
+  function canTravel(cityId) {
+    const c = CFG.travel.cities[cityId];
+    const hoursLeft = CFG.endHour - sky.hour;
+    return state.money >= c.cost && hoursLeft > c.hours + 0.5;
+  }
+
+  function travelTo(cityId) {
+    const c = CFG.travel.cities[cityId];
+    if (!canTravel(cityId)) { audio.deny(); return false; }
+    state.money -= c.cost;
+    state.daySpent += c.cost;
+    state.timeSec += c.hours * secPerHour();
+    if (!state.visited[cityId]) {
+      state.visited[cityId] = true;
+      ui.toast(t('firstVisit', t('city_' + cityId)), true, 5000);
+    }
+    audio.gondola();
+    save();
+    ui.showTravelCity(cityId);
+    return true;
+  }
+
+  function buyTravelGood(cityId, goodId) {
+    const price = CFG.travel.goods[cityId].buy[goodId];
+    if (price == null || state.money < price) { audio.deny(); return false; }
+    if (goodId === 'coal') { state.inventory.coal += 5; }
+    else if (goodId === 'strawSeed') {
+      if (state.unlocks.straw) { audio.deny(); return false; }
+      state.unlocks.straw = true;
+    } else if (goodId === 'walnutSeed') {
+      if (state.unlocks.walnut) { audio.deny(); return false; }
+      state.unlocks.walnut = true;
+    } else if (goodId === 'baston') {
+      if (state.baston) { audio.deny(); return false; }
+      state.baston = true;
+    } else return false;
+    state.money -= price;
+    state.daySpent += price;
+    audio.buy();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function cityPrice(cityId, productId) {
+    const prem = (CFG.travel.goods[cityId].premium || {})[productId] || 1;
+    return CFG.products[productId].sell * (state.marketMul[productId] || 1) * prem;
+  }
+
+  function sellAtCity(cityId, productId, count) {
+    const have = Math.floor(state.inventory[productId] || 0);
+    const n = Math.min(have, count);
+    if (n <= 0) { audio.deny(); return 0; }
+    const sum = n * cityPrice(cityId, productId) * famBonus();
+    state.inventory[productId] -= n;
+    state.money += sum;
+    state.dayEarned += sum;
+    state.totalEarned += sum;
+    audio.cash();
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return sum;
+  }
+
+  // ---------- v3: Fabrik, Supermarkt, Export ----------
+  function buyFactory() {
+    if (state.factory || state.money < CFG.factory.cost) { audio.deny(); return false; }
+    state.money -= CFG.factory.cost;
+    state.daySpent += CFG.factory.cost;
+    state.factory = true;
+    extras.syncFactory();
+    extras.setLabel(state.label || 'ÇAY VADİSİ');
+    audio.tierUp();
+    ui.toast(t('factoryBought'), true, 7000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function packBasket() {
+    if (!state.factory || state.basketKg < 1) { audio.deny(); return 0; }
+    const packs = Math.floor(state.basketKg);
+    state.inventory.tea_pack += packs;
+    state.basketValueKg = Math.max(0, state.basketValueKg - packs);
+    state.basketKg -= packs;
+    audio.harvest();
+    ui.refreshBasket();
+    ui.toast(t('packed', packs), true);
+    save();
+    return packs;
+  }
+
+  function sellSuper(count) {
+    const have = Math.floor(state.inventory.tea_pack || 0);
+    const n = Math.min(have, count);
+    if (n <= 0) { audio.deny(); return 0; }
+    const price = CFG.products.tea_pack.sell * CFG.supermarket.retailFactor * (state.marketMul.tea_pack || 1);
+    const sum = n * price * famBonus();
+    state.inventory.tea_pack -= n;
+    state.money += sum;
+    state.dayEarned += sum;
+    state.totalEarned += sum;
+    if (!state._shelfToast) {
+      state._shelfToast = true;
+      ui.toast(t('shelfLive', state.label || 'ÇAY VADİSİ'), true, 6500);
+    }
+    audio.cash();
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return sum;
+  }
+
+  function fulfillExport(idx) {
+    const o = state.exportOffers[idx];
+    if (!o || Math.floor(state.inventory.tea_pack) < o.qty) { audio.deny(); return false; }
+    state.inventory.tea_pack -= o.qty;
+    const sum = o.qty * o.price;
+    state.money += sum;
+    state.dayEarned += sum;
+    state.totalEarned += sum;
+    state.exportsDone += 1;
+    state.exportOffers.splice(idx, 1);
+    audio.tierUp();
+    ui.toast(t('exportDone', o.country, fmtMoney(sum, state.settings.lang)), true, 6000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  // ---------- v3: Privatleben ----------
+  function setIdentity(name, label, outfit) {
+    state.playerName = (name || '').slice(0, 18);
+    state.label = (label || '').slice(0, 18).toUpperCase();
+    if (outfit) state.outfit = outfit;
+    if (state.factory) extras.setLabel(state.label || 'ÇAY VADİSİ');
+    save();
+  }
+
+  function marry() {
+    if (state.married || state.wealthTier < CFG.life.weddingTier || state.money < CFG.life.weddingCost) { audio.deny(); return false; }
+    state.money -= CFG.life.weddingCost;
+    state.daySpent += CFG.life.weddingCost;
+    state.married = true;
+    audio.tierUp();
+    ui.toast(t('marriedToast'), true, 7000);
+    save();
+    return true;
+  }
+
+  function haveChild() {
+    if (!state.married || state.child || state.wealthTier < CFG.life.childTier || state.money < CFG.life.childCost) { audio.deny(); return false; }
+    state.money -= CFG.life.childCost;
+    state.daySpent += CFG.life.childCost;
+    state.child = true;
+    audio.tierUp();
+    ui.toast(t('childToast'), true, 7000);
+    save();
+    return true;
+  }
+
+  function buyProperty(id) {
+    const p = CFG.life.properties[id];
+    if (!p || state.properties[id] || state.money < p.cost) { audio.deny(); return false; }
+    state.money -= p.cost;
+    state.daySpent += p.cost;
+    state.properties[id] = true;
+    audio.cash();
+    ui.toast(t('propertyBought', t('prop_' + id)), true, 5000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function tradeStock(id, n) {   // n > 0 kaufen, n < 0 verkaufen
+    const price = state.stockPrices[id] || CFG.life.stocks[id].p0;
+    if (n > 0) {
+      const cost = n * price;
+      if (state.money < cost) { audio.deny(); return false; }
+      state.money -= cost;
+      state.daySpent += cost;
+      state.stocks[id] += n;
+    } else {
+      const sellN = Math.min(state.stocks[id], -n);
+      if (sellN <= 0) { audio.deny(); return false; }
+      state.stocks[id] -= sellN;
+      const sum = sellN * price;
+      state.money += sum;
+      state.dayEarned += sum;
+    }
+    audio.buy();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function sellBlack() {
+    const B = CFG.life.black;
+    if (state.basketKg <= 0.01) { audio.deny(); return false; }
+    const value = sellValue() * B.bonus;
+    const risk = B.baseRisk + state.blackHeat * B.heatRisk;
+    state.basketKg = 0;
+    state.basketValueKg = 0;
+    if (Math.random() < risk) {
+      // Erwischt: Ware beschlagnahmt + Bußgeld
+      const fine = Math.round(value * B.fineFactor / B.bonus);
+      state.money = Math.max(0, state.money - fine);
+      state.daySpent += fine;
+      state.blackHeat += 1;
+      audio.thunderish();
+      ui.toast(t('blackCaught', fmtMoney(fine, state.settings.lang)), false, 7000);
+    } else {
+      state.money += value;
+      state.dayEarned += value;
+      state.totalEarned += value;
+      state.blackHeat += 0.5;
+      audio.cash();
+      ui.toast(t('blackOk', fmtMoney(value, state.settings.lang)), true, 5000);
+    }
+    ui.refreshBasket();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
   // ---------- Eingaben ----------
   window.addEventListener('mousedown', (e) => {
     if (e.button !== 0 || !running || paused || vehicles.driving) return;
@@ -403,10 +709,19 @@ export function createGame(ctx, mods) {
     else if (act.id === 'market') { player.releaseLock(); ui.showMarket(); }
     else if (act.id === 'dealer') { player.releaseLock(); ui.showDealer(); }
     else if (act.id === 'harvest') harvestPlot(act.data);
+    else if (act.id === 'travel') { player.releaseLock(); ui.showTravel(); }
+    else if (act.id === 'factory') { player.releaseLock(); ui.showFactory(); }
+    else if (act.id === 'super') { player.releaseLock(); ui.showSuper(); }
+    else if (act.id === 'black') sellBlack();
   }
 
   window.addEventListener('keydown', (e) => {
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     if (e.code === 'KeyE' && running && !paused && !ui.overlayOpen()) doInteract();
+    if (e.code === 'KeyP' && running && !paused) {
+      if (ui.lifeOpen()) { ui.hideOverlays(); pause(false); }
+      else if (!ui.overlayOpen()) { player.releaseLock(); ui.showLife(); }
+    }
     if (e.code === 'Tab' && running && !paused) {
       e.preventDefault();
       if (ui.manageOpen()) { ui.hideOverlays(); pause(false); }
@@ -451,6 +766,11 @@ export function createGame(ctx, mods) {
     if (distTo(CFG.farm.sign.x, CFG.farm.sign.z) < CFG.interactDist + 1) return { id: 'farm' };
     if (distTo(CFG.city.market.x, CFG.city.market.z) < CFG.interactDist + 1.5) return { id: 'market' };
     if (distTo(CFG.city.dealer.x, CFG.city.dealer.z) < CFG.interactDist + 3.5) return { id: 'dealer' };
+    if (distTo(CFG.travel.spot.x, CFG.travel.spot.z) < CFG.interactDist + 2.5) return { id: 'travel' };
+    if (distTo(CFG.factory.x, CFG.factory.z) < CFG.interactDist + 5) return { id: 'factory' };
+    if (distTo(CFG.supermarket.x, CFG.supermarket.z) < CFG.interactDist + 1.5) return { id: 'super' };
+    if (sky.hour >= CFG.life.black.hourFrom && state.basketKg > 0.01
+        && distTo(CFG.life.black.spot.x, CFG.life.black.spot.z) < CFG.interactDist) return { id: 'black' };
     return null;
   }
 
@@ -552,6 +872,9 @@ export function createGame(ctx, mods) {
     startDay, nextDay, endDay, pause, buyUpgrade, doSell, sellValue,
     hireWorker, fireWorker, buyAnimal, plantCrop, harvestPlot, sellProduct, buyVehicle,
     doInteract, checkWealth,
+    travelTo, canTravel, buyTravelGood, sellAtCity, cityPrice,
+    buyFactory, packBasket, sellSuper, fulfillExport,
+    setIdentity, marry, haveChild, buyProperty, tradeStock, sellBlack, famBonus,
     update,
     get running() { return running; },
     get paused() { return paused; },

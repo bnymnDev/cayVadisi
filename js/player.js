@@ -91,10 +91,10 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
     },
     look(yaw, pitch) { euler.y = yaw; euler.x = clamp(pitch, -1.45, 1.45); },
 
-    update(dt, hasBoots) {
+    update(dt, hasBoots, speedMul = 1) {
       if (!enabled) return;
       const run = keys.has('ShiftLeft') || keys.has('ShiftRight');
-      let speed = P.speed * (hasBoots ? P.bootsFactor : 1) * (run ? P.runFactor : 1);
+      let speed = P.speed * (hasBoots ? P.bootsFactor : 1) * (run ? P.runFactor : 1) * speedMul;
 
       fwd.set(-Math.sin(euler.y), 0, -Math.cos(euler.y));
       right.set(-fwd.z, 0, fwd.x);
