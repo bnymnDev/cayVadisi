@@ -47,7 +47,10 @@
   </div>
   <div id="hud-top-right">
     <div id="hud-money"></div>
+    <div id="hud-tier"></div>
+    <button id="btn-manage" class="hud-btn" title="Betrieb [Tab]">💼</button>
   </div>
+  <div id="hud-speed" class="hidden"></div>
   <div id="hud-order"></div>
   <div id="hud-basket">
     <div id="basket-label"></div>
@@ -67,6 +70,15 @@
   <div id="toast-stack"></div>
   <div id="popup-layer"></div>
   <div id="rain-warn" class="hidden"></div>
+
+  <!-- Touch-Steuerung (nur auf Touch-Geräten sichtbar) -->
+  <div id="touch-controls" class="hidden">
+    <div id="joystick" class="tc"><div id="joystick-knob"></div></div>
+    <div id="touch-buttons" class="tc">
+      <button id="tbtn-brake" class="tc-btn hidden">▼</button>
+      <button id="tbtn-gas" class="tc-btn hidden">▲</button>
+    </div>
+  </div>
 </div>
 
 <!-- ===== Shop / Verkauf ===== -->
@@ -80,6 +92,53 @@
     <h3 data-i18n="upgrades"></h3>
     <div id="upgrade-list"></div>
     <button id="btn-shop-close" class="big-btn ghost" data-i18n="back"></button>
+  </div>
+</div>
+
+<!-- ===== Hof (Pflanzen & Tiere) ===== -->
+<div id="farm-screen" class="overlay hidden">
+  <div class="panel">
+    <h2 data-i18n="farmTitle"></h2>
+    <div id="farm-plots-info" class="section-info"></div>
+    <h3 data-i18n="plantSection"></h3>
+    <div id="plant-list"></div>
+    <h3 data-i18n="animalSection"></h3>
+    <div id="animal-list"></div>
+    <button id="btn-farm-close" class="big-btn ghost" data-i18n="back"></button>
+  </div>
+</div>
+
+<!-- ===== Markt ===== -->
+<div id="market-screen" class="overlay hidden">
+  <div class="panel">
+    <h2 data-i18n="marketTitle"></h2>
+    <div class="section-info" data-i18n="marketHint"></div>
+    <div id="market-list"></div>
+    <button id="btn-market-sellall" class="big-btn"></button>
+    <button id="btn-market-close" class="big-btn ghost" data-i18n="back"></button>
+  </div>
+</div>
+
+<!-- ===== Autohaus ===== -->
+<div id="dealer-screen" class="overlay hidden">
+  <div class="panel">
+    <h2 data-i18n="dealerTitle"></h2>
+    <div id="dealer-list"></div>
+    <button id="btn-dealer-close" class="big-btn ghost" data-i18n="back"></button>
+  </div>
+</div>
+
+<!-- ===== Betrieb (Arbeiter / Lager / Bilanz) ===== -->
+<div id="manage-screen" class="overlay hidden">
+  <div class="panel">
+    <h2 data-i18n="manageTitle"></h2>
+    <div class="tab-row">
+      <button id="tab-workers" class="tab-btn active" data-i18n="tabWorkers"></button>
+      <button id="tab-storage" class="tab-btn" data-i18n="tabStorage"></button>
+      <button id="tab-stats" class="tab-btn" data-i18n="tabStats"></button>
+    </div>
+    <div id="manage-body"></div>
+    <button id="btn-manage-close" class="big-btn ghost" data-i18n="back"></button>
   </div>
 </div>
 

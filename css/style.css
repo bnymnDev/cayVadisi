@@ -233,3 +233,64 @@ body {
   #hud-basket { width: 160px; bottom: 16px; right: 14px; }
   .title { font-size: 15vw; }
 }
+
+/* ================= v2 ================= */
+
+/* ---- HUD-Erweiterungen ---- */
+#hud-top-right { display: flex; align-items: center; gap: 12px; pointer-events: auto; }
+#hud-tier { font-size: 12.5px; font-weight: 600; color: var(--cream); opacity: 0.85; }
+.hud-btn {
+  background: rgba(244,239,228,0.1); border: 1px solid rgba(244,239,228,0.25);
+  border-radius: 9px; font-size: 17px; padding: 3px 9px; cursor: pointer; color: var(--cream);
+}
+.hud-btn:hover { background: rgba(244,239,228,0.2); }
+#hud-speed {
+  left: 50%; bottom: 60px; transform: translateX(-50%);
+  font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums;
+  color: var(--cream); text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+  background: rgba(15,22,17,0.5); border-radius: 14px; padding: 6px 22px;
+}
+#hud-speed small { font-size: 14px; font-weight: 600; opacity: 0.7; margin-left: 6px; }
+
+/* ---- Panels: Sektionen, Tabs, Listen ---- */
+.section-info { font-size: 13.5px; opacity: 0.75; margin-bottom: 10px; line-height: 1.6; }
+.tab-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.tab-btn {
+  flex: 1; background: rgba(244,239,228,0.08); border: 1px solid rgba(244,239,228,0.18);
+  color: var(--cream); border-radius: 9px; padding: 9px 6px; font-size: 14px; cursor: pointer;
+}
+.tab-btn.active { background: var(--tea); border-color: var(--tea-bright); font-weight: 700; }
+.price-up { color: #9ccb62; font-size: 12px; }
+.price-down { color: #d8a07a; font-size: 12px; }
+.row-sub { font-size: 12.5px; opacity: 0.65; margin-top: 2px; }
+.stat-list { text-align: left; font-size: 15px; line-height: 2.2; }
+.stat-list b { float: right; color: var(--gold); font-variant-numeric: tabular-nums; }
+.manage-count {
+  font-size: 30px; font-weight: 800; text-align: center; margin: 6px 0 2px;
+}
+.btn-row { display: flex; gap: 10px; }
+.btn-row .big-btn { margin: 10px 0; }
+
+/* ---- Touch-Steuerung ---- */
+#touch-controls { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
+.tc { pointer-events: auto; }
+#joystick {
+  position: absolute; left: 26px; bottom: 30px; width: 124px; height: 124px;
+  border-radius: 50%; background: rgba(15,22,17,0.35);
+  border: 1.5px solid rgba(244,239,228,0.25); touch-action: none;
+}
+#joystick-knob {
+  position: absolute; left: 50%; top: 50%; width: 54px; height: 54px;
+  transform: translate(-50%, -50%); border-radius: 50%;
+  background: rgba(244,239,228,0.35); border: 1.5px solid rgba(244,239,228,0.5);
+}
+#touch-buttons {
+  position: absolute; right: 22px; bottom: 34px;
+  display: flex; flex-direction: column; gap: 12px; align-items: flex-end;
+}
+.tc-btn {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: rgba(15,22,17,0.45); border: 1.5px solid rgba(244,239,228,0.35);
+  color: var(--cream); font-size: 22px; touch-action: none;
+}
+.tc-btn:active { background: rgba(111,174,87,0.5); }

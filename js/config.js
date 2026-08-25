@@ -18,7 +18,7 @@ export const CFG = {
   },
 
   // Tag & Wetter
-  dayLengthSec: 300,       // 06:00 -> 20:00
+  dayLengthSec: 420,       // 06:00 -> 20:00 (v2: mehr zu tun, längerer Tag)
   startHour: 6.5,
   endHour: 20,
   seasonDays: 7,
@@ -51,8 +51,76 @@ export const CFG = {
     shears:   { cost: 450,  icon: '✂️' },
     boots:    { cost: 300,  icon: '🥾' },
     fert:     { cost: 550,  icon: '🌱' },
-    cable:    { cost: 1400, icon: '🚠' }
+    cable:    { cost: 1400, icon: '🚠' },
+    foreman:  { cost: 1800, icon: '👷' },   // Vorarbeiter: Arbeiter +30 % Tempo
+    sprinkler:{ cost: 2200, icon: '💦' },   // Bewässerung: Felder wachsen schneller
+    silo:     { cost: 2600, icon: '🏗️' }    // Silo: Lager-Verkauf automatisch am Abend
   },
+
+  // ---- v2: Arbeiter ----
+  workers: {
+    max: 6,
+    hireCost: 350,          // einmalig pro Arbeiter
+    wage: 130,              // Tageslohn
+    pickTime: 3.2,          // s pro Busch (ohne Vorarbeiter)
+    foremanFactor: 0.7,
+    walkSpeed: 2.1,
+    sellFactor: 0.9         // Arbeiter-Tee wird zu 90 % Preis verkauft
+  },
+
+  // ---- v2: Bauernhof (Westseite) ----
+  farm: {
+    x: -98, z: -96, r: 26,           // ebener Hof
+    barn: { x: -108, z: -104, ry: 0.9 },
+    sign: { x: -90, z: -88 },
+    pen:  { x: -108, z: -84, r: 10 },  // Tiergehege
+    plots: {                          // Gemüse-Beete (Raster)
+      x0: -96, z0: -102, cols: 4, rows: 3, w: 4.6, d: 3.4, gap: 1.2
+    }
+  },
+
+  crops: {
+    corn:    { seed: 60,  days: 1, sell: 95,  yield: 4, icon: '🌽' },
+    tomato:  { seed: 90,  days: 2, sell: 210, yield: 4, icon: '🍅' },
+    cabbage: { seed: 70,  days: 2, sell: 160, yield: 5, icon: '🥬' },
+    hazel:   { seed: 220, days: 3, sell: 520, yield: 3, icon: '🌰' }   // Karadeniz-Klassiker
+  },
+
+  animals: {
+    chicken: { cost: 120,  product: 'egg',  perDay: 2, icon: '🐔', max: 8 },
+    cow:     { cost: 1500, product: 'milk', perDay: 1, icon: '🐄', max: 4 },
+    sheep:   { cost: 600,  product: 'wool', perDay: 0.5, icon: '🐑', max: 6 }
+  },
+
+  products: {
+    egg:  { sell: 14,  icon: '🥚' },
+    milk: { sell: 120, icon: '🥛' },
+    wool: { sell: 170, icon: '🧶' },
+    corn: { sell: 95,  icon: '🌽' },
+    tomato: { sell: 210, icon: '🍅' },
+    cabbage: { sell: 160, icon: '🥬' },
+    hazel: { sell: 520, icon: '🌰' }
+  },
+
+  // ---- v2: Stadt (Ostküste) ----
+  city: {
+    x: 118, z: -100, r: 40,
+    market: { x: 104, z: -96, ry: -0.9 },
+    dealer: { x: 128, z: -108, ry: 2.2 },
+    priceSwing: 0.35        // ±35 % Tagesschwankung am Markt
+  },
+
+  // ---- v2: Fahrzeuge ----
+  vehicles: {
+    tractor: { cost: 3800,  speed: 7,  accel: 5.5,  icon: '🚜', cargo: 5 },  // Korb ×5
+    pickup:  { cost: 7500,  speed: 13, accel: 8,    icon: '🛻', cargo: 3 },
+    sedan:   { cost: 16000, speed: 17, accel: 10,   icon: '🚗', cargo: 1 },
+    lux:     { cost: 48000, speed: 26, accel: 15,   icon: '🏎️', cargo: 1 }
+  },
+  parking: { x: 24, z: -100 },   // Stellplatz beim Spielerhaus
+
+  // ---- v2: Wohlstands-Stufen (Nettovermögen) ----
+  wealthTiers: [0, 2500, 8000, 20000, 60000, 150000],
 
   // Spieler
   player: {
@@ -81,3 +149,10 @@ export const PATHS = [
   [ { x: -2, z: -104 }, { x: 2, z: -60 }, { x: 4, z: -26 } ]        // Weg hoch ins Feld
 ];
 export const PATH_WIDTH = 2.2;
+
+// v2: Landstraßen (breiter, befahrbar) — Hof <-> Haus <-> Stadt
+export const ROADS = [
+  [ { x: -90, z: -96 }, { x: -60, z: -102 }, { x: -30, z: -108 }, { x: 8, z: -106 }, { x: 24, z: -102 } ],  // Hof -> Haus
+  [ { x: 24, z: -102 }, { x: 52, z: -106 }, { x: 84, z: -104 }, { x: 104, z: -100 }, { x: 122, z: -102 } ] // Haus -> Stadt
+];
+export const ROAD_WIDTH = 4.2;

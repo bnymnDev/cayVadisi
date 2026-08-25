@@ -4,7 +4,8 @@ import { clamp, lerp } from './util.js';
 export function createAudio() {
   let ac = null;
   let master = null;
-  let sea = null, wind = null, rain = null, motor = null;
+  let sea = null, wind = null, rain = null;
+  let engine = null;   // {osc, oscG, noise}
   let enabled = true;
   let started = false;
   let gullTimer = 6;
@@ -137,6 +138,89 @@ export function createAudio() {
         o.connect(f).connect(g).connect(master);
         o.start(t0); o.stop(t0 + 0.4);
       }
+    },
+
+    // ---- v2: Motor (läuft nur beim Fahren) ----
+    engineStart() {
+      if (!started) return;
+      if (engine) return;
+      const osc = ac.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = 42;
+      const f = ac.createBiquadFilter();
+      f.type = 'lowpass'; f.frequency.value = 320; f.Q.value = 1.2;
+      const g = ac.createGain();
+      g.gain.value = 0.0001;
+      osc.connect(f).connect(g).connect(master);
+      osc.start();
+      engine = { osc, g, f };
+    },
+    engineStop() {
+      if (!engine) return;
+      engine.g.gain.setTargetAtTime(0.0001, ac.currentTime, 0.15);
+      const e = engine;
+      setTimeout(() => { try { e.osc.stop(); } catch (err) {} }, 500);
+      engine = null;
+    },
+    engineUpdate(throttle01, speedKmh) {
+      if (!engine) return;
+      const rpm = 40 + throttle01 * 120 + speedKmh * 0.8;
+      engine.osc.frequency.setTargetAtTime(rpm, ac.currentTime, 0.08);
+      engine.f.frequency.setTargetAtTime(260 + throttle01 * 500, ac.currentTime, 0.1);
+      engine.g.gain.setTargetAtTime(0.03 + throttle01 * 0.05, ac.currentTime, 0.1);
+    },
+
+    // ---- v2: Tiere & Hof ----
+    animal(type) {
+      if (!started) return;
+      if (type === 'cow') {
+        const o = ac.createOscillator();
+        o.type = 'sawtooth';
+        const f = ac.createBiquadFilter();
+        f.type = 'lowpass'; f.frequency.value = 420;
+        const g = ac.createGain();
+        const t0 = ac.currentTime;
+        o.frequency.setValueAtTime(95, t0);
+        o.frequency.linearRampToValueAtTime(70, t0 + 0.7);
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(0.07, t0 + 0.12);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.9);
+        o.connect(f).connect(g).connect(master);
+        o.start(t0); o.stop(t0 + 1);
+      } else if (type === 'sheep') {
+        const o = ac.createOscillator();
+        o.type = 'square';
+        const g = ac.createGain();
+        const t0 = ac.currentTime;
+        o.frequency.setValueAtTime(220, t0);
+        const lfo = ac.createOscillator();
+        lfo.frequency.value = 9;
+        const lg = ac.createGain(); lg.gain.value = 30;
+        lfo.connect(lg); lg.connect(o.frequency);
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(0.035, t0 + 0.06);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+        o.connect(g).connect(master);
+        o.start(t0); lfo.start(t0);
+        o.stop(t0 + 0.6); lfo.stop(t0 + 0.6);
+      } else { // chicken
+        for (let i = 0; i < 3; i++) {
+          blip(880 + Math.random() * 200, 0.08, 'square', 0.03, i * 0.12);
+        }
+      }
+    },
+    harvest() { noiseBurst(1200, 0.8, 0.12, 0.14); blip(440, 0.12, 'triangle', 0.08, 0.05); },
+    plant() { noiseBurst(500, 0.9, 0.15, 0.12); },
+    cash() {
+      blip(740, 0.1, 'sine', 0.14);
+      blip(988, 0.16, 'sine', 0.14, 0.07);
+      noiseBurst(7000, 1.5, 0.12, 0.08, 0.03);
+    },
+    tierUp() {
+      blip(523, 0.14, 'sine', 0.15);
+      blip(659, 0.14, 'sine', 0.15, 0.12);
+      blip(784, 0.14, 'sine', 0.15, 0.24);
+      blip(1047, 0.3, 'sine', 0.16, 0.36);
     },
 
     pickTick() { noiseBurst(2400, 1.2, 0.05, 0.10); },

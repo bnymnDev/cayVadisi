@@ -70,6 +70,7 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
     moving: false,
     running: false,
     onLockChange: null,
+    touchMove: { x: 0, y: 0 },   // virtueller Joystick (-1..1)
 
     setEnabled(v) { enabled = v; if (!v) keys.clear(); },
 
@@ -102,6 +103,13 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
       if (keys.has('KeyS') || keys.has('ArrowDown')) wish.sub(fwd);
       if (keys.has('KeyD') || keys.has('ArrowRight')) wish.add(right);
       if (keys.has('KeyA') || keys.has('ArrowLeft')) wish.sub(right);
+      // Virtueller Joystick (Touch)
+      const tm = api.touchMove;
+      if (tm.x * tm.x + tm.y * tm.y > 0.01) {
+        wish.addScaledVector(fwd, -tm.y);
+        wish.addScaledVector(right, tm.x);
+        if (tm.x * tm.x + tm.y * tm.y > 0.8) speed *= P.runFactor;
+      }
       const wants = wish.lengthSq() > 0;
       if (wants) wish.normalize().multiplyScalar(speed);
 

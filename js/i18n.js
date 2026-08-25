@@ -65,10 +65,81 @@ const STRINGS = {
       shears:  ['Teeschere (Makas)', 'Pflückt schneller und mehr pro Busch'],
       boots:   ['Gummistiefel', '+30 % Lauftempo am Hang'],
       fert:    ['Naturdünger', 'Triebe wachsen 30 % schneller'],
-      cable:   ['Teleferik reparieren', 'Seilbahn-Station am Feld: Korb verkaufen ohne Laufweg']
+      cable:   ['Teleferik reparieren', 'Seilbahn-Station am Feld: Korb verkaufen ohne Laufweg'],
+      foreman: ['Vorarbeiter', 'Deine Arbeiter pflücken 30 % schneller'],
+      sprinkler: ['Bewässerung', 'Beete reifen einen Tag schneller'],
+      silo:    ['Hof-Silo', 'Lager wird abends automatisch verkauft']
     },
     owned: 'Gekauft',
-    buy: 'Kaufen'
+    buy: 'Kaufen',
+
+    // ---- v2: Prompts ----
+    prompt_sell: 'Verkaufen & Ausrüstung',
+    prompt_sleep: 'Schlafen (Tag beenden)',
+    prompt_cable: 'Korb mit der Seilbahn schicken',
+    prompt_vehicle: (v) => `${v} — einsteigen`,
+    prompt_exit: 'Aussteigen',
+    prompt_farm: 'Hof verwalten (Pflanzen & Tiere)',
+    prompt_market: 'Markt — Waren verkaufen',
+    prompt_dealer: 'Autohaus — Fahrzeuge kaufen',
+    prompt_harvest: 'Beet ernten',
+
+    // ---- v2: Fahrzeuge ----
+    veh_tractor: 'Traktor', veh_pickup: 'Pickup', veh_sedan: 'Limousine', veh_lux: 'Sportwagen',
+    vehDesc_tractor: 'Langsam, aber der Korb zählt ×5, wenn er in der Nähe steht',
+    vehDesc_pickup: 'Robust, flott, Korb ×3 in der Nähe',
+    vehDesc_sedan: 'Komfortabel und schnell in die Stadt',
+    vehDesc_lux: 'Der Traum vom Tal: brüllend schnell, goldene Felgen',
+    vehicleBought: (v) => `${v} gekauft! Er steht am Parkplatz beim Haus.`,
+    dealerTitle: 'Galeri — Autohaus',
+    kmh: 'km/h',
+
+    // ---- v2: Hof & Anbau ----
+    farmTitle: 'Bostan — Dein Hof',
+    plantSection: 'Beete bepflanzen',
+    animalSection: 'Tiere kaufen',
+    freePlots: (n, m) => `${n} von ${m} Beeten frei`,
+    crop_corn: 'Mais', crop_tomato: 'Tomaten', crop_cabbage: 'Schwarzkohl', crop_hazel: 'Haselnuss',
+    cropInfo: (days, y, sell) => `${days} ${days === 1 ? 'Tag' : 'Tage'} · Ertrag ${y} · je ${sell} ₺`,
+    noFreePlot: 'Kein freies Beet — erst ernten!',
+    harvested: (n, w) => `${n} × ${w} geerntet!`,
+    animal_chicken: 'Huhn', animal_cow: 'Kuh', animal_sheep: 'Schaf',
+    animalInfo: (p, n) => `liefert ${n} × ${p} pro Tag`,
+    prod_egg: 'Eier', prod_milk: 'Milch', prod_wool: 'Wolle',
+    prod_corn: 'Mais', prod_tomato: 'Tomaten', prod_cabbage: 'Schwarzkohl', prod_hazel: 'Haselnüsse',
+    morningProducts: (n) => `Über Nacht: ${n} Produkte im Lager. Verkauf sie am Markt in der Stadt!`,
+
+    // ---- v2: Markt ----
+    marketTitle: 'Pazar — Wochenmarkt',
+    marketHint: 'Die Preise schwanken täglich — verkaufe, wenn der Kurs gut steht!',
+    sellAll: 'Alles verkaufen',
+    marketEmpty: 'Dein Lager ist leer. Ernte Gemüse oder sammle Tierprodukte!',
+    priceGood: 'Guter Preis!', priceBad: 'schwacher Kurs',
+
+    // ---- v2: Betrieb / Management ----
+    manageTitle: 'Betrieb',
+    tabWorkers: 'Arbeiter', tabStorage: 'Lager', tabStats: 'Bilanz',
+    hireWorker: 'Arbeiter einstellen',
+    fireWorker: 'Entlassen',
+    workerLine: (n, max) => `${n} / ${max} Pflücker angestellt`,
+    workerInfo: (hire, wage) => `Einstellung ${hire} ₺ · Lohn ${wage} ₺/Tag · pflücken selbstständig Tee`,
+    workerToday: (kg) => `Heute von Arbeitern gepflückt: ${kg} kg`,
+    storageEmpty: 'Lager ist leer',
+    statNet: 'Nettovermögen',
+    statMoney: 'Bargeld',
+    statDayEarned: 'Heute eingenommen',
+    statDaySpent: 'Heute ausgegeben',
+    statTotal: 'Gesamt verdient',
+    sumWorkerTea: 'Arbeiter-Tee verkauft',
+    sumWages: 'Löhne gezahlt',
+    sumSilo: 'Silo-Verkauf',
+
+    // ---- v2: Wohlstand ----
+    tierUp: (name) => `Aufstieg! Du bist jetzt: ${name}`,
+    tierName0: 'Teepflücker', tierName1: 'Gärtner', tierName2: 'Hofbesitzer',
+    tierName3: 'Großbauer', tierName4: 'Çay-Baron', tierName5: 'Legende vom Karadeniz',
+
+    tutV2: 'Neu: Im Westen liegt dein Hof (Gemüse & Tiere), im Osten die Stadt mit Markt und Autohaus. [Tab] öffnet den Betrieb.'
   },
   tr: {
     subtitle: 'Karadeniz kıyısında kendi çay bahçen',
@@ -135,10 +206,81 @@ const STRINGS = {
       shears:  ['Çay makası', 'Daha hızlı, daha çok toplar'],
       boots:   ['Lastik çizme', 'Yamaçta %30 hız'],
       fert:    ['Doğal gübre', 'Sürgünler %30 hızlı büyür'],
-      cable:   ['Teleferiği onar', 'Tarladaki istasyondan sepeti direkt sat']
+      cable:   ['Teleferiği onar', 'Tarladaki istasyondan sepeti direkt sat'],
+      foreman: ['Kâhya', 'İşçilerin %30 daha hızlı toplar'],
+      sprinkler: ['Sulama sistemi', 'Ekinler bir gün erken olgunlaşır'],
+      silo:    ['Çiftlik silosu', 'Depo her akşam otomatik satılır']
     },
     owned: 'Alındı',
-    buy: 'Satın al'
+    buy: 'Satın al',
+
+    // ---- v2: Etkileşimler ----
+    prompt_sell: 'Sat & Ekipman',
+    prompt_sleep: 'Uyu (günü bitir)',
+    prompt_cable: 'Sepeti teleferikle gönder',
+    prompt_vehicle: (v) => `${v} — bin`,
+    prompt_exit: 'İn',
+    prompt_farm: 'Çiftliği yönet (ekin & hayvan)',
+    prompt_market: 'Pazar — ürün sat',
+    prompt_dealer: 'Galeri — araç al',
+    prompt_harvest: 'Tarlayı hasat et',
+
+    // ---- v2: Araçlar ----
+    veh_tractor: 'Traktör', veh_pickup: 'Kamyonet', veh_sedan: 'Otomobil', veh_lux: 'Spor araba',
+    vehDesc_tractor: 'Yavaş ama yanındayken sepet ×5 sayılır',
+    vehDesc_pickup: 'Sağlam, hızlı, yakında sepet ×3',
+    vehDesc_sedan: 'Şehre konforlu ve hızlı',
+    vehDesc_lux: 'Vadinin rüyası: deli hızlı, altın jantlı',
+    vehicleBought: (v) => `${v} alındı! Evin yanındaki parkta duruyor.`,
+    dealerTitle: 'Galeri — Oto',
+    kmh: 'km/s',
+
+    // ---- v2: Çiftlik & Ekim ----
+    farmTitle: 'Bostan — Çiftliğin',
+    plantSection: 'Tarla ek',
+    animalSection: 'Hayvan al',
+    freePlots: (n, m) => `${m} tarladan ${n} tanesi boş`,
+    crop_corn: 'Mısır', crop_tomato: 'Domates', crop_cabbage: 'Karalahana', crop_hazel: 'Fındık',
+    cropInfo: (days, y, sell) => `${days} gün · verim ${y} · tanesi ${sell} ₺`,
+    noFreePlot: 'Boş tarla yok — önce hasat et!',
+    harvested: (n, w) => `${n} × ${w} hasat edildi!`,
+    animal_chicken: 'Tavuk', animal_cow: 'İnek', animal_sheep: 'Koyun',
+    animalInfo: (p, n) => `günde ${n} × ${p} verir`,
+    prod_egg: 'Yumurta', prod_milk: 'Süt', prod_wool: 'Yün',
+    prod_corn: 'Mısır', prod_tomato: 'Domates', prod_cabbage: 'Karalahana', prod_hazel: 'Fındık',
+    morningProducts: (n) => `Gece boyunca: depoda ${n} ürün birikti. Şehirdeki pazarda sat!`,
+
+    // ---- v2: Pazar ----
+    marketTitle: 'Pazar',
+    marketHint: 'Fiyatlar her gün değişir — kur iyiyken sat!',
+    sellAll: 'Hepsini sat',
+    marketEmpty: 'Depon boş. Sebze yetiştir ya da hayvan ürünleri topla!',
+    priceGood: 'İyi fiyat!', priceBad: 'düşük kur',
+
+    // ---- v2: İşletme ----
+    manageTitle: 'İşletme',
+    tabWorkers: 'İşçiler', tabStorage: 'Depo', tabStats: 'Bilanço',
+    hireWorker: 'İşçi al',
+    fireWorker: 'İşten çıkar',
+    workerLine: (n, max) => `${n} / ${max} toplayıcı çalışıyor`,
+    workerInfo: (hire, wage) => `İşe alım ${hire} ₺ · yevmiye ${wage} ₺ · kendiliğinden çay toplar`,
+    workerToday: (kg) => `Bugün işçilerin topladığı: ${kg} kg`,
+    storageEmpty: 'Depo boş',
+    statNet: 'Net servet',
+    statMoney: 'Nakit',
+    statDayEarned: 'Bugün kazanılan',
+    statDaySpent: 'Bugün harcanan',
+    statTotal: 'Toplam kazanç',
+    sumWorkerTea: 'İşçi çayı satıldı',
+    sumWages: 'Yevmiyeler ödendi',
+    sumSilo: 'Silo satışı',
+
+    // ---- v2: Servet ----
+    tierUp: (name) => `Yükseliş! Artık sen: ${name}`,
+    tierName0: 'Çay toplayıcısı', tierName1: 'Bahçıvan', tierName2: 'Çiftlik sahibi',
+    tierName3: 'Büyük çiftçi', tierName4: 'Çay Ağası', tierName5: 'Karadeniz Efsanesi',
+
+    tutV2: 'Yeni: Batıda çiftliğin (sebze & hayvan), doğuda pazar ve galerili kasaba. [Tab] işletmeyi açar.'
   }
 };
 
