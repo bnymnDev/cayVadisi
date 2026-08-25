@@ -46,6 +46,7 @@ import { createGulet } from './gulet.js';
 import { createCats } from './cats.js';
 import { createKonak } from './world/konak.js';
 import { createVillage } from './world/village.js';
+import { createChars } from './chars.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -163,15 +164,18 @@ function maybeReady() {
 }
 
 createProps(ctx, terrain).then(async (p) => {
+  // v13.3: geriggtes Menschmodell zuerst laden — Arbeiter/NPCs/Avatar brauchen es
+  const chars = createChars(ctx);
+  await chars.load();
   cc0 = await createCc0Props(ctx, terrain);
   farm = createFarm(ctx, terrain, p.mats);
   city = createCity(ctx, terrain, p.mats);
   vehicles = createVehicles(ctx, terrain, player, () => allColliders);
-  workers = createWorkers(ctx, terrain, teaField, particles);
+  workers = createWorkers(ctx, terrain, teaField, particles, chars);
   extras = createExtras(ctx, terrain, p.mats);
   airport = createAirport(ctx, terrain, p.mats);
   events = createEvents(ctx, ui, audio);
-  avatar = createAvatar(ctx, player, terrain);
+  avatar = createAvatar(ctx, player, terrain, chars);
   boat = createBoat(ctx, terrain, player, audio, ui);
   dog = createDog(ctx, terrain, player, audio);
   story = createStory(ctx, ui, audio, player);
@@ -208,7 +212,7 @@ createProps(ctx, terrain).then(async (p) => {
   istanbul = createIstanbul(ctx, terrain);
   gameMods.istanbul = istanbul;
   allColliders.push(...istanbul.colliders);
-  npcs = createNpcs(ctx, terrain, ui, player, () => game.playerShare());
+  npcs = createNpcs(ctx, terrain, ui, player, () => game.playerShare(), chars);
   gameMods.npcs = npcs;
   ui.bindTouch(player, vehicles, boat);
   wireHooks();

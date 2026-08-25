@@ -8,6 +8,10 @@ komplett offline, DE/TR). Start: `npm start` → `http://localhost:8137`.
 - Alle Sounds prozedural (WebAudio) — keine Audiodateien.
 - Assets: Poly Haven / ambientCG (CC0). Neue Modelle über `tools/download_extra_models.py`
   nach `assets/models/extra/<slug>/` (plain glTF + Texturen, kein Meshopt nötig).
+- Menschen: geriggtes GLB `assets/models/extra/human/human.glb` (Quaternius CC0,
+  aus FBX via `npm i fbx2gltf` → `FBX2glTF --binary` konvertiert; Anims Idle/Walk/
+  Run/Working). Instanzen via `js/chars.js` (SkeletonUtils-Klone + Palettentextur-
+  Tausch); `makeWorkerMesh` bleibt als Fallback.
 - Sky-Sonnenscheibe NIEMALS ins Environment-PMREM backen (`showSunDisc = 0` im envSky),
   sonst Inf/NaN → komplett schwarze Szene.
 - Spielstand: `localStorage` (`cayvadisi_save_v2`), `state.js` migriert ältere Stände.

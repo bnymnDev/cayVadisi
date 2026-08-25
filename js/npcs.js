@@ -2,7 +2,7 @@
 import { CFG } from './config.js';
 import { state } from './state.js';
 import { mulberry32 } from './util.js';
-import { makeWorkerMesh } from './workers.js';
+import { makeWorkerMesh, spawnPerson } from './workers.js';
 import { t } from './i18n.js';
 
 const ZONES = () => ([
@@ -13,7 +13,7 @@ const ZONES = () => ([
 
 const NPC_COLORS = [0x8a6d5f, 0x5f6d8a, 0x6d8a5f, 0x8a5f6d, 0x7d7d55, 0x557d7d, 0x9a8a6a, 0x6a7a9a];
 
-export function createNpcs(ctx, terrain, ui, player, shareFn) {
+export function createNpcs(ctx, terrain, ui, player, shareFn, chars) {
   const { scene } = ctx;
   const rng = mulberry32(31337);
   const npcs = [];
@@ -23,7 +23,7 @@ export function createNpcs(ctx, terrain, ui, player, shareFn) {
   let idx = 0;
   for (const z of ZONES()) {
     for (let i = 0; i < z.n; i++) {
-      const parts = makeWorkerMesh(idx, {
+      const parts = spawnPerson(chars, idx, {
         basket: false,
         hat: rng() < 0.4,
         shirt: NPC_COLORS[idx % NPC_COLORS.length]
@@ -43,9 +43,7 @@ export function createNpcs(ctx, terrain, ui, player, shareFn) {
 
   // v6: Kemal Ağa — der Rivale flaniert im Anzug über den Stadtplatz
   const kemal = (() => {
-    const parts = makeWorkerMesh(0, { basket: false, hat: false, shirt: 0x2a2a30 });
-    // dunkler Anzug + Schnauzer-Andeutung
-    const tie = parts.head.clone();
+    const parts = spawnPerson(chars, 3, { basket: false, hat: false, shirt: 0x2a2a30, tex: 3 });
     parts.group.position.set(CFG.city.x + 4, terrain.heightAt(CFG.city.x + 4, CFG.city.z + 2), CFG.city.z + 2);
     parts.group.scale.setScalar(1.05);
     scene.add(parts.group);
@@ -93,18 +91,27 @@ export function createNpcs(ctx, terrain, ui, player, shareFn) {
           p.z += dz / d * sp * dt;
           p.group.rotation.y = Math.atan2(dx, dz);
           p.phase += dt * 7;
-          p.group.position.set(p.x, terrain.heightAt(p.x, p.z) + Math.abs(Math.sin(p.phase)) * 0.035, p.z);
-          p.armL.rotation.x = Math.sin(p.phase) * 0.35;
-          p.armR.rotation.x = -Math.sin(p.phase) * 0.35;
-          if (p.legL) {
+          p.group.position.set(p.x,
+            terrain.heightAt(p.x, p.z) + (p.anim ? 0 : Math.abs(Math.sin(p.phase)) * 0.035), p.z);
+          if (p.armL) {
+            p.armL.rotation.x = Math.sin(p.phase) * 0.35;
+            p.armR.rotation.x = -Math.sin(p.phase) * 0.35;
             p.legL.rotation.x = -Math.sin(p.phase) * 0.5;
             p.legR.rotation.x = Math.sin(p.phase) * 0.5;
           }
         } else {
           p.group.position.y = terrain.heightAt(p.x, p.z);
-          p.armL.rotation.x *= 0.9;
-          p.armR.rotation.x *= 0.9;
-          if (p.legL) { p.legL.rotation.x *= 0.9; p.legR.rotation.x *= 0.9; }
+          if (p.armL) {
+            p.armL.rotation.x *= 0.9;
+            p.armR.rotation.x *= 0.9;
+            p.legL.rotation.x *= 0.9;
+            p.legR.rotation.x *= 0.9;
+          }
+        }
+        if (p.anim) {
+          const moving2 = d > 0.4;
+          p.anim.play(moving2 ? 'Walk' : 'Idle', 0.22, 1.1);
+          p.anim.update(dt);
         }
         // Kemal Ağa stichelt statt zu grüßen
         if (p.isKemal) {
@@ -126,7 +133,7 @@ export function createNpcs(ctx, terrain, ui, player, shareFn) {
           p.greeted = true;
           greetCooldown = 14;
           p.group.rotation.y = Math.atan2(player.pos.x - p.x, player.pos.z - p.z);
-          p.armR.rotation.x = -2.6;   // winken
+          if (p.armR) p.armR.rotation.x = -2.6;   // winken (Prozedural-Fallback)
           ui.toast(t('npcGreet' + (1 + Math.floor(Math.random() * 4))), false, 2600);
         }
         if (pd > 8) p.greeted = false;
