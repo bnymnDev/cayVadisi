@@ -31,6 +31,10 @@ import { createAvatar } from './avatar.js';
 import { createEvents } from './events.js';
 import { createBoat } from './boat.js';
 import { createDog } from './dog.js';
+import { createIstanbul } from './world/istanbul.js';
+import { createWildlife } from './wildlife.js';
+import { createRace } from './race.js';
+import { createSled } from './sled.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -97,7 +101,7 @@ let game = null;
 let farm = null, city = null, vehicles = null, workers = null, minimap = null, npcs = null, extras = null;
 let cc0 = null, airport = null, avatar = null, events = null;
 let boat = null, story = null, achievements = null, radio = null, yaylaApi = null;
-let dog = null;
+let dog = null, istanbul = null, wildlife = null, race = null, sled = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -161,11 +165,20 @@ createProps(ctx, terrain).then(async (p) => {
   yaylaApi = createYayla(ctx, terrain, p.mats);
   allColliders.push(...p.colliders, ...farm.colliders, ...city.colliders,
     ...extras.colliders, ...cc0.colliders, ...airport.colliders, ...yaylaApi.colliders);
-  game = createGame(ctx, {
+  wildlife = createWildlife(ctx, terrain, player, ui, audio);
+  race = createRace(ctx, ui, audio);
+  sled = createSled(ctx, terrain, player, ui, audio);
+  const gameMods = {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
-    farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi, dog
-  });
+    farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi, dog,
+    race, sled, istanbul: null
+  };
+  game = createGame(ctx, gameMods);
   minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
+  // İstanbul NACH der Minimap erzeugen (die Höhen-Zone darf nicht mitgebacken werden)
+  istanbul = createIstanbul(ctx, terrain);
+  gameMods.istanbul = istanbul;
+  allColliders.push(...istanbul.colliders);
   npcs = createNpcs(ctx, terrain, ui, player, () => game.playerShare());
   ui.bindTouch(player, vehicles, boat);
   wireHooks();
@@ -358,6 +371,21 @@ function wireHooks() {
   hooks.newGamePlus = () => game.newGamePlus();
   hooks.ngpEligible = () => game.ngpEligible();
   hooks.seedPrice = (id) => game.seedPrice(id);
+  hooks.bookVacation = (id) => game.bookVacation(id);
+  hooks.setDecree = (id) => game.setDecree(id);
+  hooks.taxiCost = (id) => game.taxiCost(id);
+  hooks.callTaxi = (id) => game.callTaxi(id);
+  hooks.forecast = () => game.forecast();
+  hooks.marketTips = () => game.marketTips();
+  hooks.haggleSell = (id) => game.haggleSell(id);
+  hooks.brewReward = (s) => game.brewReward(s);
+  hooks.buyNet = () => game.buyNet();
+  hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
+  hooks.radioNext = () => {
+    if (!audio.ctx) audio.ensure();
+    if (audio.ctx) radio.next(audio.ctx, audio.masterNode);
+    return radio.stationName();
+  };
   hooks.resume = () => game.pause(false);
   hooks.nextDay = () => game.nextDay();
   hooks.nextDay2 = () => game.startDay();
@@ -464,6 +492,10 @@ window.__game = {
   get avatar() { return avatar; },
   get boat() { return boat; },
   get dog() { return dog; },
+  get istanbul() { return istanbul; },
+  get wildlife() { return wildlife; },
+  get race() { return race; },
+  get sled() { return sled; },
   get story() { return story; },
   get achievements() { return achievements; },
   setPhotoMode,
@@ -547,6 +579,8 @@ function step(rawDt, manual, skipRender = false) {
   const wind = game ? game.windStrength() : 0.5;
   teaField.update(playing ? dt : 0, growSpeed, elapsed, wind);
   sky.update(dt, player.pos, state);
+  // v8: klare Sicht über den Bosporus — im İstanbul-Modus weniger Dunst
+  if (game && game.istanbulMode) scene.fog.density *= 0.4;
   ocean.update(dt, elapsed, sky.rainT);
   grass.update(dt, elapsed, player.pos, wind);
 
@@ -576,10 +610,19 @@ function step(rawDt, manual, skipRender = false) {
     cc0.update(dt, player, vehicles.driving ? vehicles.speedKmh() / 3.6 : 0);
     boat.update(dt, elapsed);
     dog.update(dt, elapsed);
-    if (playing) { story.update(dt); achievements.update(dt); }
+    istanbul.update(dt, elapsed);
+    race.update(dt, elapsed, boat.pos, boat.driving);
+    sled.setWinter(seasonSnow);
+    if (playing) {
+      story.update(dt);
+      achievements.update(dt);
+      wildlife.update(dt, elapsed, sky.hour);
+      sled.update(dt, elapsed);
+    }
     radio.update(audio.ctx);
     extras.setFestival(window.__started && game.isFestival());
     extras.setNight(window.__started && game.isNight());
+    extras.setSummer(window.__started && game.season() === 0);
     minimap.update(dt);
   }
 

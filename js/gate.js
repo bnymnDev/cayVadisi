@@ -1,11 +1,11 @@
-// PIN-Gate für die öffentliche GitHub-Pages-Version.
-// Hinweis: Das ist ein SOFT-Schutz gegen zufällige Besucher — der Spielcode
-// selbst bleibt öffentlich abrufbar (GitHub Pages kennt keine echte Auth).
+// PIN-Gate für öffentlich erreichbare Deployments (z. B. Subdomain auf nesbun.de).
+// Hinweis: Das ist ein SOFT-Schutz gegen zufällige Besucher — die Spieldateien
+// selbst bleiben abrufbar. Echte Auth ginge nur serverseitig (z. B. Basic Auth).
 // PIN ändern: neuen Hash erzeugen mit
 //   await crypto.subtle.digest('SHA-256', new TextEncoder().encode('meinpin'))
 // (Hex) und unten eintragen. Aktueller PIN: cay1453
 const PIN_HASH = 'a32ed549575cd45820975b79bd3aaabadb9618768825c7d37312b29b470f6a84';
-const GATE_ON_HOSTS = /\.github\.io$/;   // lokal & eigene Domains bleiben offen
+const GATE_ON_HOSTS = /\.github\.io$|(^|\.)nesbun\.de$/;   // localhost bleibt offen
 
 async function sha256Hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));

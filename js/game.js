@@ -8,6 +8,7 @@ import { clamp, fmtMoney } from './util.js';
 
 export function createGame(ctx, mods) {
   const { terrain, tea, props, player, audio, ui, particles, sky, farm, vehicles, workers, extras, events, boat, radio, yayla } = mods;
+  // v8: istanbul/race/sled werden nach createGame erzeugt — lazy über mods.*
   const { camera } = ctx;
 
   let showers = [];          // {start, end, storm?}
@@ -116,6 +117,9 @@ export function createGame(ctx, mods) {
     running = false;
     if (vehicles.driving) { vehicles.exit(); audio.engineStop(); }
     if (boat.driving) boat.exit();
+    if (istanbulMode) returnIstanbul(true);         // v8: letzter Vapur nach Hause
+    if (mods.sled && mods.sled.riding) mods.sled.exit();
+    tour = null;
     player.setEnabled(false);
     player.releaseLock();
     audio.sleep();
@@ -174,6 +178,36 @@ export function createGame(ctx, mods) {
         lines.push({ k: 'sumKoopDiv', v: '+' + fmtMoney(div, L), sub: t('repShort') + ' ' + state.rep });
       }
     }
+    // v8: Kararname-Effekte (Tropico lässt grüßen)
+    {
+      const dec = CFG.decrees.list[state.decree];
+      if (dec) {
+        if (dec.upkeep > 0) {
+          state.money -= dec.upkeep;
+          state.daySpent += dec.upkeep;
+          lines.push({ k: 'sumDecree', v: '−' + fmtMoney(dec.upkeep, L), sub: t('decree_' + state.decree) });
+        }
+        if (dec.income) {
+          state.money += dec.income;
+          state.dayEarned += dec.income;
+          state.totalEarned += dec.income;
+          lines.push({ k: 'sumDecreeTax', v: '+' + fmtMoney(dec.income, L) });
+        }
+        if (dec.repPerDay) addRep(-dec.repPerDay);
+        if (dec.packsPerDay && state.factory) trackPacks(dec.packsPerDay);
+      }
+    }
+    // v8: Pansiyon-Gäste (je besser der Ruf, desto voller das Haus)
+    if (state.properties.pansiyon) {
+      const P = CFG.pension;
+      const guests = Math.min(P.maxGuests,
+        Math.round(state.rep / 25) + (season() === 0 ? 1 : 0) + (isFestival() ? 1 : 0));
+      if (guests > 0) {
+        const sum = guests * P.guestPay;
+        state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+        lines.push({ k: 'sumPension', v: '+' + fmtMoney(sum, L), sub: guests + ' 🧳' });
+      }
+    }
     // v6: Bank — Zinsen & Versicherung
     if (state.debt > 0) {
       const interest = Math.round(state.debt * CFG.bank.dailyInterest);
@@ -212,7 +246,8 @@ export function createGame(ctx, mods) {
     }
     // Löhne zahlen (Winterpause: kein Lohn, keine Arbeit)
     if (state.workers > 0 && !CFG.seasonCycle.workersRest[season()]) {
-      const wages = state.workers * CFG.workers.wage;
+      const mesai = CFG.decrees.list[state.decree] && CFG.decrees.list[state.decree].wageMul || 1;
+      const wages = Math.round(state.workers * CFG.workers.wage * mesai);
       state.money -= wages; state.daySpent += wages;
       lines.push({ k: 'sumWages', v: '−' + fmtMoney(wages, L), sub: state.workers + ' 👷' });
     }
@@ -299,6 +334,12 @@ export function createGame(ctx, mods) {
       state._starveToast = false;
     }
     if (events) events.newDay();
+    // v8: Urlaubsmoral zählt runter, Gece-Mesaisi-Dekret beschleunigt die Pflücker
+    if (state.moralDays > 0) state.moralDays -= 1;
+    {
+      const dec = CFG.decrees.list[state.decree];
+      if (dec && dec.workerSpeed) state.workerBoost *= dec.workerSpeed;
+    }
 
     tea.newDay(CFG.seasonCycle.teaGrowth[season()]);
     if (!state.seasonOver && state.day > CFG.seasonDays) {
@@ -320,6 +361,7 @@ export function createGame(ctx, mods) {
     return (state.married ? CFG.life.marriedBonus : 1)
       * (state.child ? CFG.life.childBonus : 1)
       * (state.homeLevel >= 2 ? 1.05 : 1)
+      * (state.moralDays > 0 ? CFG.vacation.moralBonus : 1)   // v8: Urlaubsmoral
       * prestigeMul(CFG);   // v7: New-Game+-Sterne
   }
 
@@ -412,8 +454,12 @@ export function createGame(ctx, mods) {
 
   // ---------- Verkauf ----------
   function sellValue() {
+    const dec = CFG.decrees.list[state.decree];
     return state.basketValueKg * CFG.eco.pricePerKg * (state.dedeBonus ? 1.1 : 1)
-      * (state.koop ? CFG.koop.priceBonus : 1) * prestigeMul(CFG);
+      * (state.koop ? CFG.koop.priceBonus : 1)
+      * (dec && dec.teaMul ? dec.teaMul : 1)                  // v8: Subvention
+      * (state.moralDays > 0 ? CFG.vacation.moralBonus : 1)
+      * prestigeMul(CFG);
   }
 
   function trackPacks(n) {
@@ -762,6 +808,7 @@ export function createGame(ctx, mods) {
     state.money -= p.cost;
     state.daySpent += p.cost;
     state.properties[id] = true;
+    if (id === 'pansiyon' && extras.syncPension) extras.syncPension();
     audio.cash();
     ui.toast(t('propertyBought', t('prop_' + id)), true, 5000);
     checkWealth();
@@ -829,15 +876,38 @@ export function createGame(ctx, mods) {
     return state.money >= F.cost && (CFG.endHour - sky.hour) > F.hours + 0.5;
   }
 
+  // v8: İstanbul ist jetzt begehbar — der Flug teleportiert ins Bosporus-Viertel
+  let istanbulMode = false;
+
   function flyIstanbul() {
     const F = CFG.airport.flights.istanbul;
-    if (!canFlyIstanbul()) { audio.deny(); return false; }
+    if (!canFlyIstanbul() || istanbulMode) { audio.deny(); return false; }
     state.money -= F.cost;
     state.daySpent += F.cost;
     state.timeSec += F.hours * secPerHour();
-    audio.gondola();
+    istanbulMode = true;
+    if (mods.istanbul) mods.istanbul.setVisible(true);
+    ui.hideOverlays();
+    player.teleport(CFG.istanbul.spawn.x, CFG.istanbul.spawn.z);
+    player.look(0.5, 0.03);   // Blick auf Kapalıçarşı & Skyline
+    audio.jet();
+    ui.toast(t('istWelcome'), true, 8000);
     save();
-    ui.showIstanbul();
+    if (!ctx.isTouch) player.requestLock();
+    player.setEnabled(true);
+    return true;
+  }
+
+  function returnIstanbul(silent = false) {
+    if (!istanbulMode) return false;
+    istanbulMode = false;
+    if (mods.istanbul) mods.istanbul.setVisible(false);
+    player.teleport(CFG.airport.x - 6, CFG.airport.z + 6);
+    player.look(-0.5, 0);
+    if (!silent) {
+      audio.jet();
+      ui.toast(t('istReturn'), false, 5000);
+    }
     return true;
   }
 
@@ -1124,6 +1194,163 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ---------- v8: Urlaub, Dekrete, Taxi, Pazarlık, Çay-Ustası, Netz, News ----------
+  function bookVacation(id) {
+    const V = CFG.vacation.spots[id];
+    if (!V || state.money < V.cost || state.wealthTier < V.tier) { audio.deny(); return false; }
+    state.money -= V.cost;
+    state.daySpent += V.cost;
+    state.holidays += 1;
+    state.moralDays = CFG.vacation.moralDays + 1;   // heute Abend wird 1 abgezogen
+    state.hunger = 100; state.energy = 100;
+    if (id === 'maldiv' && !state.maldivDone) {
+      state.maldivDone = true;
+      addRep(CFG.vacation.maldivPrestigeRep);
+    }
+    ui.albumAddPostcard(id);
+    audio.tierUp();
+    ui.toast(t('vacationDone', t('vac_' + id)), true, 9000);
+    save();
+    endDay();   // der Tag ist Urlaub
+    return true;
+  }
+
+  function setDecree(id) {
+    if (id !== '' && !CFG.decrees.list[id]) return false;
+    if (id === state.decree) return false;
+    if (id !== '' && state.decree !== '') {
+      if (state.money < CFG.decrees.switchCost) { audio.deny(); return false; }
+      state.money -= CFG.decrees.switchCost;
+      state.daySpent += CFG.decrees.switchCost;
+    }
+    state.decree = id;
+    audio.buy();
+    ui.toast(id ? t('decreeSet', t('decree_' + id)) : t('decreeOff'), true, 6000);
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function taxiCost(spotId) {
+    const s = CFG.phone.taxi.spots[spotId];
+    if (!s) return 0;
+    const d = Math.hypot(player.pos.x - s.x, player.pos.z - s.z);
+    return Math.max(CFG.phone.taxi.min, Math.round(d * CFG.phone.taxi.perMeter));
+  }
+
+  function callTaxi(spotId) {
+    const s = CFG.phone.taxi.spots[spotId];
+    const cost = taxiCost(spotId);
+    if (!s || vehicles.driving || boat.driving || istanbulMode || state.money < cost) { audio.deny(); return false; }
+    state.money -= cost;
+    state.daySpent += cost;
+    state.timeSec += CFG.phone.taxi.hours * secPerHour();
+    player.teleport(s.x + 2, s.z + 2);
+    audio.horn('sedan');
+    ui.toast(t('taxiDone', t('taxi_' + spotId)), true, 4500);
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  // Pazarlık: kompletten Bestand eines Produkts mit Verhandlung verkaufen
+  function haggleSell(id) {
+    const have = Math.floor(state.inventory[id] || 0);
+    if (have <= 0) { audio.deny(); return null; }
+    const base = CFG.products[id].sell * (state.marketMul[id] || 1) * prestigeMul(CFG);
+    const p = Math.min(0.85, 0.5 + state.rep * 0.004);
+    const won = Math.random() < p;
+    const mul = won ? 1.3 : 0.85;
+    const sum = have * base * mul;
+    state.inventory[id] -= have;
+    state.money += sum;
+    state.dayEarned += sum;
+    state.totalEarned += sum;
+    (won ? audio.cash : audio.deny)();
+    ui.toast(won ? t('haggleWon', fmtMoney(sum, state.settings.lang)) : t('haggleLost', fmtMoney(sum, state.settings.lang)), won, 5500);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return { won, sum };
+  }
+
+  // Çay-Ustası: Ergebnis eines Aufbrüh-Durchgangs (score 0..1 pro Glas)
+  function brewReward(scores) {
+    let sum = 0;
+    for (const s of scores) sum += Math.round(15 + s * 65);
+    state.money += sum;
+    state.dayEarned += sum;
+    state.totalEarned += sum;
+    if (scores.length && Math.min(...scores) > 0.85) addRep(1);
+    audio.cash();
+    ui.refreshMoney();
+    save();
+    return sum;
+  }
+
+  function buyNet() {
+    if (state.net || state.money < CFG.net.cost) { audio.deny(); return false; }
+    state.money -= CFG.net.cost;
+    state.daySpent += CFG.net.cost;
+    state.net = true;
+    audio.buy();
+    ui.toast(t('netBought'), true, 5500);
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  // Wetter & Markt für Telefon/Radio (ehrliche Daten aus der Tagesplanung)
+  function forecast() {
+    const toH = (sec) => CFG.startHour + sec / CFG.dayLengthSec * (CFG.endHour - CFG.startHour);
+    return {
+      showers: showers.map(s => ({ from: toH(s.start), to: toH(s.end), storm: !!s.storm })),
+      fog: fogMorning,
+      season: season()
+    };
+  }
+
+  function marketTips() {
+    const prods = Object.entries(state.marketMul)
+      .filter(([id]) => CFG.products[id])
+      .sort((a, b) => b[1] - a[1]);
+    const stocks = Object.keys(CFG.life.stocks).map(id => {
+      const arr = (state.hist.stocks || {})[id] || [];
+      const prev = arr.length > 1 ? arr[arr.length - 2] : CFG.life.stocks[id].p0;
+      return { id, chg: (state.stockPrices[id] || prev) / prev - 1 };
+    }).sort((a, b) => b.chg - a.chg);
+    return { top: prods.slice(0, 3), flop: prods.slice(-1), stocks };
+  }
+
+  function newsLine() {
+    const L = [];
+    const f = forecast();
+    for (const s of f.showers) {
+      if (s.from * 60 > (sky.hour + 0.2) * 60) {
+        L.push(t(s.storm ? 'newsStorm' : 'newsRain', Math.floor(s.from) + ':' + String(Math.floor((s.from % 1) * 60)).padStart(2, '0')));
+        break;
+      }
+    }
+    const tips = marketTips();
+    if (tips.top.length) L.push(t('newsMarket', t('prod_' + tips.top[0][0]), Math.round((tips.top[0][1] - 1) * 100)));
+    if (tips.stocks.length) L.push(t('newsStock', CFG.life.stocks[tips.stocks[0].id].name, Math.round(tips.stocks[0].chg * 100)));
+    L.push(t('newsShare', playerShare()));
+    if (isFestival()) L.push(t('newsFestival'));
+    return L[Math.floor(Math.random() * L.length)];
+  }
+  let newsTimer = 30;
+
+  // v8: geführte Tal-Tour für Pansiyon-Gäste
+  let tour = null;
+  function startTour() {
+    if (tour || !state.properties.pansiyon) { audio.deny(); return false; }
+    tour = { i: 0 };
+    audio.orderDone();
+    ui.toast(t('tourStart'), true, 7000);
+    ui.toast(t('tourNext', 1, CFG.pension.tour.stops.length), false, 5000);
+    return true;
+  }
+
   function ngpEligible() {
     return state.story >= 5 || state.wealthTier >= 5;
   }
@@ -1220,15 +1447,24 @@ export function createGame(ctx, mods) {
   }, { passive: true });
 
   function doInteract() {
+    if (mods.sled && mods.sled.riding) {
+      mods.sled.exit();
+      if (!ctx.isTouch) player.requestLock();
+      return;
+    }
     if (boat.driving) {
       if (boat.fishingState !== 'idle') { boat.reel(); return; }
       // v7: Nachts am Schmugglerschiff — Kaçak-Deal
       if (nearKacakShip()) { sellKacak(); return; }
-      // Am Ufer: anlegen. Auf offener See mit Olta: angeln.
+      // v8: Kayık-Rennen an der Startboje
+      if (mods.race && mods.race.nearStart(boat.pos.x, boat.pos.z)) { mods.race.start(); return; }
+      // Am Ufer: anlegen. Auf offener See: Netz schleppen oder angeln.
       if (boat.canExitHere()) {
         boat.exit();
         if (radio) radio.off(audio.ctx);
         if (!ctx.isTouch) player.requestLock();
+      } else if (boat.canNet()) {
+        boat.startNet();
       } else if (state.rod) {
         boat.startFishing();
       }
@@ -1264,6 +1500,10 @@ export function createGame(ctx, mods) {
     else if (act.id === 'tavla') { player.releaseLock(); ui.showTavla(); }
     else if (act.id === 'hive') buyHive();
     else if (act.id === 'workshop') { player.releaseLock(); ui.showWorkshop(); }
+    else if (act.id === 'bazaar') { player.releaseLock(); ui.showIstanbul(); }
+    else if (act.id === 'istReturn') returnIstanbul();
+    else if (act.id === 'sled') mods.sled && mods.sled.enter();
+    else if (act.id === 'tour') startTour();
   }
 
   window.addEventListener('keydown', (e) => {
@@ -1275,6 +1515,10 @@ export function createGame(ctx, mods) {
       radio.next(audio.ctx, audio.masterNode);
       const name = radio.stationName();
       ui.toast(name ? '📻 ' + name : t('radioOff'), false, 2500);
+    }
+    if (e.code === 'KeyN' && running && !paused) {
+      if (ui.phoneOpen()) { ui.hideOverlays(); pause(false); }
+      else if (!ui.overlayOpen()) { player.releaseLock(); ui.showPhone(); }
     }
     if (e.code === 'KeyP' && running && !paused) {
       if (ui.lifeOpen()) { ui.hideOverlays(); pause(false); }
@@ -1292,7 +1536,9 @@ export function createGame(ctx, mods) {
   });
 
   player.onLockChange = (locked) => {
-    if (!locked && running && !ui.overlayOpen() && !vehicles.driving) pause(true);
+    // Nicht pausieren, wenn der Lock nur wegen Boot/Schlitten-Einstieg fällt
+    if (!locked && running && !ui.overlayOpen() && !vehicles.driving
+        && !boat.driving && !(mods.sled && mods.sled.riding)) pause(true);
   };
 
   function pause(v) {
@@ -1314,6 +1560,16 @@ export function createGame(ctx, mods) {
 
   function currentInteract() {
     if (vehicles.driving) return { id: 'exit' };
+    // v8: İstanbul hat seine eigenen Interaktionen
+    if (istanbulMode) {
+      const B = CFG.istanbul.bazaar, G = CFG.istanbul.gate;
+      if (distTo(B.x, B.z - 2) < CFG.interactDist + 3) return { id: 'bazaar' };
+      if (distTo(G.x, G.z) < CFG.interactDist + 2.5) return { id: 'istReturn' };
+      return null;
+    }
+    if (mods.sled && mods.sled.nearSled(player.pos.x, player.pos.z)) return { id: 'sled' };
+    if (state.properties.pansiyon && !tour
+        && distTo(CFG.pension.x, CFG.pension.z) < CFG.interactDist + 2) return { id: 'tour' };
     if (distTo(CFG.hut.x, CFG.hut.z) < CFG.interactDist + 1.5) return { id: 'sell' };
     if (distTo(CFG.home.x, CFG.home.z) < CFG.interactDist && sky.hour >= 18) return { id: 'sleep' };
     if (state.upgrades.cable && distTo(CFG.cableTop.x, CFG.cableTop.z) < CFG.interactDist) return { id: 'cable' };
@@ -1359,6 +1615,47 @@ export function createGame(ctx, mods) {
       audio.gondola();
     }
     boat.nightMode = isNight();
+    boat.netSeasonWinter = season() === 2;   // v8: Hamsi-Akını im Winter
+
+    // v8: Rodeln hat eigene Steuerung/Kamera
+    if (mods.sled && mods.sled.riding) {
+      ui.setSpeed(null);
+      ui.setCrosshairActive(false);
+      ui.setPickProgress(0);
+      ui.setPrompt(t('prompt_sledExit'), () => doInteract());
+      return;
+    }
+
+    // v8: geführte Pansiyon-Tour
+    if (tour) {
+      const stops = CFG.pension.tour.stops;
+      const st = stops[tour.i];
+      if (distTo(st.x, st.z) < 9) {
+        tour.i += 1;
+        if (tour.i >= stops.length) {
+          const P = CFG.pension.tour;
+          state.money += P.pay; state.dayEarned += P.pay; state.totalEarned += P.pay;
+          addRep(P.rep);
+          audio.tierUp();
+          ui.toast(t('tourDone', fmtMoney(P.pay, state.settings.lang)), true, 8000);
+          ui.refreshMoney();
+          save();
+          tour = null;
+        } else {
+          audio.pickDone();
+          ui.toast(t('tourNext', tour.i + 1, stops.length), true, 5000);
+        }
+      }
+    }
+
+    // v8: Radyo Karadeniz — Nachrichtenticker beim Fahren
+    if ((vehicles.driving || boat.driving) && radio && radio.stationName()) {
+      newsTimer -= dt;
+      if (newsTimer <= 0) {
+        newsTimer = 45 + Math.random() * 30;
+        ui.toast('📻 ' + newsLine(), false, 6500);
+      }
+    }
 
     // v4: Nachbarschafts-Ereignisse
     if (events) events.update();
@@ -1430,8 +1727,11 @@ export function createGame(ctx, mods) {
       const fs = boat.fishingState;
       ui.setPrompt(
         fs === 'bite' ? t('prompt_reelNow') : fs === 'wait' ? t('prompt_waiting')
+          : boat.netting ? t('prompt_netting')
           : nearKacakShip() ? t('prompt_kacak')
+          : (mods.race && mods.race.nearStart(boat.pos.x, boat.pos.z)) ? t('prompt_race')
           : boat.canExitHere() ? t('prompt_exitBoat')
+          : boat.canNet() ? t('prompt_net')
           : state.rod ? t('prompt_fish') : t('prompt_exitBoat'),
         () => doInteract()
       );
@@ -1523,6 +1823,9 @@ export function createGame(ctx, mods) {
     setTeaStyle, buyGreenLine, promoteSofor, buyHive, playTavla,
     joinKoop, sellKacak, nearKacakShip, repairVehicle, buyTuning, buyDog,
     newGamePlus, ngpEligible, isNight, seedPrice,
+    returnIstanbul, bookVacation, setDecree, taxiCost, callTaxi,
+    haggleSell, brewReward, buyNet, forecast, marketTips, newsLine, startTour,
+    get istanbulMode() { return istanbulMode; },
     update,
     get running() { return running; },
     get paused() { return paused; },

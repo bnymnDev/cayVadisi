@@ -55,6 +55,7 @@
     <div id="hud-tier"></div>
     <button id="btn-manage" class="hud-btn" title="Betrieb [Tab]">💼</button>
     <button id="btn-life" class="hud-btn" title="Leben [P]">👤</button>
+    <button id="btn-phone" class="hud-btn" title="Telefon [N]">📱</button>
   </div>
   <div id="hud-speed" class="hidden"></div>
   <div id="minimap"><canvas id="minimap-canvas"></canvas></div>
@@ -201,6 +202,18 @@
     <h2 data-i18n="superTitle"></h2>
     <div id="super-body"></div>
     <button id="btn-super-close" class="big-btn ghost" data-i18n="back"></button>
+  </div>
+</div>
+
+<!-- ===== v8: Telefon ===== -->
+<div id="phone-screen" class="overlay hidden">
+  <div class="phone-frame">
+    <div class="phone-notch"></div>
+    <div id="phone-status"><span id="phone-clock"></span><span>📶 ÇayCell</span></div>
+    <h2 id="phone-title"></h2>
+    <div id="phone-body"></div>
+    <button id="btn-phone-back" class="big-btn ghost" data-i18n="back"></button>
+    <button id="btn-phone-close" class="big-btn ghost">✕</button>
   </div>
 </div>
 
