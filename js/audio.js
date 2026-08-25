@@ -94,6 +94,8 @@ export function createAudio() {
 
   return {
     ensure,
+    get ctx() { return ac; },
+    get masterNode() { return master; },
     setEnabled(v) {
       enabled = v;
       if (started && master) master.gain.value = v ? 0.9 : 0;

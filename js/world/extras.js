@@ -4,6 +4,7 @@ import { CFG } from '../config.js';
 import { state } from '../state.js';
 import { makeSignTexture } from './structures.js';
 
+// terrain wird für Festival-Wimpel & Hausausbau gebraucht
 export function createExtras(ctx, terrain, mats) {
   const { scene } = ctx;
   const colliders = [];
@@ -284,11 +285,43 @@ export function createExtras(ctx, terrain, mats) {
     colliders.push({ x: jx, z: jz, r: 1.6 });
   }
 
+  // ---------- v6: Festival-Wimpelketten am Stadtplatz ----------
+  const bunting = new THREE.Group();
+  {
+    const cols = [0xd0392b, 0xe3c24f, 0x5d9138, 0x3f6d9a, 0xe8e8ea];
+    const spans = [
+      [CFG.city.x - 8, CFG.city.z + 8, CFG.city.x + 8, CFG.city.z + 2],
+      [CFG.city.x + 8, CFG.city.z + 2, CFG.city.x - 2, CFG.city.z - 10]
+    ];
+    for (const [x1, z1, x2, z2] of spans) {
+      const y1 = terrain.heightAt(x1, z1) + 3.3;
+      const y2 = terrain.heightAt(x2, z2) + 3.3;
+      const n = 10;
+      for (let i = 1; i < n; i++) {
+        const f = i / n;
+        const flag = new THREE.Mesh(
+          new THREE.ConeGeometry(0.14, 0.34, 3),
+          new THREE.MeshStandardMaterial({ color: cols[i % cols.length], roughness: 0.85, side: THREE.DoubleSide })
+        );
+        flag.rotation.x = Math.PI;   // Spitze nach unten
+        flag.position.set(
+          x1 + (x2 - x1) * f,
+          y1 + (y2 - y1) * f - Math.sin(f * Math.PI) * 0.45 - 0.2,
+          z1 + (z2 - z1) * f
+        );
+        bunting.add(flag);
+      }
+    }
+    bunting.visible = false;
+    scene.add(bunting);
+  }
+
   return {
     colliders,
     syncFactory,
     syncHome,
     setLabel,
+    setFestival(v) { bunting.visible = !!v; },
     update(dt, elevN, elapsed) {
       // Fabrik-Rauch
       if (factoryGroup.visible) {

@@ -44,6 +44,7 @@ alles liegt im Repo (offline lauffähig, direkt hostbar auf jedem Webspace).
 | `H` | Hupe (im Fahrzeug) |
 | `Leertaste` | Handbremse / Drift (im Fahrzeug) |
 | `F` | Foto-Modus (`C` = Foto speichern) |
+| `R` | Radio (im Fahrzeug/Boot) |
 | 🎮 | Gamepad: Sticks bewegen/umsehen, Trigger Gas/Bremse, A benutzen, Y Ansicht |
 | `Shift` | Rennen |
 | `Esc` | Pause |
@@ -136,6 +137,31 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   Supermarkt-Regale — erobere 60 % Marktanteil und werde Çay-König.
 - **Foto-Modus [F]:** freie Kamera ohne HUD, [C] speichert ein PNG.
 - **Gamepad-Support** und **Spielstand-Export/-Import** als Datei.
+
+### Wirtschaft, Alltag & Teilen (v6)
+- **🌐 Online spielbar:** Das Spiel deployt automatisch auf GitHub Pages
+  (Workflow in `.github/workflows/pages.yml`). Auf `*.github.io` schützt ein
+  **PIN-Gate** (Standard-Code: `cay1453`, änderbar in `js/gate.js`) vor
+  zufälligen Besuchern — echter Zugriffsschutz ist auf Pages technisch nicht
+  möglich, der Code bleibt öffentlich.
+- **📱 PWA:** „Zum Startbildschirm hinzufügen" — läuft dank Service Worker
+  komplett offline wie eine echte App.
+- **📻 Autoradio [R]:** Prozedural erzeugte Musik im Fahrzeug — Radyo
+  Karadeniz (Kemençe-Stil im 7/8-Gefühl) und Arabesk FM, ganz ohne Audiodateien.
+- **🏦 Bank:** Kredite mit Tageszins und **Fırtına-Versicherung**, die
+  Sturmschäden komplett abdeckt.
+- **🎲 Zar-Abend im Çayevi:** Würfelduell gegen Temel mit Einsatz und Revanche.
+- **👷 Arbeiter mit Persönlichkeit:** Namen, Erfahrungslevel (⭐–⭐⭐⭐,
+  pflücken schneller) und **Şoför-Beförderung** (voller Teepreis, braucht Pickup).
+- **🍵 Drei Tee-Linien:** Siyah, Yeşil (Fabrik-Upgrade) und **Beyaz Çay** —
+  die Rize-Rarität, freigeschaltet durch Dedes Rezept.
+- **🐝 Yayla:** Bergstraße zur Hochalm mit Blumenwiese — Bienenstöcke liefern
+  **Anzer-Honig**, Kühe geben im Sommer Extra-Milch.
+- **🎩 Kemal Ağa in Person:** flaniert im Anzug über den Stadtplatz und
+  stichelt je nach Marktanteil.
+- **🎉 Çay-Festivali:** am letzten Tag jeder Saison — Wimpelketten, +25 %
+  Preise und Ernte-Wettbewerb mit Preisgeld.
+- **🇬🇧 English** als dritte Sprache.
 
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.

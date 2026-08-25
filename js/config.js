@@ -108,7 +108,10 @@ export const CFG = {
     tea_pack: { sell: 58, icon: '📦' },      // eigenes Tee-Label, 1 kg pro Paket
     hamsi:  { sell: 25,  icon: '🐟' },       // v5: Fang aus dem Schwarzen Meer
     lufer:  { sell: 95,  icon: '🐠' },
-    kalkan: { sell: 380, icon: '🐡' }
+    kalkan: { sell: 380, icon: '🐡' },
+    tea_green: { sell: 76,  icon: '🍵' },    // v6: Yeşil Çay
+    tea_white: { sell: 165, icon: '🏵️' },    // v6: Beyaz Çay (Rize-Rarität)
+    honey: { sell: 240, icon: '🍯' }         // v6: Anzer-Honig von der Yayla
   },
 
   // ---- v3: Reisen (İskele in der Stadt) ----
@@ -251,6 +254,45 @@ export const CFG = {
     dumpMul: 0.75           // tea_pack-Preis an Dumping-Tagen
   },
 
+  // ---- v6: Bank ----
+  bank: {
+    loans: [5000, 20000],
+    dailyInterest: 0.04,      // 4 % Zins pro Tag auf Restschuld
+    insurancePerDay: 60       // Fırtına-Versicherung
+  },
+
+  // ---- v6: Çayevi-Würfelduell ----
+  tavla: { stakes: [50, 200, 500], rounds: 3 },
+
+  // ---- v6: Arbeiter-Persönlichkeiten ----
+  workerNames: ['Ali', 'Hasan', 'Fatma', 'Ayşe', 'Mehmet', 'Zeynep', 'Mustafa', 'Emine'],
+  workerLevelDays: [0, 3, 8],          // Arbeitstage bis Level 1/2/3
+  workerLevelFactor: [1, 0.92, 0.84],  // Pflückzeit-Faktor je Level
+  soforCost: 800,                      // Beförderung: verkauft Arbeiter-Tee zu 100 %
+
+  // ---- v6: Tee-Sorten (Fabrik-Produktionslinien) ----
+  teaStyles: {
+    siyah: { product: 'tea_pack', kgPerPack: 1 },
+    yesil: { product: 'tea_green', kgPerPack: 1, lineCost: 4000 },
+    beyaz: { product: 'tea_white', kgPerPack: 2, needsDede: true }
+  },
+
+  // ---- v6: Yayla (Hochalm) ----
+  yayla: {
+    x: 26, z: 96, r: 20,
+    hut: { x: 20, z: 90, ry: 2.6 },
+    hiveCost: 600, maxHives: 4,
+    honeySeasons: [0, 3],     // Sommer & Frühling
+    milkBonusSummer: 1        // +1 Milch/Kuh im Sommer
+  },
+
+  // ---- v6: Festival (letzter Tag jeder Saison) ----
+  festival: {
+    priceBonus: 1.25,
+    contestBase: 18,          // Kemals Ernte: base + day
+    prize: 600
+  },
+
   // ---- v4: Rollen ----
   roles: {
     farmer:   { pickFactor: 1 },
@@ -292,6 +334,7 @@ export const PATH_WIDTH = 2.2;
 // v2: Landstraßen (breiter, befahrbar) — Hof <-> Haus <-> Stadt
 export const ROADS = [
   [ { x: -90, z: -96 }, { x: -60, z: -102 }, { x: -30, z: -108 }, { x: 8, z: -106 }, { x: 24, z: -102 } ],  // Hof -> Haus
-  [ { x: 24, z: -102 }, { x: 52, z: -106 }, { x: 84, z: -104 }, { x: 104, z: -100 }, { x: 122, z: -102 } ] // Haus -> Stadt
+  [ { x: 24, z: -102 }, { x: 52, z: -106 }, { x: 84, z: -104 }, { x: 104, z: -100 }, { x: 122, z: -102 } ], // Haus -> Stadt
+  [ { x: 4, z: -26 }, { x: 12, z: 12 }, { x: 18, z: 52 }, { x: 26, z: 88 } ]                                // Feld -> Yayla
 ];
 export const ROAD_WIDTH = 4.2;

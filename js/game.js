@@ -7,7 +7,7 @@ import { t } from './i18n.js';
 import { clamp, fmtMoney } from './util.js';
 
 export function createGame(ctx, mods) {
-  const { terrain, tea, props, player, audio, ui, particles, sky, farm, vehicles, workers, extras, events, boat } = mods;
+  const { terrain, tea, props, player, audio, ui, particles, sky, farm, vehicles, workers, extras, events, boat, radio, yayla } = mods;
   const { camera } = ctx;
 
   let showers = [];          // {start, end, storm?}
@@ -72,6 +72,16 @@ export function createGame(ctx, mods) {
       state.marketMul.tea_pack *= CFG.rival.dumpMul;
       setTimeout(() => ui.toast(t('rivalDump'), false, 7000), 2500);
     }
+    // Festivaltag: alle Preise rauf
+    if (isFestival()) {
+      for (const id of Object.keys(CFG.products)) state.marketMul[id] *= CFG.festival.priceBonus;
+      setTimeout(() => ui.toast(t('festivalToday'), true, 8000), 1200);
+    }
+  }
+
+  // v6: Festival am letzten Tag jeder Jahreszeit
+  function isFestival() {
+    return state.day % CFG.seasonDays === 0;
   }
 
   // v5: Marktanteil deines Labels vs. Kemal Ağa
@@ -116,9 +126,10 @@ export function createGame(ctx, mods) {
     // Arbeiter-Ernte: mit Fabrik zu Marken-Paketen verarbeiten, sonst roh verkaufen
     if (state.workerKg > 0.01) {
       if (state.factory) {
-        const packs = Math.floor(state.workerKg);
-        const rest = state.workerKg - packs;
-        state.inventory.tea_pack += packs;
+        const style = CFG.teaStyles[state.teaStyle] || CFG.teaStyles.siyah;
+        const packs = Math.floor(state.workerKg / style.kgPerPack);
+        const rest = state.workerKg - packs * style.kgPerPack;
+        state.inventory[style.product] += packs;
         state.packedToday = packs;
         // Energie: Kohle aus Zonguldak oder Stromrechnung
         if (packs > 0) {
@@ -132,14 +143,44 @@ export function createGame(ctx, mods) {
           }
         }
         if (rest > 0.01) {
-          const sum = rest * CFG.eco.pricePerKg * CFG.workers.sellFactor;
+          const sum = rest * CFG.eco.pricePerKg * (state.sofor ? 1 : CFG.workers.sellFactor);
           state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
         }
       } else {
-        const sum = state.workerKg * CFG.eco.pricePerKg * CFG.workers.sellFactor * famBonus();
+        // Şoför liefert frisch: voller Preis statt 90 %
+        const sellF = state.sofor ? 1 : CFG.workers.sellFactor;
+        const sum = state.workerKg * CFG.eco.pricePerKg * sellF * famBonus();
         state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
-        lines.push({ k: 'sumWorkerTea', v: '+' + fmtMoney(sum, L), sub: Math.round(state.workerKg * 10) / 10 + ' kg' });
+        lines.push({ k: 'sumWorkerTea', v: '+' + fmtMoney(sum, L), sub: Math.round(state.workerKg * 10) / 10 + ' kg' + (state.sofor ? ' 🚚' : '') });
       }
+    }
+    // v6: Festival-Erntewettbewerb gegen Kemal Ağa
+    if (isFestival()) {
+      const mine = state.dayKg + state.workerKg;
+      const kemal = CFG.festival.contestBase + state.day * 0.5;
+      if (mine > kemal) {
+        state.money += CFG.festival.prize;
+        state.dayEarned += CFG.festival.prize;
+        state.totalEarned += CFG.festival.prize;
+        lines.push({ k: 'sumFestivalWin', v: '+' + fmtMoney(CFG.festival.prize, L), sub: Math.round(mine) + ' kg' });
+      } else {
+        lines.push({ k: 'sumFestivalLose', v: Math.round(mine) + ' / ' + Math.round(kemal) + ' kg' });
+      }
+    }
+    // v6: Bank — Zinsen & Versicherung
+    if (state.debt > 0) {
+      const interest = Math.round(state.debt * CFG.bank.dailyInterest);
+      state.debt += interest;
+      lines.push({ k: 'sumInterest', v: '−' + fmtMoney(interest, L), sub: t('debtNow', fmtMoney(state.debt, L)) });
+    }
+    if (state.insured) {
+      state.money -= CFG.bank.insurancePerDay;
+      state.daySpent += CFG.bank.insurancePerDay;
+      lines.push({ k: 'sumInsurance', v: '−' + fmtMoney(CFG.bank.insurancePerDay, L) });
+    }
+    // v6: Arbeitstage zählen (Level-System), außer im Winter
+    if (!CFG.seasonCycle.workersRest[season()]) {
+      for (const wd of state.workerData) wd.days = (wd.days || 0) + 1;
     }
     // v4: Jandarma-Gehalt & Sat-Werbung
     if (state.role === 'jandarma') {
@@ -202,10 +243,17 @@ export function createGame(ctx, mods) {
     }
     farm.refreshPlots();
 
-    // Tiere produzieren über Nacht
+    // Tiere produzieren über Nacht (v6: Sommer-Milchbonus dank Yayla-Weide)
     for (const [id, spec] of Object.entries(CFG.animals)) {
       const n = state.animals[id] || 0;
       if (n > 0) state.inventory[spec.product] += n * spec.perDay;
+    }
+    if (season() === 0 && (state.animals.cow || 0) > 0) {
+      state.inventory.milk += state.animals.cow * CFG.yayla.milkBonusSummer;
+    }
+    // v6: Honig von der Yayla (Frühling & Sommer)
+    if (state.hives > 0 && CFG.yayla.honeySeasons.includes(season())) {
+      state.inventory.honey += state.hives;
     }
 
     // v3: Aktienkurse, neue Export-Angebote, Fahndungsdruck kühlt ab
@@ -406,6 +454,7 @@ export function createGame(ctx, mods) {
     state.money -= CFG.workers.hireCost;
     state.daySpent += CFG.workers.hireCost;
     state.workers += 1;
+    state.workerData.push({ name: (state.workerData.length + state.day) % CFG.workerNames.length, days: 0 });
     workers.sync();
     audio.buy();
     ui.refreshMoney();
@@ -416,6 +465,8 @@ export function createGame(ctx, mods) {
   function fireWorker() {
     if (state.workers <= 0) { audio.deny(); return false; }
     state.workers -= 1;
+    state.workerData.pop();
+    if (state.workers === 0) state.sofor = false;
     workers.sync();
     audio.deny();
     save();
@@ -853,6 +904,115 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ---------- v6: Bank, Tee-Sorten, Şoför, Yayla, Tavla ----------
+  function takeLoan(idx) {
+    const amount = CFG.bank.loans[idx];
+    if (!amount || state.debt > 0) { audio.deny(); return false; }
+    state.debt = amount;
+    state.money += amount;
+    audio.cash();
+    ui.toast(t('loanTaken', fmtMoney(amount, state.settings.lang)), true, 6000);
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function repayLoan() {
+    if (state.debt <= 0) { audio.deny(); return false; }
+    const pay = Math.min(state.debt, state.money);
+    if (pay <= 0) { audio.deny(); return false; }
+    state.money -= pay;
+    state.debt -= pay;
+    audio.buy();
+    if (state.debt <= 0) ui.toast(t('debtFree'), true, 6000);
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function toggleInsurance() {
+    state.insured = !state.insured;
+    audio.buy();
+    save();
+    return true;
+  }
+
+  function setTeaStyle(styleId) {
+    const s = CFG.teaStyles[styleId];
+    if (!s) return false;
+    if (styleId === 'yesil' && !state.greenLine) { audio.deny(); return false; }
+    if (styleId === 'beyaz' && !state.dedeBonus) { audio.deny(); return false; }
+    state.teaStyle = styleId;
+    audio.buy();
+    save();
+    return true;
+  }
+
+  function buyGreenLine() {
+    const cost = CFG.teaStyles.yesil.lineCost;
+    if (state.greenLine || !state.factory || state.money < cost) { audio.deny(); return false; }
+    state.money -= cost;
+    state.daySpent += cost;
+    state.greenLine = true;
+    audio.cash();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function promoteSofor() {
+    if (state.sofor || state.workers < 1 || !state.vehicles.pickup || state.money < CFG.soforCost) { audio.deny(); return false; }
+    state.money -= CFG.soforCost;
+    state.daySpent += CFG.soforCost;
+    state.sofor = true;
+    audio.buy();
+    ui.toast(t('soforPromoted'), true, 6000);
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function buyHive() {
+    if (state.hives >= CFG.yayla.maxHives || state.money < CFG.yayla.hiveCost) { audio.deny(); return false; }
+    state.money -= CFG.yayla.hiveCost;
+    state.daySpent += CFG.yayla.hiveCost;
+    state.hives += 1;
+    yayla.syncHives();
+    audio.buy();
+    ui.toast(t('hiveBought', state.hives, CFG.yayla.maxHives), true, 5000);
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function playTavla(stake) {
+    if (state.money < stake) { audio.deny(); return null; }
+    const rounds = [];
+    let me = 0, temel = 0;
+    for (let i = 0; i < CFG.tavla.rounds; i++) {
+      const a = 1 + Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6);
+      const b = 1 + Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6);
+      rounds.push([a, b]);
+      if (a > b) me++; else if (b > a) temel++;
+    }
+    const won = me > temel;
+    const draw = me === temel;
+    if (!draw) {
+      if (won) {
+        state.money += stake;
+        state.dayEarned += stake;
+        state.tavlaWins += 1;
+      } else {
+        state.money -= stake;
+        state.daySpent += stake;
+      }
+      (won ? audio.cash : audio.deny)();
+    }
+    ui.refreshMoney();
+    save();
+    return { rounds, me, temel, won, draw };
+  }
+
   // Tempo-Malus bei Hunger/Erschöpfung (für player.update)
   function speedMul() {
     let m = state.baston ? CFG.life.bastonSpeed : 1;
@@ -900,6 +1060,7 @@ export function createGame(ctx, mods) {
       // Am Ufer: anlegen. Auf offener See mit Olta: angeln.
       if (boat.canExitHere()) {
         boat.exit();
+        if (radio) radio.off(audio.ctx);
         if (!ctx.isTouch) player.requestLock();
       } else if (state.rod) {
         boat.startFishing();
@@ -909,6 +1070,7 @@ export function createGame(ctx, mods) {
     if (vehicles.driving) {
       vehicles.exit();
       audio.engineStop();
+      if (radio) radio.off(audio.ctx);
       if (!ctx.isTouch) player.requestLock();
       return;
     }
@@ -932,6 +1094,8 @@ export function createGame(ctx, mods) {
     else if (act.id === 'boat') boat.enter();
     else if (act.id === 'fish') boat.startFishing();
     else if (act.id === 'reel') boat.reel();
+    else if (act.id === 'tavla') { player.releaseLock(); ui.showTavla(); }
+    else if (act.id === 'hive') buyHive();
   }
 
   window.addEventListener('keydown', (e) => {
@@ -939,6 +1103,11 @@ export function createGame(ctx, mods) {
     if (ctx.photoActive && ctx.photoActive()) return;
     if (e.code === 'KeyE' && running && !paused && !ui.overlayOpen()) doInteract();
     if (e.code === 'KeyH' && vehicles.driving) audio.horn(vehicles.driving);
+    if (e.code === 'KeyR' && (vehicles.driving || boat.driving) && radio && audio.ctx) {
+      radio.next(audio.ctx, audio.masterNode);
+      const name = radio.stationName();
+      ui.toast(name ? '📻 ' + name : t('radioOff'), false, 2500);
+    }
     if (e.code === 'KeyP' && running && !paused) {
       if (ui.lifeOpen()) { ui.hideOverlays(); pause(false); }
       else if (!ui.overlayOpen()) { player.releaseLock(); ui.showLife(); }
@@ -996,6 +1165,10 @@ export function createGame(ctx, mods) {
     if (sky.hour >= CFG.life.black.hourFrom && state.basketKg > 0.01
         && distTo(CFG.life.black.spot.x, CFG.life.black.spot.z) < CFG.interactDist) return { id: 'black' };
     if (distTo(CFG.airport.x, CFG.airport.z) < CFG.interactDist + 8) return { id: 'airport' };
+    // v6: Tavla im Çayevi, Bienenstöcke auf der Yayla
+    if (distTo(CFG.city.x + 12, CFG.city.z - 4) < CFG.interactDist) return { id: 'tavla' };
+    if (state.hives < CFG.yayla.maxHives
+        && distTo(CFG.yayla.x + 6, CFG.yayla.z + 2) < CFG.interactDist + 2) return { id: 'hive' };
     return null;
   }
 
@@ -1043,16 +1216,21 @@ export function createGame(ctx, mods) {
     ui.setRainWarn(warnSoon);
     if (state.wetTimer > 0) state.wetTimer -= dt;
 
-    // v5: Sturm — einmalig Triebe beschädigen
+    // v5: Sturm — einmalig Triebe beschädigen (v6: Versicherung schützt)
     if (stormActive() && !stormDone) {
       stormDone = true;
-      let hit = 0;
-      for (let i = 0; i < tea.count; i++) {
-        if (tea.states[i] === 1 && Math.random() < CFG.weather.stormDamage) { tea.states[i] = 2; hit++; }
+      if (state.insured) {
+        ui.toast(t('insuranceSaved'), true, 7000);
+        audio.thunderish();
+      } else {
+        let hit = 0;
+        for (let i = 0; i < tea.count; i++) {
+          if (tea.states[i] === 1 && Math.random() < CFG.weather.stormDamage) { tea.states[i] = 2; hit++; }
+        }
+        ui.toast(t('stormHit', hit), false, 7000);
+        audio.thunderish();
+        setTimeout(() => audio.thunderish(), 700);
       }
-      ui.toast(t('stormHit', hit), false, 7000);
-      audio.thunderish();
-      setTimeout(() => audio.thunderish(), 700);
     }
 
     // v5: Morgennebel & Regenbogen ausblenden/einblenden
@@ -1159,7 +1337,9 @@ export function createGame(ctx, mods) {
     setIdentity, marry, haveChild, buyProperty, tradeStock, sellBlack, famBonus,
     canFlyIstanbul, flyIstanbul, istanbulPrice, sellIstanbul, flyAlmanya,
     buyHomeUpgrade, setRole, buyFood, speedMul,
-    buyRod, buyBoat, playerShare,
+    buyRod, buyBoat, playerShare, isFestival,
+    takeLoan, repayLoan, toggleInsurance,
+    setTeaStyle, buyGreenLine, promoteSofor, buyHive, playTavla,
     update,
     get running() { return running; },
     get paused() { return paused; },
