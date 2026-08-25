@@ -9,8 +9,29 @@ const SKIN_TONES = [0xe6b48c, 0xd9a173, 0xc98e5f, 0xb77e52];
 const PANTS_COLORS = [0x3a3f45, 0x4a4038, 0x2e3a4a, 0x554a3a];
 const SCARF_COLORS = [0xc0663a, 0x7a8f4a, 0x8a5f7d, 0xa53f3f];
 
+// Requisiten — auch an Skelett-Modelle anhängbar
+export function makeStrawHat() {
+  const g = new THREE.Group();
+  const top = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.1, 10),
+    new THREE.MeshStandardMaterial({ color: 0xd8bd7f, roughness: 1 }));
+  top.position.y = 0.045;
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.02, 12),
+    new THREE.MeshStandardMaterial({ color: 0xcbb072, roughness: 1 }));
+  g.add(top, brim);
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+export function makeBackBasket() {
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.11, 0.34, 9),
+    new THREE.MeshStandardMaterial({ color: 0x8a6d42, roughness: 1 }));
+  b.rotation.x = 0.12;
+  b.castShadow = true;
+  return b;
+}
+
 // v13.2: menschlichere Figuren — echte Proportionen, Gesicht, Gliedmaßen
 // mit Schulter-/Hüft-Pivots (armL/armR/legL/legR sind Dreh-Gruppen).
+// Seit v13.3 nur noch Fallback, falls das geriggte GLB nicht lädt.
 export function makeWorkerMesh(i, opts = {}) {
   const g = new THREE.Group();
   const shirt = opts.shirt ?? SHIRT_COLORS[i % SHIRT_COLORS.length];
@@ -161,7 +182,18 @@ export function makeWorkerMesh(i, opts = {}) {
   return { group: g, armL, armR, legL, legR, head };
 }
 
-export function createWorkers(ctx, terrain, tea, particles) {
+// Einheitlicher Spawn: geriggtes Modell, wenn geladen — sonst Prozedural-Figur
+export function spawnPerson(chars, i, opts = {}) {
+  if (chars && chars.ready) {
+    const person = chars.spawn({ tex: opts.tex ?? i, scale: opts.scale || 1, tint: opts.tint });
+    if (opts.hat !== false) person.attach('Head', makeStrawHat(), { x: 0, y: 0.13, z: 0 });
+    if (opts.basket) person.attach('Spine2', makeBackBasket(), { x: 0, y: 0.02, z: -0.17 });
+    return { group: person.group, anim: person, head: null };
+  }
+  return makeWorkerMesh(i, opts);
+}
+
+export function createWorkers(ctx, terrain, tea, particles, chars) {
   const { scene } = ctx;
   const W = CFG.workers;
   const rng = mulberry32(6161);
@@ -178,7 +210,7 @@ export function createWorkers(ctx, terrain, tea, particles) {
 
   function sync() {
     while (workers.length < state.workers) {
-      const parts = makeWorkerMesh(workers.length);
+      const parts = spawnPerson(chars, workers.length, { basket: true });
       const p = spawnPos();
       parts.group.position.set(p.x, terrain.heightAt(p.x, p.z), p.z);
       scene.add(parts.group);
@@ -227,8 +259,11 @@ export function createWorkers(ctx, terrain, tea, particles) {
       for (const w of workers) {
         if (!running) {
           // Feierabend: stehen, Arme und Beine ruhig
-          w.armL.rotation.x *= 0.9; w.armR.rotation.x *= 0.9;
-          w.legL.rotation.x *= 0.9; w.legR.rotation.x *= 0.9;
+          if (w.anim) { w.anim.play('Idle'); w.anim.update(dt); }
+          else {
+            w.armL.rotation.x *= 0.9; w.armR.rotation.x *= 0.9;
+            w.legL.rotation.x *= 0.9; w.legR.rotation.x *= 0.9;
+          }
           continue;
         }
         if (w.st === 'seek') {
@@ -258,20 +293,28 @@ export function createWorkers(ctx, terrain, tea, particles) {
           w.z += dz / d * sp * dt;
           w.group.rotation.y = Math.atan2(dx, dz);
           w.phase += dt * 9;
-          // Geh-Wippen + Bein-/Armschwung
-          w.group.position.y = terrain.heightAt(w.x, w.z) + Math.abs(Math.sin(w.phase)) * 0.04;
-          const swing = Math.sin(w.phase) * 0.5;
-          w.legL.rotation.x = swing;
-          w.legR.rotation.x = -swing;
-          w.armL.rotation.x = -swing * 0.7;
-          w.armR.rotation.x = swing * 0.7;
+          // Geh-Animation: Skelett-Walk oder prozeduraler Schwung
+          if (w.anim) {
+            w.anim.play('Walk', 0.2, 1.25);
+            w.group.position.y = terrain.heightAt(w.x, w.z);
+          } else {
+            w.group.position.y = terrain.heightAt(w.x, w.z) + Math.abs(Math.sin(w.phase)) * 0.04;
+            const swing = Math.sin(w.phase) * 0.5;
+            w.legL.rotation.x = swing;
+            w.legR.rotation.x = -swing;
+            w.armL.rotation.x = -swing * 0.7;
+            w.armR.rotation.x = swing * 0.7;
+          }
         } else if (w.st === 'pick') {
           if (w.target < 0 || tea.states[w.target] === 0) { w.st = 'seek'; w.timer = 0.3; continue; }
           w.timer -= dt;
-          // Pflück-Arme
-          const a = Math.sin(elapsed * 7 + w.phase) * 0.7;
-          w.armL.rotation.x = -0.9 + a * 0.4;
-          w.armR.rotation.x = -0.9 - a * 0.4;
+          // Pflück-Animation: "Working" aus dem Rig oder Prozedural-Arme
+          if (w.anim) w.anim.play('Working');
+          else {
+            const a = Math.sin(elapsed * 7 + w.phase) * 0.7;
+            w.armL.rotation.x = -0.9 + a * 0.4;
+            w.armR.rotation.x = -0.9 - a * 0.4;
+          }
           if (w.timer <= 0) {
             const res = tea.pick(w.target, false);
             let kg = res.kg * (res.late ? 0.9 : 1);
@@ -282,13 +325,19 @@ export function createWorkers(ctx, terrain, tea, particles) {
             w.target = -1;
             w.st = 'seek';
             w.timer = 0.4 + Math.random() * 0.8;
-            w.armL.rotation.x = 0; w.armR.rotation.x = 0;
-            w.legL.rotation.x = 0; w.legR.rotation.x = 0;
+            if (!w.anim) {
+              w.armL.rotation.x = 0; w.armR.rotation.x = 0;
+              w.legL.rotation.x = 0; w.legR.rotation.x = 0;
+            }
           }
         }
         w.group.position.x = w.x;
         w.group.position.z = w.z;
         if (w.st !== 'walk') w.group.position.y = terrain.heightAt(w.x, w.z);
+        if (w.anim) {
+          if (w.st === 'seek' || w.st === 'idle') w.anim.play('Idle');
+          w.anim.update(dt);
+        }
       }
     }
   };

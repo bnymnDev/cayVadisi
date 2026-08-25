@@ -321,6 +321,20 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
 - **🕌 Moschee-Restaurierung (20.000 ₺, 2 Bautage):** Kuppel und Minarett
   erstrahlen neu — jedes Festival +2 Moral-Tage (Verkaufsbonus), +10 Ruf.
 
+### Skelett-animierte Menschen (v13.3)
+- Alle Menschen (Pflücker, Dorfbewohner, Kemal Ağa, Third-Person-Avatar)
+  sind jetzt **echte geriggte 3D-Charaktere** mit Skelett-Animationen:
+  Idle, Walk, Run und „Working" (Teepflücken) laufen über
+  `AnimationMixer` mit weichem Überblenden.
+- Basis: Quaternius' „Animated Human" (CC0), per FBX2glTF nach GLB
+  konvertiert (0,7 MB); sechs 32×32-Palettentexturen liefern
+  Outfit- und Hautton-Varianten.
+- Instanzen werden mit `SkeletonUtils.clone` erzeugt; Strohhut,
+  Rückenkorb und Jandarma-Mütze hängen direkt an Kopf-/Wirbel-Bones
+  und bewegen sich mit.
+- Fällt der GLB-Load aus, greifen automatisch die prozeduralen
+  v13.2-Figuren als Fallback.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,
