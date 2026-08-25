@@ -82,7 +82,11 @@ const ctx = { renderer, scene, camera, loadingManager, isTouch };
 // ---------- Composer ----------
 // Hinweis: bewusst KEIN Bloom — die HDR-Sonnenscheibe des Sky-Shaders
 // überstrahlt sonst die halbe Szene. MSAA + ACES reichen für den Look.
-const rt = new THREE.WebGLRenderTarget(1, 1, { samples: 4, type: THREE.HalfFloatType });
+// Mobil: HalfFloat + 4×MSAA flackert auf vielen Mobil-GPUs (Adreno/Mali,
+// iOS) — dort RGBA8 mit 2×MSAA, das ist überall stabil.
+const rt = new THREE.WebGLRenderTarget(1, 1, isTouch
+  ? { samples: 2, type: THREE.UnsignedByteType }
+  : { samples: 4, type: THREE.HalfFloatType });
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
 composer.addPass(new OutputPass());
@@ -531,7 +535,7 @@ function updateCinematic(dt) {
 // ---------- Auto-Qualität ----------
 let autoTuneOn = state.settings.quality === 'auto';
 if (!autoTuneOn) applyQuality(state.settings.quality);
-else applyQuality('high');
+else applyQuality(isTouch ? 'low' : 'high');   // Mobil: klein anfangen, hochtunen
 let emaDt = 1 / 60, tuneTimer = 0;
 
 // ---------- Debug-API (für Tests) ----------
@@ -625,8 +629,10 @@ function step(rawDt, manual, skipRender = false) {
     if (emaDt > 0.022) {
       if (qualityLevel === 'high') applyQuality('medium');
       else if (qualityLevel === 'medium') applyQuality('low');
-    } else if (emaDt < 0.012 && qualityLevel === 'medium') {
-      applyQuality('high');
+    } else if (emaDt < 0.012) {
+      // Hochtunen, wenn Luft ist — Mobil bewusst maximal 'medium'
+      if (qualityLevel === 'low') applyQuality('medium');
+      else if (qualityLevel === 'medium' && !isTouch) applyQuality('high');
     }
   }
 
