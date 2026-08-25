@@ -21,7 +21,9 @@ export const state = {
   plots: [],                  // {type, daysLeft} | null — Länge kommt aus CFG
   inventory: {
     egg: 0, milk: 0, wool: 0, corn: 0, tomato: 0, cabbage: 0, hazel: 0,
-    straw: 0, walnut: 0, coal: 0, tea_pack: 0
+    straw: 0, walnut: 0, coal: 0, tea_pack: 0,
+    hamsi: 0, lufer: 0, kalkan: 0,
+    tea_green: 0, tea_white: 0, honey: 0
   },
   vehicles: { tractor: false, pickup: false, sedan: false, lux: false },
   marketMul: {},              // Tagespreis-Faktoren pro Produkt
@@ -47,6 +49,16 @@ export const state = {
   blackHeat: 0,
   introSeen: false,
   visited: { zonguldak: false, eregli: false, devrek: false },
+
+  // v6
+  debt: 0,
+  insured: false,
+  workerData: [],           // {name: idx, days: gearbeitete Tage}
+  sofor: false,             // ein Arbeiter zum Fahrer befördert
+  teaStyle: 'siyah',
+  greenLine: false,         // Yeşil-Çay-Produktionslinie gekauft
+  hives: 0,                 // Bienenstöcke auf der Yayla
+  tavlaWins: 0,
 
   // v5
   boat: false,
@@ -132,7 +144,9 @@ export function save() {
     role: s.role, homeLevel: s.homeLevel, survival: s.survival,
     hunger: s.hunger, energy: s.energy, rel: s.rel, gurbetci: s.gurbetci,
     boat: s.boat, rod: s.rod, fishCaught: s.fishCaught, packsSold: s.packsSold,
-    story: s.story, dedeBonus: s.dedeBonus, ach: s.ach
+    story: s.story, dedeBonus: s.dedeBonus, ach: s.ach,
+    debt: s.debt, insured: s.insured, workerData: s.workerData, sofor: s.sofor,
+    teaStyle: s.teaStyle, greenLine: s.greenLine, hives: s.hives, tavlaWins: s.tavlaWins
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -187,6 +201,14 @@ export function load() {
     state.story = d.story ?? 0;
     state.dedeBonus = d.dedeBonus ?? false;
     state.ach = d.ach || {};
+    state.debt = d.debt ?? 0;
+    state.insured = d.insured ?? false;
+    state.workerData = Array.isArray(d.workerData) ? d.workerData : [];
+    state.sofor = d.sofor ?? false;
+    state.teaStyle = d.teaStyle ?? 'siyah';
+    state.greenLine = d.greenLine ?? false;
+    state.hives = d.hives ?? 0;
+    state.tavlaWins = d.tavlaWins ?? 0;
     return true;
   } catch (e) { return false; }
 }
@@ -227,6 +249,10 @@ export function resetProgress() {
   state.boat = false; state.rod = false; state.fishCaught = 0;
   state.packsSold = 0; state.story = 0; state.dedeBonus = false;
   state.ach = {};
+  state.debt = 0; state.insured = false;
+  state.workerData = []; state.sofor = false;
+  state.teaStyle = 'siyah'; state.greenLine = false;
+  state.hives = 0; state.tavlaWins = 0;
   resetDay();
   save();
   try { localStorage.removeItem(KEY_V1); } catch (e) { /* egal */ }

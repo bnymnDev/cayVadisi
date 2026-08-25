@@ -55,10 +55,11 @@ export function segDist(px, pz, ax, az, bx, bz) {
   return Math.hypot(px - cx, pz - cz);
 }
 
+const LOCALES = { de: 'de-DE', tr: 'tr-TR', en: 'en-US' };
 export function fmtKg(v, lang) {
-  return v.toLocaleString(lang === 'tr' ? 'tr-TR' : 'de-DE',
+  return v.toLocaleString(LOCALES[lang] || 'de-DE',
     { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 export function fmtMoney(v, lang) {
-  return Math.round(v).toLocaleString(lang === 'tr' ? 'tr-TR' : 'de-DE') + ' ₺';
+  return Math.round(v).toLocaleString(LOCALES[lang] || 'de-DE') + ' ₺';
 }

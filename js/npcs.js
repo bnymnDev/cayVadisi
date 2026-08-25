@@ -12,11 +12,12 @@ const ZONES = () => ([
 
 const NPC_COLORS = [0x8a6d5f, 0x5f6d8a, 0x6d8a5f, 0x8a5f6d, 0x7d7d55, 0x557d7d, 0x9a8a6a, 0x6a7a9a];
 
-export function createNpcs(ctx, terrain, ui, player) {
+export function createNpcs(ctx, terrain, ui, player, shareFn) {
   const { scene } = ctx;
   const rng = mulberry32(31337);
   const npcs = [];
   let greetCooldown = 0;
+  let kemalCooldown = 0;
 
   let idx = 0;
   for (const z of ZONES()) {
@@ -38,6 +39,23 @@ export function createNpcs(ctx, terrain, ui, player) {
       idx++;
     }
   }
+
+  // v6: Kemal Ağa — der Rivale flaniert im Anzug über den Stadtplatz
+  const kemal = (() => {
+    const parts = makeWorkerMesh(0, { basket: false, hat: false, shirt: 0x2a2a30 });
+    // dunkler Anzug + Schnauzer-Andeutung
+    const tie = parts.head.clone();
+    parts.group.position.set(CFG.city.x + 4, terrain.heightAt(CFG.city.x + 4, CFG.city.z + 2), CFG.city.z + 2);
+    parts.group.scale.setScalar(1.05);
+    scene.add(parts.group);
+    return {
+      ...parts,
+      zone: { cx: CFG.city.x + 2, cz: CFG.city.z, r: 12 },
+      x: CFG.city.x + 4, z: CFG.city.z + 2, tx: CFG.city.x + 4, tz: CFG.city.z + 2,
+      phase: 0, idle: 2, isKemal: true
+    };
+  })();
+  npcs.push(kemal);
 
   return {
     count: npcs.length,
@@ -68,6 +86,19 @@ export function createNpcs(ctx, terrain, ui, player) {
           p.group.position.y = terrain.heightAt(p.x, p.z);
           p.armL.rotation.x *= 0.9;
           p.armR.rotation.x *= 0.9;
+        }
+        // Kemal Ağa stichelt statt zu grüßen
+        if (p.isKemal) {
+          const kd = Math.hypot(player.pos.x - p.x, player.pos.z - p.z);
+          kemalCooldown -= dt;
+          if (kd < 4 && kemalCooldown <= 0) {
+            kemalCooldown = 30;
+            p.group.rotation.y = Math.atan2(player.pos.x - p.x, player.pos.z - p.z);
+            const share = shareFn ? shareFn() : 5;
+            const line = share >= 60 ? 'kemalLose' : share >= 30 ? 'kemalMid' : 'kemalTaunt';
+            ui.toast('🎩 ' + t(line), false, 5000);
+          }
+          continue;
         }
         // Gruß, wenn der Spieler nahe vorbeikommt
         const pd = Math.hypot(player.pos.x - p.x, player.pos.z - p.z);

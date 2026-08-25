@@ -246,6 +246,47 @@ export function createUI(ctx, hooks) {
       show(els.airportS);
     },
 
+    // ---------- v6: Tavla-Würfelduell (nutzt das Event-Overlay) ----------
+    showTavla() {
+      const L = state.settings.lang;
+      $('event-icon').textContent = '🎲';
+      $('event-title').textContent = t('tavlaTitle');
+      $('event-text').textContent = t('tavlaIntro', state.tavlaWins);
+      const box = $('event-choices');
+      box.innerHTML = '';
+      for (const stake of CFG.tavla.stakes) {
+        const b = document.createElement('button');
+        b.className = 'big-btn';
+        b.textContent = t('tavlaStake', fmtMoney(stake, L));
+        b.disabled = state.money < stake;
+        b.addEventListener('click', () => {
+          const res = hooks.playTavla(stake);
+          if (!res) return;
+          $('event-text').innerHTML = res.rounds.map((r, i) =>
+            `${t('tavlaRound', i + 1)}: 🧑 ${r[0]} — ${r[1]} 🎩`).join('<br>')
+            + `<br><b>${res.draw ? t('tavlaDraw') : res.won ? t('tavlaWon', fmtMoney(stake, L)) : t('tavlaLost', fmtMoney(stake, L))}</b>`
+            + `<br><i>„${t(res.won ? 'temelSore' : 'temelWin')}"</i>`;
+          box.innerHTML = '';
+          const again = document.createElement('button');
+          again.className = 'big-btn';
+          again.textContent = t('tavlaAgain');
+          again.addEventListener('click', () => api.showTavla());
+          const done = document.createElement('button');
+          done.className = 'big-btn ghost';
+          done.textContent = t('back');
+          done.addEventListener('click', () => hooks.closeShop());
+          box.append(again, done);
+        });
+        box.appendChild(b);
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
     // ---------- v5: Story-Karte (nutzt das Event-Overlay) ----------
     showStoryCard(chapterId, done) {
       $('event-icon').textContent = t('stIcon_' + chapterId);
@@ -376,8 +417,22 @@ export function createUI(ctx, hooks) {
           </div>
           <button id="btn-pack" class="big-btn" ${canPack ? '' : 'disabled'}>
             ${t('packNow', Math.floor(state.basketKg))}</button>
+          <h3>${t('styleTitle')}</h3>
+          <div class="btn-row">
+            <button class="big-btn style-btn ${state.teaStyle === 'siyah' ? '' : 'ghost'}" data-s="siyah">📦 ${t('style_siyah')}</button>
+            <button class="big-btn style-btn ${state.teaStyle === 'yesil' ? '' : 'ghost'}" data-s="yesil" ${state.greenLine ? '' : 'disabled'}>🍵 ${t('style_yesil')}</button>
+            <button class="big-btn style-btn ${state.teaStyle === 'beyaz' ? '' : 'ghost'}" data-s="beyaz" ${state.dedeBonus ? '' : 'disabled'}>🏵️ ${t('style_beyaz')}</button>
+          </div>
+          <div class="section-info">${t('styleInfo_' + state.teaStyle)}</div>
+          ${!state.greenLine ? `<button id="btn-greenline" class="big-btn ghost" ${state.money < CFG.teaStyles.yesil.lineCost ? 'disabled' : ''}>
+            ${t('buyGreenLine')} · ${fmtMoney(CFG.teaStyles.yesil.lineCost, L)}</button>` : ''}
           <div class="section-info">${t('factoryInfo')}</div>`;
         $('btn-pack').addEventListener('click', () => { if (hooks.packBasket()) api.renderFactory(); });
+        body.querySelectorAll('.style-btn').forEach(b => b.addEventListener('click', () => {
+          if (hooks.setTeaStyle(b.dataset.s)) api.renderFactory();
+        }));
+        const gl = $('btn-greenline');
+        if (gl) gl.addEventListener('click', () => { if (hooks.buyGreenLine()) api.renderFactory(); });
       }
       const exp = $('export-list');
       exp.innerHTML = '';
@@ -428,7 +483,7 @@ export function createUI(ctx, hooks) {
     _lifeTab: 'profile',
     showLife() { api.renderLife(); show(els.life); },
     renderLife() {
-      for (const tb of ['profile', 'family', 'estate', 'stocks']) {
+      for (const tb of ['profile', 'family', 'estate', 'stocks', 'bank']) {
         $('ltab-' + tb).classList.toggle('active', api._lifeTab === tb);
       }
       const L = state.settings.lang;
@@ -514,6 +569,29 @@ export function createUI(ctx, hooks) {
           });
           body.appendChild(row);
         }
+      } else if (api._lifeTab === 'bank') {
+        const B = CFG.bank;
+        let html = `<div class="section-info">${t('bankHint', Math.round(B.dailyInterest * 100))}</div>
+          <div class="manage-count">${state.debt > 0 ? '💳 −' + fmtMoney(state.debt, L) : '✅'}</div>`;
+        if (state.debt > 0) {
+          html += `<button id="btn-repay" class="big-btn" ${state.money <= 0 ? 'disabled' : ''}>
+            ${t('repayBtn', fmtMoney(Math.min(state.debt, state.money), L))}</button>`;
+        } else {
+          html += `<div class="btn-row">` + B.loans.map((amt, i) =>
+            `<button class="big-btn loan-btn" data-i="${i}">${t('loanBtn')} ${fmtMoney(amt, L)}</button>`).join('') + `</div>`;
+        }
+        html += `<h3>${t('insuranceTitle')}</h3>
+          <div class="section-info">${t('insuranceInfo', fmtMoney(B.insurancePerDay, L))}</div>
+          <button id="btn-insure" class="big-btn ${state.insured ? '' : 'ghost'}">
+            ${state.insured ? '🛡️ ' + t('insuranceOn') : t('insuranceOff')}</button>`;
+        body.innerHTML = html;
+        const rp = $('btn-repay');
+        if (rp) rp.addEventListener('click', () => { hooks.repayLoan(); api.renderLife(); });
+        body.querySelectorAll('.loan-btn').forEach(b => b.addEventListener('click', () => {
+          hooks.takeLoan(parseInt(b.dataset.i, 10));
+          api.renderLife();
+        }));
+        $('btn-insure').addEventListener('click', () => { hooks.toggleInsurance(); api.renderLife(); });
       } else {
         body.innerHTML = `<div class="section-info">${t('stockHint')}</div>`;
         for (const [id, s] of Object.entries(CFG.life.stocks)) {
@@ -715,9 +793,23 @@ export function createUI(ctx, hooks) {
             <button id="btn-hire" class="big-btn" ${state.workers >= W.max || state.money < W.hireCost ? 'disabled' : ''}>
               ${t('hireWorker')} · ${fmtMoney(W.hireCost, L)}</button>
             <button id="btn-fire" class="big-btn ghost" ${state.workers <= 0 ? 'disabled' : ''}>${t('fireWorker')}</button>
-          </div>`;
+          </div>
+          ${state.workerData.map((wd, i) => {
+            let lvl = 0;
+            for (let li = 0; li < CFG.workerLevelDays.length; li++) if ((wd.days || 0) >= CFG.workerLevelDays[li]) lvl = li;
+            return `<div class="upgrade-item"><div class="u-icon">${i === 0 && state.sofor ? '🚚' : '👷'}</div>
+              <div class="u-body"><div class="u-name">${CFG.workerNames[wd.name % CFG.workerNames.length]}
+                ${'⭐'.repeat(lvl + 1)}</div>
+              <div class="u-desc">${t('workerDays', wd.days || 0)}</div></div></div>`;
+          }).join('')}
+          ${!state.sofor && state.workers > 0 ? `<button id="btn-sofor" class="big-btn ghost"
+              ${state.vehicles.pickup && state.money >= CFG.soforCost ? '' : 'disabled'}>
+              ${t('soforBtn')} · ${fmtMoney(CFG.soforCost, L)}</button>
+            <div class="section-info">${t('soforInfo')}</div>` : ''}`;
         $('btn-hire').addEventListener('click', () => { if (hooks.hireWorker()) api.renderManage(); });
         $('btn-fire').addEventListener('click', () => { if (hooks.fireWorker()) api.renderManage(); });
+        const sb = $('btn-sofor');
+        if (sb) sb.addEventListener('click', () => { if (hooks.promoteSofor()) api.renderManage(); });
       } else if (api._manageTab === 'storage') {
         let html = '';
         for (const [id, p] of Object.entries(CFG.products)) {
@@ -810,7 +902,7 @@ export function createUI(ctx, hooks) {
     showPause() {
       $('btn-sound').textContent = state.settings.sound ? t('on') : t('off');
       $('btn-quality').textContent = t('q' + (state.settings.quality[0].toUpperCase() + state.settings.quality.slice(1)));
-      $('btn-lang').textContent = getLang() === 'de' ? 'Deutsch' : 'Türkçe';
+      $('btn-lang').textContent = { de: 'Deutsch', tr: 'Türkçe', en: 'English' }[getLang()];
       show(els.pause);
     },
 
@@ -915,14 +1007,14 @@ export function createUI(ctx, hooks) {
   };
 
   // ---------- Button-Verdrahtung ----------
-  $('lang-de').addEventListener('click', () => {
-    state.settings.lang = 'de'; setLang('de'); api.applyLang();
-    $('lang-de').classList.add('active'); $('lang-tr').classList.remove('active');
-  });
-  $('lang-tr').addEventListener('click', () => {
-    state.settings.lang = 'tr'; setLang('tr'); api.applyLang();
-    $('lang-tr').classList.add('active'); $('lang-de').classList.remove('active');
-  });
+  const LANGS = ['de', 'tr', 'en'];
+  const LANG_LABELS = { de: 'Deutsch', tr: 'Türkçe', en: 'English' };
+  for (const lg of LANGS) {
+    $('lang-' + lg).addEventListener('click', () => {
+      state.settings.lang = lg; setLang(lg); api.applyLang();
+      for (const o of LANGS) $('lang-' + o).classList.toggle('active', o === lg);
+    });
+  }
 
   els.btnStart.addEventListener('click', () => {
     if (hasSave() && !els.btnContinue.classList.contains('hidden')) resetProgress();
@@ -986,7 +1078,7 @@ export function createUI(ctx, hooks) {
     if (api.lifeOpen()) { hooks.closeShop(); return; }
     if (!api.overlayOpen()) hooks.openLife();
   });
-  for (const tb of ['profile', 'family', 'estate', 'stocks']) {
+  for (const tb of ['profile', 'family', 'estate', 'stocks', 'bank']) {
     $('ltab-' + tb).addEventListener('click', () => { api._lifeTab = tb; api.renderLife(); });
   }
   $('btn-resume').addEventListener('click', () => hooks.resume());
@@ -1013,9 +1105,9 @@ export function createUI(ctx, hooks) {
     save();
   });
   $('btn-lang').addEventListener('click', (e) => {
-    const next = getLang() === 'de' ? 'tr' : 'de';
+    const next = LANGS[(LANGS.indexOf(getLang()) + 1) % LANGS.length];
     state.settings.lang = next; setLang(next); api.applyLang();
-    e.target.textContent = next === 'de' ? 'Deutsch' : 'Türkçe';
+    e.target.textContent = LANG_LABELS[next];
     api.showPause();
     save();
   });

@@ -32,9 +32,18 @@ import { createEvents } from './events.js';
 import { createBoat } from './boat.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
+import { createRadio } from './radio.js';
+import { createYayla } from './world/yayla.js';
 import { createUI } from './ui.js';
 import { createGame } from './game.js';
 import { applyDom } from './i18n.js';
+import { initGate } from './gate.js';
+
+// v6: PIN-Gate (nur auf github.io aktiv) + Service Worker für Offline/PWA
+initGate();
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+}
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({
@@ -86,7 +95,7 @@ let propsApi = null;
 let game = null;
 let farm = null, city = null, vehicles = null, workers = null, minimap = null, npcs = null, extras = null;
 let cc0 = null, airport = null, avatar = null, events = null;
-let boat = null, story = null, achievements = null;
+let boat = null, story = null, achievements = null, radio = null, yaylaApi = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -145,14 +154,16 @@ createProps(ctx, terrain).then(async (p) => {
   boat = createBoat(ctx, terrain, player, audio, ui);
   story = createStory(ctx, ui, audio, player);
   achievements = createAchievements(ctx, terrain, ui, audio);
+  radio = createRadio();
+  yaylaApi = createYayla(ctx, terrain, p.mats);
   allColliders.push(...p.colliders, ...farm.colliders, ...city.colliders,
-    ...extras.colliders, ...cc0.colliders, ...airport.colliders);
+    ...extras.colliders, ...cc0.colliders, ...airport.colliders, ...yaylaApi.colliders);
   game = createGame(ctx, {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
-    farm, city, vehicles, workers, extras, events, boat
+    farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi
   });
   minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
-  npcs = createNpcs(ctx, terrain, ui, player);
+  npcs = createNpcs(ctx, terrain, ui, player, () => game.playerShare());
   ui.bindTouch(player, vehicles, boat);
   wireHooks();
   propsApi = p;      // erst jetzt: der Render-Loop prüft propsApi als "alles bereit"
@@ -323,6 +334,13 @@ function wireHooks() {
   hooks.achCount = () => achievements.count();
   hooks.achTotal = () => achievements.total;
   hooks.achDefs = () => ACH_DEFS;
+  hooks.takeLoan = (i) => game.takeLoan(i);
+  hooks.repayLoan = () => game.repayLoan();
+  hooks.toggleInsurance = () => game.toggleInsurance();
+  hooks.setTeaStyle = (s) => game.setTeaStyle(s);
+  hooks.buyGreenLine = () => game.buyGreenLine();
+  hooks.promoteSofor = () => game.promoteSofor();
+  hooks.playTavla = (s) => game.playTavla(s);
   hooks.resume = () => game.pause(false);
   hooks.nextDay = () => game.nextDay();
   hooks.nextDay2 = () => game.startDay();
@@ -540,6 +558,8 @@ function step(rawDt, manual, skipRender = false) {
     cc0.update(dt, player, vehicles.driving ? vehicles.speedKmh() / 3.6 : 0);
     boat.update(dt, elapsed);
     if (playing) { story.update(dt); achievements.update(dt); }
+    radio.update(audio.ctx);
+    extras.setFestival(window.__started && game.isFestival());
     minimap.update(dt);
   }
 

@@ -114,7 +114,13 @@ export function createWorkers(ctx, terrain, tea, particles) {
 
     update(dt, elapsed, running) {
       if (!workers.length) return;
-      const pickNeed = W.pickTime * (state.upgrades.foreman ? W.foremanFactor : 1) / (state.workerBoost || 1);
+      const baseNeed = W.pickTime * (state.upgrades.foreman ? W.foremanFactor : 1) / (state.workerBoost || 1);
+      // v6: erfahrene Pflücker sind schneller
+      const levelOf = (days) => {
+        let lvl = 0;
+        for (let i = 0; i < CFG.workerLevelDays.length; i++) if (days >= CFG.workerLevelDays[i]) lvl = i;
+        return lvl;
+      };
       for (const w of workers) {
         if (!running) {
           // Feierabend: stehen, Arme unten
@@ -136,7 +142,13 @@ export function createWorkers(ctx, terrain, tea, particles) {
           const tx = tea.positions[w.target * 3], tz = tea.positions[w.target * 3 + 2];
           const dx = tx - w.x, dz = tz - w.z;
           const d = Math.hypot(dx, dz);
-          if (d < 1.05) { w.st = 'pick'; w.timer = pickNeed; continue; }
+          if (d < 1.05) {
+            const wi = workers.indexOf(w);
+            const lvlF = CFG.workerLevelFactor[levelOf((state.workerData[wi] || {}).days || 0)];
+            w.st = 'pick';
+            w.timer = baseNeed * lvlF;
+            continue;
+          }
           const sp = W.walkSpeed;
           w.x += dx / d * sp * dt;
           w.z += dz / d * sp * dt;
