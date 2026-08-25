@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { CFG } from '../config.js';
 import { mulberry32 } from '../util.js';
+import { makeBuildMaterials, building } from './structures.js';
 
 function fixMaterials(root) {
   root.traverse((o) => {
@@ -21,122 +22,16 @@ function fixMaterials(root) {
   });
 }
 
-function makeSignTexture(text) {
-  const c = document.createElement('canvas');
-  c.width = 512; c.height = 128;
-  const g = c.getContext('2d');
-  g.fillStyle = '#1e4d33';
-  g.fillRect(0, 0, 512, 128);
-  g.strokeStyle = '#f4efe4';
-  g.lineWidth = 6;
-  g.strokeRect(10, 10, 492, 108);
-  g.fillStyle = '#f4efe4';
-  g.font = 'bold 52px Georgia, serif';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText(text, 256, 68);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  return t;
-}
-
 export async function createProps(ctx, terrain) {
-  const { scene, loadingManager, renderer } = ctx;
-  const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const { scene, loadingManager } = ctx;
   const colliders = [];   // {x, z, r}
 
-  // ---------- Texturen ----------
-  const tl = new THREE.TextureLoader(loadingManager);
-  function tex(url, srgb, rx = 1, ry = 1) {
-    const t = tl.load(url);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(rx, ry);
-    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = aniso;
-    return t;
-  }
-  const P = 'assets/textures/';
-  const woodMat = new THREE.MeshStandardMaterial({
-    map: tex(P + 'weathered_planks/weathered_planks_diff_1k.jpg', true, 2, 1.4),
-    normalMap: tex(P + 'weathered_planks/weathered_planks_nor_gl_1k.jpg', false, 2, 1.4),
-    aoMap: tex(P + 'weathered_planks/weathered_planks_arm_1k.jpg', false, 2, 1.4),
-    roughnessMap: tex(P + 'weathered_planks/weathered_planks_arm_1k.jpg', false, 2, 1.4),
-    roughness: 1
-  });
-  const woodBeamMat = new THREE.MeshStandardMaterial({
-    map: tex(P + 'weathered_planks/weathered_planks_diff_1k.jpg', true, 0.5, 1.2),
-    roughness: 0.9, color: 0xcfc4ae
-  });
-  const steelMat = new THREE.MeshStandardMaterial({
-    map: tex(P + 'corrugated_steel/CorrugatedSteel005_1K-JPG_Color.jpg', true, 2.5, 1.6),
-    normalMap: tex(P + 'corrugated_steel/CorrugatedSteel005_1K-JPG_NormalGL.jpg', false, 2.5, 1.6),
-    roughnessMap: tex(P + 'corrugated_steel/CorrugatedSteel005_1K-JPG_Roughness.jpg', false, 2.5, 1.6),
-    metalnessMap: tex(P + 'corrugated_steel/CorrugatedSteel005_1K-JPG_Metalness.jpg', false, 2.5, 1.6),
-    metalness: 1, roughness: 1
-  });
+  // ---------- Materialien & Gebäude (gemeinsame Helfer) ----------
+  const mats = makeBuildMaterials(ctx);
+  const { woodMat, woodBeamMat } = mats;
 
-  // ---------- Gebäude ----------
-  function building(x, z, ry, w, d, hWall, signText) {
-    const g = new THREE.Group();
-    const y = terrain.heightAt(x, z);
-    g.position.set(x, y, z);
-    g.rotation.y = ry;
-
-    const walls = new THREE.Mesh(new THREE.BoxGeometry(w, hWall, d), woodMat);
-    walls.position.y = hWall / 2;
-    g.add(walls);
-
-    // Satteldach aus zwei Platten
-    const roofL = w * 0.62;
-    for (const sgn of [-1, 1]) {
-      const r = new THREE.Mesh(new THREE.BoxGeometry(roofL, 0.06, d + 0.5), steelMat);
-      r.position.set(sgn * roofL * 0.42, hWall + roofL * 0.30, 0);
-      r.rotation.z = -sgn * 0.62;
-      g.add(r);
-    }
-    // Giebel-Dreiecke
-    const gable = new THREE.Shape();
-    gable.moveTo(-w / 2, 0); gable.lineTo(w / 2, 0); gable.lineTo(0, roofL * 0.55); gable.closePath();
-    const gGeo = new THREE.ExtrudeGeometry(gable, { depth: 0.1, bevelEnabled: false });
-    for (const sgn of [-1, 1]) {
-      const gm = new THREE.Mesh(gGeo, woodMat);
-      gm.position.set(0, hWall, sgn * (d / 2 - (sgn > 0 ? 0.1 : 0)));
-      g.add(gm);
-    }
-    // Tür
-    const door = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.95, 1.9),
-      new THREE.MeshStandardMaterial({ color: 0x4a3826, roughness: 0.9 })
-    );
-    door.position.set(0, 0.96, d / 2 + 0.012);
-    g.add(door);
-    // Fenster (leuchtet abends)
-    const winMat = new THREE.MeshStandardMaterial({
-      color: 0x27333d, roughness: 0.2, metalness: 0.1,
-      emissive: 0xffb066, emissiveIntensity: 0
-    });
-    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.7), winMat);
-    win.position.set(w * 0.28, 1.45, d / 2 + 0.012);
-    g.add(win);
-
-    if (signText) {
-      const sign = new THREE.Mesh(
-        new THREE.PlaneGeometry(2.7, 0.62),
-        new THREE.MeshStandardMaterial({ map: makeSignTexture(signText), roughness: 0.6 })
-      );
-      sign.position.set(0, hWall + 0.32, d / 2 + 0.05);
-      g.add(sign);
-    }
-
-    g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    scene.add(g);
-    colliders.push({ x, z, r: Math.max(w, d) * 0.62 });
-    return { group: g, winMat };
-  }
-
-  const hut = building(CFG.hut.x, CFG.hut.z, CFG.hut.ry, 5, 4, 2.7, 'ÇAY ALIM YERİ');
-  const home = building(CFG.home.x, CFG.home.z, CFG.home.ry, 3.6, 3, 2.3, null);
+  const hut = building(ctx, terrain, colliders, CFG.hut.x, CFG.hut.z, CFG.hut.ry, 5, 4, 2.7, { mats, signText: 'ÇAY ALIM YERİ' });
+  const home = building(ctx, terrain, colliders, CFG.home.x, CFG.home.z, CFG.home.ry, 3.6, 3, 2.3, { mats });
 
   // Teesäcke neben der Hütte
   const sackMat = new THREE.MeshStandardMaterial({ color: 0x776744, roughness: 1 });
@@ -264,6 +159,7 @@ export async function createProps(ctx, terrain) {
   return {
     colliders,
     cable,
+    mats,          // Bau-Materialien für farm.js / city.js weiterreichen
     sendGondola(onArrive) {
       if (cable.active) return false;
       cable.active = true; cable.dir = 1; cable.onArrive = onArrive;

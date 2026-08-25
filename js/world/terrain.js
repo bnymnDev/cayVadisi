@@ -1,6 +1,6 @@
 // Terrain: analytische Höhenfunktion (Terrassen im Teefeld) + 3-Wege-Splat
 import * as THREE from 'three';
-import { CFG, PATHS, PATH_WIDTH } from '../config.js';
+import { CFG, PATHS, PATH_WIDTH, ROADS, ROAD_WIDTH } from '../config.js';
 import { fbm, smoothstep, lerp, clamp, segDist } from '../util.js';
 
 const F = CFG.field;
@@ -12,7 +12,7 @@ export function fieldMask(x, z) {
   return smoothstep(1.0, 0.82, r);
 }
 
-// Weg-Gewicht 0..1
+// Weg-Gewicht 0..1 (Fußwege + Landstraßen)
 export function pathWeight(x, z) {
   let d = 1e9;
   for (const line of PATHS) {
@@ -20,7 +20,14 @@ export function pathWeight(x, z) {
       d = Math.min(d, segDist(x, z, line[i].x, line[i].z, line[i + 1].x, line[i + 1].z));
     }
   }
-  return smoothstep(PATH_WIDTH, PATH_WIDTH * 0.45, d);
+  let w = smoothstep(PATH_WIDTH, PATH_WIDTH * 0.45, d);
+  let dr = 1e9;
+  for (const line of ROADS) {
+    for (let i = 0; i < line.length - 1; i++) {
+      dr = Math.min(dr, segDist(x, z, line[i].x, line[i].z, line[i + 1].x, line[i + 1].z));
+    }
+  }
+  return Math.max(w, smoothstep(ROAD_WIDTH, ROAD_WIDTH * 0.5, dr));
 }
 
 // Höhe VOR Terrassierung
@@ -38,11 +45,14 @@ function baseHeight(x, z) {
   return h;
 }
 
-// Ebene Bau-Plätze (Hütte, Haus, Teleferik-Station)
+// Ebene Bau-Plätze (Hütte, Haus, Teleferik-Station, Hof, Stadt, Parkplatz)
 const FLATS = [
   { x: CFG.hut.x, z: CFG.hut.z, r: 10 },
   { x: CFG.home.x, z: CFG.home.z, r: 8 },
-  { x: CFG.cableTop.x, z: CFG.cableTop.z, r: 6 }
+  { x: CFG.cableTop.x, z: CFG.cableTop.z, r: 6 },
+  { x: CFG.farm.x, z: CFG.farm.z, r: CFG.farm.r },
+  { x: CFG.city.x, z: CFG.city.z, r: CFG.city.r },
+  { x: CFG.parking.x, z: CFG.parking.z, r: 7 }
 ];
 for (const f of FLATS) f.h = baseHeight(f.x, f.z);
 

@@ -16,6 +16,10 @@ import { createProps } from './world/props.js';
 import { createRain } from './world/rain.js';
 import { createBirds } from './world/birds.js';
 import { createParticles } from './world/particles.js';
+import { createFarm } from './world/farm.js';
+import { createCity } from './world/city.js';
+import { createVehicles } from './vehicles.js';
+import { createWorkers } from './workers.js';
 import { createPlayer } from './player.js';
 import { createAudio } from './audio.js';
 import { createUI } from './ui.js';
@@ -70,11 +74,13 @@ const audio = createAudio();
 
 let propsApi = null;
 let game = null;
+let farm = null, city = null, vehicles = null, workers = null;
 
 const hooks = {};
 const ui = createUI(ctx, hooks);
+const allColliders = [];
 const player = createPlayer(ctx, terrain,
-  () => (propsApi ? propsApi.colliders : []),
+  () => allColliders,
   (pos, r) => teaField.collide(pos, r));
 
 // ---------- Qualität ----------
@@ -114,7 +120,16 @@ function maybeReady() {
 
 createProps(ctx, terrain).then((p) => {
   propsApi = p;
-  game = createGame(ctx, { terrain, tea: teaField, props: p, player, audio, ui, particles, sky });
+  farm = createFarm(ctx, terrain, p.mats);
+  city = createCity(ctx, terrain, p.mats);
+  vehicles = createVehicles(ctx, terrain, player, () => allColliders);
+  workers = createWorkers(ctx, terrain, teaField, particles);
+  allColliders.push(...p.colliders, ...farm.colliders, ...city.colliders);
+  game = createGame(ctx, {
+    terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
+    farm, city, vehicles, workers
+  });
+  ui.bindTouch(player, vehicles);
   wireHooks();
   propsDone = true;
   maybeReady();
@@ -125,6 +140,13 @@ function wireHooks() {
   hooks.buyUpgrade = (id) => game.buyUpgrade(id);
   hooks.doSell = () => game.doSell();
   hooks.closeShop = () => { ui.hideOverlays(); game.pause(false); };
+  hooks.plantCrop = (id) => game.plantCrop(id);
+  hooks.buyAnimal = (id) => game.buyAnimal(id);
+  hooks.sellProduct = (id, n) => game.sellProduct(id, n);
+  hooks.buyVehicle = (id) => game.buyVehicle(id);
+  hooks.hireWorker = () => game.hireWorker();
+  hooks.fireWorker = () => game.fireWorker();
+  hooks.openManage = () => { player.releaseLock(); ui.showManage(); };
   hooks.resume = () => game.pause(false);
   hooks.nextDay = () => game.nextDay();
   hooks.nextDay2 = () => game.startDay();
@@ -158,6 +180,10 @@ window.__game = {
   tea: teaField, ui,
   get game() { return game; },
   get props() { return propsApi; },
+  get farm() { return farm; },
+  get city() { return city; },
+  get vehicles() { return vehicles; },
+  get workers() { return workers; },
   setHour(h) { state.timeSec = (h - CFG.startHour) / (CFG.endHour - CFG.startHour) * CFG.dayLengthSec; },
   give(m) { state.money += m; ui.refreshMoney(); },
   teleport: (x, z) => player.teleport(x, z),
@@ -165,6 +191,7 @@ window.__game = {
   quality: applyQuality,
   fps: () => Math.round(1 / emaDt),
   frame(dt = 1 / 60, n = 1) { for (let i = 0; i < n; i++) step(dt, true); },
+  sim(dt = 1 / 60, n = 1) { for (let i = 0; i < n; i++) step(dt, true, true); },   // ohne Rendern (Tests)
   shot(w = 640) {
     step(1 / 60, true);
     const c = renderer.domElement;
@@ -192,7 +219,7 @@ function tick() {
 let menuYaw = Math.PI * 0.86;
 const menuEuler = new THREE.Euler(-0.05, 0, 0, 'YXZ');
 
-function step(rawDt, manual) {
+function step(rawDt, manual, skipRender = false) {
   const dt = Math.min(rawDt, 0.05);
   elapsedTime += dt;
   const elapsed = elapsedTime;
@@ -234,6 +261,10 @@ function step(rawDt, manual) {
   if (propsApi) {
     const elevN = Math.max(0, Math.sin((sky.hour - 6) / 14 * Math.PI));
     propsApi.update(dt, elevN, sky.rainT);
+    farm.update(dt, elapsed);
+    city.update(dt, elevN, sky.rainT, elapsed);
+    vehicles.update(dt, elevN, sky.rainT);
+    workers.update(dt, elapsed, playing);
   }
 
   if (game) {
@@ -249,7 +280,7 @@ function step(rawDt, manual) {
   }
   ui.updateMarker(camera);
 
-  composer.render();
+  if (!skipRender) composer.render();
 }
 
 onResize();

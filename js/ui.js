@@ -1,7 +1,7 @@
 // DOM-HUD, Menüs, Shop, Overlays
 import * as THREE from 'three';
 import { CFG } from './config.js';
-import { state, basketCapacity, save, resetProgress, hasSave } from './state.js';
+import { state, basketCapacity, save, resetProgress, hasSave, netWorth } from './state.js';
 import { t, tUpgrade, setLang, getLang, applyDom } from './i18n.js';
 import { fmtKg, fmtMoney, clamp } from './util.js';
 
@@ -11,6 +11,9 @@ export function createUI(ctx, hooks) {
   const els = {
     start: $('start-screen'), hud: $('hud'), shop: $('shop-screen'),
     pause: $('pause-screen'), day: $('day-screen'), season: $('season-screen'),
+    farm: $('farm-screen'), market: $('market-screen'),
+    dealer: $('dealer-screen'), manage: $('manage-screen'),
+    speed: $('hud-speed'), tier: $('hud-tier'), touch: $('touch-controls'),
     loadFill: $('load-fill'), loadLabel: $('load-label'),
     btnStart: $('btn-start'), btnContinue: $('btn-continue'),
     hudDay: $('hud-day'), hudClock: $('hud-clock'), hudWeather: $('hud-weather'),
@@ -40,7 +43,11 @@ export function createUI(ctx, hooks) {
       if (hasSave()) show(els.btnContinue);
     },
 
-    hideStart() { hide(els.start); show(els.hud); },
+    hideStart() {
+      hide(els.start); show(els.hud);
+      api.refreshWealth();
+      if (ctx.isTouch) els.touch.classList.remove('hidden');
+    },
 
     // ---------- HUD ----------
     refreshClock(hour) {
@@ -51,6 +58,23 @@ export function createUI(ctx, hooks) {
     },
     refreshMoney() {
       els.hudMoney.textContent = fmtMoney(state.money, state.settings.lang);
+    },
+    refreshWealth() {
+      els.tier.textContent = t('tierName' + state.wealthTier);
+    },
+    setSpeed(kmh) {
+      if (kmh == null) {
+        els.speed.classList.add('hidden');
+        $('tbtn-gas').classList.add('hidden');
+        $('tbtn-brake').classList.add('hidden');
+      } else {
+        els.speed.classList.remove('hidden');
+        els.speed.innerHTML = Math.round(kmh) + '<small>' + t('kmh') + '</small>';
+        if (ctx.isTouch) {
+          $('tbtn-gas').classList.remove('hidden');
+          $('tbtn-brake').classList.remove('hidden');
+        }
+      }
     },
     refreshBasket() {
       const cap = basketCapacity(CFG);
@@ -134,9 +158,164 @@ export function createUI(ctx, hooks) {
       return !els.shop.classList.contains('hidden')
         || !els.pause.classList.contains('hidden')
         || !els.day.classList.contains('hidden')
-        || !els.season.classList.contains('hidden');
+        || !els.season.classList.contains('hidden')
+        || !els.farm.classList.contains('hidden')
+        || !els.market.classList.contains('hidden')
+        || !els.dealer.classList.contains('hidden')
+        || !els.manage.classList.contains('hidden');
     },
-    hideOverlays() { hide(els.shop); hide(els.pause); hide(els.day); hide(els.season); },
+    manageOpen() { return !els.manage.classList.contains('hidden'); },
+    hideOverlays() {
+      hide(els.shop); hide(els.pause); hide(els.day); hide(els.season);
+      hide(els.farm); hide(els.market); hide(els.dealer); hide(els.manage);
+    },
+
+    // ---------- v2: Hof ----------
+    showFarm() { api.renderFarm(); show(els.farm); },
+    renderFarm() {
+      const L = state.settings.lang;
+      const free = state.plots.filter(p => !p).length;
+      $('farm-plots-info').textContent = t('freePlots', free, state.plots.length);
+      const plantList = $('plant-list');
+      plantList.innerHTML = '';
+      for (const [id, c] of Object.entries(CFG.crops)) {
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        row.innerHTML = `
+          <div class="u-icon">${c.icon}</div>
+          <div class="u-body"><div class="u-name">${t('crop_' + id)}</div>
+          <div class="u-desc">${t('cropInfo', c.days, c.yield, c.sell)}</div></div>
+          <button ${state.money < c.seed || free === 0 ? 'disabled' : ''} data-id="${id}">
+            ${fmtMoney(c.seed, L)}
+          </button>`;
+        row.querySelector('button').addEventListener('click', () => {
+          if (hooks.plantCrop(id)) api.renderFarm();
+        });
+        plantList.appendChild(row);
+      }
+      const animalList = $('animal-list');
+      animalList.innerHTML = '';
+      for (const [id, a] of Object.entries(CFG.animals)) {
+        const n = state.animals[id] || 0;
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        row.innerHTML = `
+          <div class="u-icon">${a.icon}</div>
+          <div class="u-body"><div class="u-name">${t('animal_' + id)} <span class="row-sub">${n} / ${a.max}</span></div>
+          <div class="u-desc">${t('animalInfo', t('prod_' + a.product), a.perDay)}</div></div>
+          <button ${state.money < a.cost || n >= a.max ? 'disabled' : ''} data-id="${id}">
+            ${fmtMoney(a.cost, L)}
+          </button>`;
+        row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyAnimal(id)) api.renderFarm();
+        });
+        animalList.appendChild(row);
+      }
+    },
+
+    // ---------- v2: Markt ----------
+    showMarket() { api.renderMarket(); show(els.market); },
+    renderMarket() {
+      const L = state.settings.lang;
+      const list = $('market-list');
+      list.innerHTML = '';
+      let any = false, total = 0;
+      for (const [id, p] of Object.entries(CFG.products)) {
+        const have = Math.floor(state.inventory[id] || 0);
+        if (have <= 0) continue;
+        any = true;
+        const mul = state.marketMul[id] || 1;
+        const price = Math.round(p.sell * mul);
+        total += have * price;
+        const trend = mul > 1.08 ? `<span class="price-up">▲ ${t('priceGood')}</span>`
+          : mul < 0.92 ? `<span class="price-down">▼ ${t('priceBad')}</span>` : '';
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        row.innerHTML = `
+          <div class="u-icon">${p.icon}</div>
+          <div class="u-body"><div class="u-name">${t('prod_' + id)} × ${have} ${trend}</div>
+          <div class="u-desc">${fmtMoney(price, L)} / Stk</div></div>
+          <button data-id="${id}">${fmtMoney(have * price, L)}</button>`;
+        row.querySelector('button').addEventListener('click', () => {
+          hooks.sellProduct(id, have);
+          api.renderMarket();
+        });
+        list.appendChild(row);
+      }
+      if (!any) list.innerHTML = `<div class="section-info">${t('marketEmpty')}</div>`;
+      const btn = $('btn-market-sellall');
+      btn.textContent = t('sellAll') + (any ? ' · ' + fmtMoney(total, L) : '');
+      btn.disabled = !any;
+    },
+
+    // ---------- v2: Autohaus ----------
+    showDealer() { api.renderDealer(); show(els.dealer); },
+    renderDealer() {
+      const L = state.settings.lang;
+      const list = $('dealer-list');
+      list.innerHTML = '';
+      for (const [id, v] of Object.entries(CFG.vehicles)) {
+        const owned = state.vehicles[id];
+        const row = document.createElement('div');
+        row.className = 'upgrade-item' + (owned ? ' owned' : '');
+        row.innerHTML = `
+          <div class="u-icon">${v.icon}</div>
+          <div class="u-body"><div class="u-name">${t('veh_' + id)}</div>
+          <div class="u-desc">${t('vehDesc_' + id)}</div></div>
+          <button ${owned || state.money < v.cost ? 'disabled' : ''} data-id="${id}">
+            ${owned ? t('owned') + ' ✓' : fmtMoney(v.cost, L)}
+          </button>`;
+        if (!owned) {
+          row.querySelector('button').addEventListener('click', () => {
+            if (hooks.buyVehicle(id)) api.renderDealer();
+          });
+        }
+        list.appendChild(row);
+      }
+    },
+
+    // ---------- v2: Betrieb ----------
+    _manageTab: 'workers',
+    showManage() { api.renderManage(); show(els.manage); },
+    renderManage() {
+      for (const tb of ['workers', 'storage', 'stats']) {
+        $('tab-' + tb).classList.toggle('active', api._manageTab === tb);
+      }
+      const L = state.settings.lang;
+      const body = $('manage-body');
+      if (api._manageTab === 'workers') {
+        const W = CFG.workers;
+        body.innerHTML = `
+          <div class="manage-count">👷 ${state.workers} / ${W.max}</div>
+          <div class="section-info" style="text-align:center">${t('workerInfo', W.hireCost, W.wage)}</div>
+          <div class="section-info" style="text-align:center">${t('workerToday', Math.round(state.workerKg * 10) / 10)}</div>
+          <div class="btn-row">
+            <button id="btn-hire" class="big-btn" ${state.workers >= W.max || state.money < W.hireCost ? 'disabled' : ''}>
+              ${t('hireWorker')} · ${fmtMoney(W.hireCost, L)}</button>
+            <button id="btn-fire" class="big-btn ghost" ${state.workers <= 0 ? 'disabled' : ''}>${t('fireWorker')}</button>
+          </div>`;
+        $('btn-hire').addEventListener('click', () => { if (hooks.hireWorker()) api.renderManage(); });
+        $('btn-fire').addEventListener('click', () => { if (hooks.fireWorker()) api.renderManage(); });
+      } else if (api._manageTab === 'storage') {
+        let html = '';
+        for (const [id, p] of Object.entries(CFG.products)) {
+          const have = Math.floor(state.inventory[id] || 0);
+          if (have <= 0) continue;
+          html += `<div class="upgrade-item"><div class="u-icon">${p.icon}</div>
+            <div class="u-body"><div class="u-name">${t('prod_' + id)}</div></div>
+            <div style="font-weight:700">× ${have}</div></div>`;
+        }
+        body.innerHTML = html || `<div class="section-info">${t('storageEmpty')}</div>`;
+      } else {
+        body.innerHTML = `<div class="stat-list">
+          <div>${t('statNet')} <b>${fmtMoney(netWorth(CFG), L)}</b></div>
+          <div>${t('statMoney')} <b>${fmtMoney(state.money, L)}</b></div>
+          <div>${t('statDayEarned')} <b>${fmtMoney(state.dayEarned, L)}</b></div>
+          <div>${t('statDaySpent')} <b>${fmtMoney(state.daySpent, L)}</b></div>
+          <div>${t('statTotal')} <b>${fmtMoney(state.totalEarned, L)}</b></div>
+        </div>`;
+      }
+    },
 
     showShop() {
       api.renderShop();
@@ -181,13 +360,17 @@ export function createUI(ctx, hooks) {
       show(els.pause);
     },
 
-    showDaySummary() {
+    showDaySummary(extraLines = []) {
       const L = state.settings.lang;
       $('day-title').textContent = t('dayTitle', state.day);
-      $('day-stats').innerHTML =
+      let html =
         `<div>${t('dayPicked')} <b>${fmtKg(state.dayKg, L)} kg</b></div>` +
-        `<div>${t('dayEarned')} <b>${fmtMoney(state.dayEarned, L)}</b></div>` +
-        `<div>${t('dayOrder')} <b>${state.orderRewarded ? t('dayYes') : t('dayNo')}</b></div>`;
+        `<div>${t('dayEarned')} <b>${fmtMoney(state.dayEarned, L)}</b></div>`;
+      for (const line of extraLines) {
+        html += `<div>${t(line.k)}${line.sub ? ` <span class="row-sub">(${line.sub})</span>` : ''} <b>${line.v}</b></div>`;
+      }
+      html += `<div>${t('dayOrder')} <b>${state.orderRewarded ? t('dayYes') : t('dayNo')}</b></div>`;
+      $('day-stats').innerHTML = html;
       $('btn-next-day').textContent = t('nextDay');
       show(els.day);
     },
@@ -204,7 +387,9 @@ export function createUI(ctx, hooks) {
       $('season-stats').innerHTML =
         `<div>${t('seasonTotal')} <b>${fmtKg(state.totalKg, L)} kg</b></div>` +
         `<div>${t('seasonMoney')} <b>${fmtMoney(state.money, L)}</b></div>` +
-        `<div>${t('seasonOrders')} <b>${state.ordersDone} / ${CFG.seasonDays}</b></div>`;
+        `<div>${t('statNet')} <b>${fmtMoney(netWorth(CFG), L)}</b></div>` +
+        `<div>${t('seasonOrders')} <b>${state.ordersDone} / ${CFG.seasonDays}</b></div>` +
+        `<div>${t('manageTitle')} <b>${t('tierName' + state.wealthTier)}</b></div>`;
       show(els.season);
     },
 
@@ -213,6 +398,59 @@ export function createUI(ctx, hooks) {
       api.refreshMoney();
       api.refreshBasket();
       api.refreshOrder();
+      api.refreshWealth();
+    },
+
+    // ---------- v2: Touch-Steuerung verdrahten ----------
+    bindTouch(player, vehicles) {
+      const joy = $('joystick'), knob = $('joystick-knob');
+      let joyId = null;
+      const R = 46;
+      function setKnob(dx, dy) {
+        knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      }
+      function handle(e) {
+        for (const tch of e.changedTouches) {
+          if (joyId !== null && tch.identifier !== joyId) continue;
+          const r = joy.getBoundingClientRect();
+          let dx = tch.clientX - (r.left + r.width / 2);
+          let dy = tch.clientY - (r.top + r.height / 2);
+          const d = Math.hypot(dx, dy);
+          if (d > R) { dx *= R / d; dy *= R / d; }
+          setKnob(dx, dy);
+          const nx = dx / R, ny = dy / R;
+          if (vehicles.driving) { vehicles.touchSteer = nx; }
+          else { player.touchMove.x = nx; player.touchMove.y = ny; }
+        }
+      }
+      joy.addEventListener('touchstart', (e) => {
+        if (joyId === null) joyId = e.changedTouches[0].identifier;
+        handle(e);
+        e.preventDefault();
+      }, { passive: false });
+      joy.addEventListener('touchmove', (e) => { handle(e); e.preventDefault(); }, { passive: false });
+      const reset = (e) => {
+        for (const tch of e.changedTouches) {
+          if (tch.identifier !== joyId) continue;
+          joyId = null;
+          setKnob(0, 0);
+          player.touchMove.x = 0; player.touchMove.y = 0;
+          vehicles.touchSteer = 0;
+        }
+      };
+      joy.addEventListener('touchend', reset);
+      joy.addEventListener('touchcancel', reset);
+
+      // Gas / Bremse (nur beim Fahren sichtbar)
+      const bindPedal = (id, val) => {
+        const b = $(id);
+        b.addEventListener('touchstart', (e) => { vehicles.touchGas = val; e.preventDefault(); }, { passive: false });
+        const off = (e) => { vehicles.touchGas = 0; e.preventDefault(); };
+        b.addEventListener('touchend', off, { passive: false });
+        b.addEventListener('touchcancel', off, { passive: false });
+      };
+      bindPedal('tbtn-gas', 1);
+      bindPedal('tbtn-brake', -1);
     }
   };
 
@@ -234,6 +472,24 @@ export function createUI(ctx, hooks) {
 
   $('btn-sell').addEventListener('click', () => { hooks.doSell(); api.renderShop(); });
   $('btn-shop-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-farm-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-market-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-dealer-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-manage-close').addEventListener('click', () => hooks.closeShop());
+  $('btn-market-sellall').addEventListener('click', () => {
+    for (const id of Object.keys(CFG.products)) {
+      const have = Math.floor(state.inventory[id] || 0);
+      if (have > 0) hooks.sellProduct(id, have);
+    }
+    api.renderMarket();
+  });
+  $('btn-manage').addEventListener('click', () => {
+    if (api.manageOpen()) { hooks.closeShop(); return; }
+    if (!api.overlayOpen()) { hooks.openManage(); }
+  });
+  for (const tb of ['workers', 'storage', 'stats']) {
+    $('tab-' + tb).addEventListener('click', () => { api._manageTab = tb; api.renderManage(); });
+  }
   $('btn-resume').addEventListener('click', () => hooks.resume());
   $('btn-help').addEventListener('click', () => {
     api.toast(t('tut1'), false, 6000);

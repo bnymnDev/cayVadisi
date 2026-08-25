@@ -1,12 +1,13 @@
 // Spiellogik: Tageszyklus, Wetter, Pflücken, Wirtschaft, Interaktionen
+// v2: Arbeiter, Bauernhof, Markt, Fahrzeuge, Stadt, Wohlstand
 import * as THREE from 'three';
 import { CFG } from './config.js';
-import { state, save, basketCapacity, resetDay } from './state.js';
+import { state, save, basketCapacity, resetDay, netWorth } from './state.js';
 import { t } from './i18n.js';
 import { clamp, fmtMoney } from './util.js';
 
 export function createGame(ctx, mods) {
-  const { terrain, tea, props, player, audio, ui, particles, sky } = mods;
+  const { terrain, tea, props, player, audio, ui, particles, sky, farm, vehicles, workers } = mods;
   const { camera } = ctx;
 
   let showers = [];          // {start, end}
@@ -38,6 +39,14 @@ export function createGame(ctx, mods) {
     warnShown = false;
   }
 
+  // Markt-Tagespreise (±Schwankung)
+  function planMarket() {
+    const swing = CFG.city.priceSwing;
+    for (const id of Object.keys(CFG.products)) {
+      state.marketMul[id] = 1 + (Math.random() * 2 - 1) * swing;
+    }
+  }
+
   function newOrder() {
     const base = 5 + state.day * 1.5;
     const gearBonus = (state.upgrades.shears ? 4 : 0) + (state.upgrades.basket1 ? 2 : 0) + (state.upgrades.basket2 ? 4 : 0);
@@ -49,26 +58,71 @@ export function createGame(ctx, mods) {
   function startDay() {
     resetDay();
     planWeather();
+    planMarket();
     newOrder();
     ui.refreshOrder();
     ui.hideOverlays();
     running = true;
     paused = false;
     player.setEnabled(true);
-    if (!ctx.isTouch) player.requestLock();
+    if (!ctx.isTouch && !vehicles.driving) player.requestLock();
   }
 
   function endDay() {
     running = false;
+    if (vehicles.driving) { vehicles.exit(); audio.engineStop(); }
     player.setEnabled(false);
     player.releaseLock();
     audio.sleep();
-    ui.showDaySummary();
+
+    // ---- Abend-Abrechnung ----
+    const L = state.settings.lang;
+    const lines = [];
+    // Arbeiter-Ernte verkaufen
+    if (state.workerKg > 0.01) {
+      const sum = state.workerKg * CFG.eco.pricePerKg * CFG.workers.sellFactor;
+      state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+      lines.push({ k: 'sumWorkerTea', v: '+' + fmtMoney(sum, L), sub: Math.round(state.workerKg * 10) / 10 + ' kg' });
+    }
+    // Löhne zahlen
+    if (state.workers > 0) {
+      const wages = state.workers * CFG.workers.wage;
+      state.money -= wages; state.daySpent += wages;
+      lines.push({ k: 'sumWages', v: '−' + fmtMoney(wages, L), sub: state.workers + ' 👷' });
+    }
+    // Silo: Lager automatisch verkaufen (Basispreis)
+    if (state.upgrades.silo) {
+      let sum = 0;
+      for (const [id, n] of Object.entries(state.inventory)) {
+        const cnt = Math.floor(n);
+        if (cnt > 0) { sum += cnt * CFG.products[id].sell; state.inventory[id] -= cnt; }
+      }
+      if (sum > 0) {
+        state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+        lines.push({ k: 'sumSilo', v: '+' + fmtMoney(sum, L) });
+      }
+    }
+    checkWealth();
+    ui.showDaySummary(lines);
     save();
   }
 
   function nextDay() {
     state.day += 1;
+
+    // Felder wachsen einen Tag weiter (Bewässerung: ein Extra-Tag)
+    for (const p of state.plots) {
+      if (p && p.daysLeft > 0) p.daysLeft -= 1;
+      if (p && state.upgrades.sprinkler && p.daysLeft > 0) p.daysLeft -= 1;
+    }
+    farm.refreshPlots();
+
+    // Tiere produzieren über Nacht
+    for (const [id, spec] of Object.entries(CFG.animals)) {
+      const n = state.animals[id] || 0;
+      if (n > 0) state.inventory[spec.product] += n * spec.perDay;
+    }
+
     tea.newDay();
     if (!state.seasonOver && state.day > CFG.seasonDays) {
       state.seasonOver = true;
@@ -79,6 +133,23 @@ export function createGame(ctx, mods) {
     save();
     startDay();
     ui.toast(t('day') + ' ' + state.day, false);
+    // Morgen-Info über Tierprodukte
+    const prodCount = Object.values(state.inventory).reduce((a, b) => a + Math.floor(b), 0);
+    if (prodCount > 0) ui.toast(t('morningProducts', prodCount), false, 4500);
+  }
+
+  // ---------- Wohlstand ----------
+  function checkWealth() {
+    const w = netWorth(CFG);
+    const tiers = CFG.wealthTiers;
+    let tier = 0;
+    for (let i = 0; i < tiers.length; i++) if (w >= tiers[i]) tier = i;
+    if (tier > state.wealthTier) {
+      state.wealthTier = tier;
+      ui.toast(t('tierUp', t('tierName' + tier)), true, 6000);
+      audio.tierUp();
+      ui.refreshWealth();
+    }
   }
 
   // ---------- Pflücken ----------
@@ -88,8 +159,12 @@ export function createGame(ctx, mods) {
     pickProgress = 0;
   }
 
+  function cargoMulNow() {
+    return vehicles.cargoMul(player.pos.x, player.pos.z);
+  }
+
   function finishPick() {
-    const cap = basketCapacity(CFG);
+    const cap = basketCapacity(CFG, cargoMulNow());
     if (state.basketKg >= cap) {
       ui.toast(t('basketFullShort'), true);
       audio.deny();
@@ -147,6 +222,7 @@ export function createGame(ctx, mods) {
       audio.orderDone();
     }
     if (!silent) audio.sell();
+    checkWealth();
     ui.refreshBasket();
     ui.refreshMoney();
     ui.refreshOrder();
@@ -156,7 +232,6 @@ export function createGame(ctx, mods) {
 
   function trySendGondola() {
     if (state.basketKg <= 0.01) { audio.deny(); return; }
-    const kg = state.basketKg;
     const ok = props.sendGondola(() => {
       const sum = doSell(true);
       audio.sell();
@@ -168,22 +243,119 @@ export function createGame(ctx, mods) {
     }
   }
 
-  // ---------- Upgrades ----------
+  // ---------- Käufe ----------
   function buyUpgrade(id) {
     const u = CFG.upgrades[id];
     if (!u || state.upgrades[id] || state.money < u.cost) { audio.deny(); return false; }
     if (id === 'basket2' && !state.upgrades.basket1) { audio.deny(); return false; }
     state.money -= u.cost;
+    state.daySpent += u.cost;
     state.upgrades[id] = true;
+    audio.buy();
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function hireWorker() {
+    if (state.workers >= CFG.workers.max || state.money < CFG.workers.hireCost) { audio.deny(); return false; }
+    state.money -= CFG.workers.hireCost;
+    state.daySpent += CFG.workers.hireCost;
+    state.workers += 1;
+    workers.sync();
     audio.buy();
     ui.refreshMoney();
     save();
     return true;
   }
 
+  function fireWorker() {
+    if (state.workers <= 0) { audio.deny(); return false; }
+    state.workers -= 1;
+    workers.sync();
+    audio.deny();
+    save();
+    return true;
+  }
+
+  function buyAnimal(id) {
+    const spec = CFG.animals[id];
+    if (!spec || (state.animals[id] || 0) >= spec.max || state.money < spec.cost) { audio.deny(); return false; }
+    state.money -= spec.cost;
+    state.daySpent += spec.cost;
+    state.animals[id] = (state.animals[id] || 0) + 1;
+    farm.syncAnimals();
+    audio.animal(id);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function plantCrop(type) {
+    const spec = CFG.crops[type];
+    if (!spec || state.money < spec.seed) { audio.deny(); return false; }
+    const idx = state.plots.findIndex(p => !p);
+    if (idx < 0) { ui.toast(t('noFreePlot'), false); audio.deny(); return false; }
+    state.money -= spec.seed;
+    state.daySpent += spec.seed;
+    state.plots[idx] = { type, daysLeft: spec.days };
+    farm.refreshPlots();
+    audio.plant();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function harvestPlot(idx) {
+    const p = state.plots[idx];
+    if (!p || p.daysLeft > 0) return false;
+    const spec = CFG.crops[p.type];
+    state.inventory[p.type] += spec.yield;
+    state.plots[idx] = null;
+    farm.refreshPlots();
+    audio.harvest();
+    ui.toast(t('harvested', spec.yield, t('crop_' + p.type)), true);
+    save();
+    return true;
+  }
+
+  function sellProduct(id, count) {
+    const have = Math.floor(state.inventory[id] || 0);
+    const n = Math.min(have, count);
+    if (n <= 0) { audio.deny(); return 0; }
+    const price = CFG.products[id].sell * (state.marketMul[id] || 1);
+    const sum = n * price;
+    state.inventory[id] -= n;
+    state.money += sum;
+    state.dayEarned += sum;
+    state.totalEarned += sum;
+    audio.cash();
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return sum;
+  }
+
+  function buyVehicle(id) {
+    const spec = CFG.vehicles[id];
+    if (!spec || state.vehicles[id] || state.money < spec.cost) { audio.deny(); return false; }
+    state.money -= spec.cost;
+    state.daySpent += spec.cost;
+    state.vehicles[id] = true;
+    vehicles.syncOwned();
+    audio.cash();
+    checkWealth();
+    ui.refreshMoney();
+    ui.toast(t('vehicleBought', t('veh_' + id)), true, 5000);
+    save();
+    return true;
+  }
+
   // ---------- Eingaben ----------
   window.addEventListener('mousedown', (e) => {
-    if (e.button !== 0 || !running || paused) return;
+    if (e.button !== 0 || !running || paused || vehicles.driving) return;
     if (ui.overlayOpen()) return;
     if (!player.locked && !ctx.isTouch) { player.requestLock(); return; }
     mouseDown = true;
@@ -196,7 +368,9 @@ export function createGame(ctx, mods) {
   // Touch: Finger halten = pflücken, Finger ziehen = umsehen (Abbruch)
   let touchStart = null;
   window.addEventListener('touchstart', (e) => {
-    if (!running || paused || ui.overlayOpen() || e.touches.length !== 1) return;
+    if (!running || paused || ui.overlayOpen() || vehicles.driving) return;
+    if (e.target && e.target.closest && e.target.closest('.tc')) return;   // Touch-Controls ignorieren
+    if (e.touches.length !== 1) return;
     touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     mouseDown = true;
   }, { passive: true });
@@ -209,21 +383,43 @@ export function createGame(ctx, mods) {
   window.addEventListener('touchend', () => {
     touchStart = null; mouseDown = false; picking = false; pickProgress = 0;
   }, { passive: true });
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'KeyE' && running && !paused && !ui.overlayOpen()) {
-      const act = currentInteract();
-      if (act === 'sell') { player.releaseLock(); ui.showShop(); }
-      else if (act === 'sleep') endDay();
-      else if (act === 'cable') trySendGondola();
+
+  function doInteract() {
+    if (vehicles.driving) {
+      vehicles.exit();
+      audio.engineStop();
+      if (!ctx.isTouch) player.requestLock();
+      return;
     }
-    if (e.code === 'Escape' && running && !player.locked && !ui.overlayOpen()) {
+    const act = currentInteract();
+    if (!act) return;
+    if (act.id === 'sell') { player.releaseLock(); ui.showShop(); }
+    else if (act.id === 'sleep') endDay();
+    else if (act.id === 'cable') trySendGondola();
+    else if (act.id === 'vehicle') {
+      if (vehicles.enter(act.data)) audio.engineStart();
+    }
+    else if (act.id === 'farm') { player.releaseLock(); ui.showFarm(); }
+    else if (act.id === 'market') { player.releaseLock(); ui.showMarket(); }
+    else if (act.id === 'dealer') { player.releaseLock(); ui.showDealer(); }
+    else if (act.id === 'harvest') harvestPlot(act.data);
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyE' && running && !paused && !ui.overlayOpen()) doInteract();
+    if (e.code === 'Tab' && running && !paused) {
+      e.preventDefault();
+      if (ui.manageOpen()) { ui.hideOverlays(); pause(false); }
+      else { player.releaseLock(); ui.showManage(); }
+    }
+    if (e.code === 'Escape' && running && !player.locked && !ui.overlayOpen() && !vehicles.driving) {
       // Esc außerhalb PointerLock → Pause
       pause(true);
     }
   });
 
   player.onLockChange = (locked) => {
-    if (!locked && running && !ui.overlayOpen()) pause(true);
+    if (!locked && running && !ui.overlayOpen() && !vehicles.driving) pause(true);
   };
 
   function pause(v) {
@@ -231,8 +427,10 @@ export function createGame(ctx, mods) {
     if (v) { ui.showPause(); player.setEnabled(false); }
     else {
       ui.hideOverlays();
-      player.setEnabled(true);
-      if (!ctx.isTouch) player.requestLock();
+      if (!vehicles.driving) {
+        player.setEnabled(true);
+        if (!ctx.isTouch) player.requestLock();
+      }
     }
   }
 
@@ -242,9 +440,17 @@ export function createGame(ctx, mods) {
   }
 
   function currentInteract() {
-    if (distTo(CFG.hut.x, CFG.hut.z) < CFG.interactDist + 1.5) return 'sell';
-    if (distTo(CFG.home.x, CFG.home.z) < CFG.interactDist && sky.hour >= 18) return 'sleep';
-    if (state.upgrades.cable && distTo(CFG.cableTop.x, CFG.cableTop.z) < CFG.interactDist) return 'cable';
+    if (vehicles.driving) return { id: 'exit' };
+    if (distTo(CFG.hut.x, CFG.hut.z) < CFG.interactDist + 1.5) return { id: 'sell' };
+    if (distTo(CFG.home.x, CFG.home.z) < CFG.interactDist && sky.hour >= 18) return { id: 'sleep' };
+    if (state.upgrades.cable && distTo(CFG.cableTop.x, CFG.cableTop.z) < CFG.interactDist) return { id: 'cable' };
+    const veh = vehicles.nearest(player.pos.x, player.pos.z);
+    if (veh) return { id: 'vehicle', data: veh };
+    const ready = farm.nearestReadyPlot(player.pos.x, player.pos.z);
+    if (ready >= 0) return { id: 'harvest', data: ready };
+    if (distTo(CFG.farm.sign.x, CFG.farm.sign.z) < CFG.interactDist + 1) return { id: 'farm' };
+    if (distTo(CFG.city.market.x, CFG.city.market.z) < CFG.interactDist + 1.5) return { id: 'market' };
+    if (distTo(CFG.city.dealer.x, CFG.city.dealer.z) < CFG.interactDist + 3.5) return { id: 'dealer' };
     return null;
   }
 
@@ -276,6 +482,17 @@ export function createGame(ctx, mods) {
     ui.setRainWarn(warnSoon);
     if (state.wetTimer > 0) state.wetTimer -= dt;
 
+    // Fahren: kein Pflücken, aber Motor & Tacho
+    if (vehicles.driving) {
+      audio.engineUpdate(vehicles.throttle01(), vehicles.speedKmh());
+      ui.setSpeed(vehicles.speedKmh());
+      ui.setCrosshairActive(false);
+      ui.setPickProgress(0);
+      ui.setPrompt(t('prompt_exit'), () => doInteract());
+      return;
+    }
+    ui.setSpeed(null);
+
     // Pflück-Ziel suchen
     camera.getWorldDirection(camDir);
     pickTarget = tea.findTarget(camera.position, camDir);
@@ -296,12 +513,8 @@ export function createGame(ctx, mods) {
 
     // Interaktions-Prompt (klickbar für Touch)
     const act = currentInteract();
-    ui.setPrompt(
-      act ? t(act === 'sell' ? 'promptSell' : act === 'sleep' ? 'promptSleep' : 'promptCable') : null,
-      act === 'sell' ? () => { player.releaseLock(); ui.showShop(); }
-        : act === 'sleep' ? () => endDay()
-        : act === 'cable' ? () => trySendGondola() : null
-    );
+    ui.setPrompt(act ? t('prompt_' + act.id, act.id === 'vehicle' ? t('veh_' + act.data) : undefined) : null,
+      act ? () => doInteract() : null);
 
     // Meldungs-Abklingzeit
     toastCooldown -= dt;
@@ -319,6 +532,15 @@ export function createGame(ctx, mods) {
       }
     }
 
+    // gelegentliche Tierlaute in Gehege-Nähe
+    if (Math.random() < dt * 0.15) {
+      const dFarm = distTo(CFG.farm.pen.x, CFG.farm.pen.z);
+      if (dFarm < 30) {
+        const kinds = Object.keys(CFG.animals).filter(k => (state.animals[k] || 0) > 0);
+        if (kinds.length) audio.animal(kinds[Math.floor(Math.random() * kinds.length)]);
+      }
+    }
+
     // Abends erinnern
     if (sky.hour >= 19.4 && !state._darkToast) {
       state._darkToast = true;
@@ -328,9 +550,12 @@ export function createGame(ctx, mods) {
 
   const api = {
     startDay, nextDay, endDay, pause, buyUpgrade, doSell, sellValue,
+    hireWorker, fireWorker, buyAnimal, plantCrop, harvestPlot, sellProduct, buyVehicle,
+    doInteract, checkWealth,
     update,
     get running() { return running; },
     get paused() { return paused; },
+    cargoMulNow,
     growSpeedFactor() {
       const wet = state.raining || state.wetTimer > 0;
       return (wet ? 1 / CFG.tea.wetBoost : 1) * (state.upgrades.fert ? 1 / 0.7 : 1);
@@ -344,6 +569,7 @@ export function createGame(ctx, mods) {
     },
     tutorialStart() {
       if (state.day === 1) setTimeout(() => ui.toast(t('tut1'), false, 7000), 1600);
+      if (state.day === 1) setTimeout(() => ui.toast(t('tutV2'), false, 8000), 10000);
     },
     debugRain(sec = 30) {
       showers = [{ start: state.timeSec, end: state.timeSec + sec }];

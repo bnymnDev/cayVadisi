@@ -35,6 +35,9 @@ export function createSky(ctx) {
   const envScene = new THREE.Scene();
   const envSky = new Sky();
   envSky.scale.setScalar(800);
+  // Sonnenscheibe NICHT mitbacken: ihre extremen HDR-Werte laufen im
+  // PMREM-Mipping zu Inf/NaN über und schwärzen dann die ganze Szene.
+  envSky.material.uniforms.showSunDisc.value = 0;
   envScene.add(envSky);
   // Das Sky-HDR trägt die volle Sonnenscheibe — als IBL stark dämpfen,
   // direkte Beleuchtung übernimmt die DirectionalLight.
