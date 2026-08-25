@@ -83,7 +83,17 @@ body {
   border-radius: 18px; padding: 30px 34px; width: min(92vw, 560px);
   max-height: 88vh; overflow-y: auto;
   box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+  touch-action: pan-y; -webkit-overflow-scrolling: touch;
 }
+/* Fester ✕-Schließer oben rechts in jedem Overlay — scrollt nie aus dem Bild */
+.overlay-x {
+  position: absolute; top: max(12px, env(safe-area-inset-top)); right: 16px; z-index: 60;
+  width: 46px; height: 46px; border-radius: 50%;
+  background: rgba(18, 26, 19, 0.82); border: 1px solid rgba(244,239,228,0.4);
+  color: var(--cream); font-size: 20px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.overlay-x:hover { background: rgba(244,239,228,0.22); }
 .panel.narrow { width: min(92vw, 420px); text-align: center; }
 .panel h2 {
   font-family: Georgia, serif; font-size: 27px; margin-bottom: 18px;

@@ -37,7 +37,14 @@ export function createUI(ctx, hooks) {
   const RING_LEN = 100.5;
   const v = new THREE.Vector3();
 
-  function show(el) { el.classList.remove('hidden'); }
+  function show(el) {
+    el.classList.remove('hidden');
+    // Overlay auf: Pointer-Lock sicher freigeben, sonst ist der Mauszeiger
+    // unsichtbar und nichts im Fenster lässt sich anklicken
+    if (el.classList.contains('overlay') && document.pointerLockElement) {
+      document.exitPointerLock();
+    }
+  }
   function hide(el) { el.classList.add('hidden'); }
 
   const api = {
@@ -1788,6 +1795,41 @@ export function createUI(ctx, hooks) {
     hooks.onStart();
   });
   els.btnContinue.addEventListener('click', () => hooks.onContinue());
+
+  // ---------- Universeller ✕-Schließer: immer sichtbar oben rechts ----------
+  // Fix: die „Zurück"-Buttons stehen am Panel-Ende und sind bei langem Inhalt
+  // aus dem Sichtfeld gescrollt — deshalb bekommt jedes Overlay ein festes ✕.
+  const X_SKIP = new Set(['start-screen', 'day-screen', 'season-screen']);
+  function closeOverlayAny(ov) {
+    if (ov.id === 'pause-screen') { if (hooks.resume) hooks.resume(); return; }
+    if (ov.id === 'event-screen') {
+      // Minispiele/Events haben eigene Abbruch-Logik (rAF stoppen etc.)
+      const ghost = ov.querySelector('#event-choices .big-btn.ghost');
+      if (ghost) { ghost.click(); return; }
+    }
+    if (ov.id === 'album-screen') {
+      hide(els.album);
+      if (!els.pause.classList.contains('hidden')) return;
+    }
+    hooks.closeShop();
+  }
+  document.querySelectorAll('.overlay').forEach((ov) => {
+    if (X_SKIP.has(ov.id)) return;
+    const x = document.createElement('button');
+    x.className = 'overlay-x';
+    x.textContent = '✕';
+    x.setAttribute('aria-label', 'close');
+    x.addEventListener('click', () => closeOverlayAny(ov));
+    ov.appendChild(x);
+  });
+  // Esc schließt jedes offene Overlay (statt ins Leere zu laufen)
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Escape') return;
+    const open = document.querySelector('.overlay:not(.hidden)');
+    if (!open || X_SKIP.has(open.id)) return;
+    e.preventDefault();
+    closeOverlayAny(open);
+  });
 
   $('btn-sell').addEventListener('click', () => { hooks.doSell(); api.renderShop(); });
   $('btn-shop-close').addEventListener('click', () => hooks.closeShop());
