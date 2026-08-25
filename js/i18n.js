@@ -297,7 +297,84 @@ const STRINGS = {
     intro1: 'Karadeniz, kurz vor Sonnenaufgang. Der Nebel hängt noch über dem Meer.',
     intro2: 'Dein Großvater hat dir dieses Tal hinterlassen: ein Haus, einen Hang voller Teebüsche — und einen Brief: „Mach was draus, evlat."',
     intro3: 'Vom ersten Korb bis zum eigenen Label im Supermarkt: Das hier ist deine Geschichte.',
-    introSkip: 'Überspringen'
+    introSkip: 'Überspringen',
+
+    // ---- v5: Jahreszeiten & Wetter ----
+    season_summer: 'Sommer', season_autumn: 'Herbst', season_winter: 'Winter', season_spring: 'Frühling',
+    seasonChange: (s) => `Neue Jahreszeit: ${s}!`,
+    winterInfo: '❄️ Winter: Der Tee ruht, die Pflücker sind zuhause (kein Lohn). Jetzt zählen Tiere, Fabrik-Lager, Fischfang und die Börse.',
+    stormHit: (n) => `⛈️ Fırtına! Der Sturm hat ${n} reife Triebe zerzaust — sie sind jetzt überständig.`,
+
+    // ---- v5: Boot & Angeln ----
+    boatName: 'Motorboot „Karadeniz"',
+    boatDesc: 'Liegt am Steg — rausfahren, den Fahrtwind spüren, angeln',
+    boatBought: '🚤 Dein Boot liegt am Steg in der Stadt!',
+    prompt_boat: 'Boot — ablegen',
+    prompt_exitBoat: 'Anlegen & aussteigen',
+    prompt_fish: 'Angel auswerfen',
+    prompt_waiting: 'Warten … (E holt ein)',
+    prompt_reelNow: '❗ JETZT einholen!',
+    rodName: 'Olta (Angelrute)',
+    rodDesc: 'Angeln vom Steg oder vom Boot — Hamsi, Lüfer, mit Glück ein Kalkan',
+    rodBought: '🎣 Olta gekauft! Wirf sie am Steg oder vom Boot aus.',
+    fishBite: '❗ Ein Biss! Schnell einholen [E]!',
+    fishLost: 'Weg ist er … zu langsam eingeholt.',
+    fishCaught: (f) => `Gefangen: ${f}!`,
+    prod_hamsi: 'Hamsi', prod_lufer: 'Lüfer', prod_kalkan: 'Kalkan',
+
+    // ---- v5: Story — Dede-Çayı ----
+    stContinue: 'Weiter',
+    stIcon_letter: '✉️', stTitle_letter: 'Der Brief des Großvaters',
+    stText_letter: '„Evlat, wenn du das liest, gehört das Tal dir. Pflück deine ersten 10 Kilo — dann verstehst du, warum ich nie weggezogen bin. In der alten Fabrik liegt etwas für dich." Deine ersten 10 kg sind voll. +250 ₺ aus Dedes Umschlag.',
+    stGoal_letter: 'Pflücke insgesamt 10 kg Tee',
+    stIcon_tin: '🥫', stTitle_tin: 'Die Blechdose',
+    stText_tin: 'Hinter einem losen Stein der alten Fabrik: eine rostige Blechdose. Darin ein Foto von Dede als jungem Mann — und die Hälfte eines Rezepts: „Dede-Çayı. Es fehlen: Haselnüsse aus dem Tal, Osmanlı-Erdbeeren aus Ereğli …"',
+    stGoal_tin: 'Untersuche das alte Fabrikgelände am Küstenweg',
+    stIcon_ingredients: '🧺', stTitle_ingredients: 'Drei Zutaten',
+    stText_ingredients: 'Du hast alles zusammen: 5 Haselnüsse, 5 Osmanlı-Erdbeeren und 10 Pakete deines besten Tees. Das Rezept ist vollständig — jetzt fehlt nur noch eine Fabrik, die es brühen kann.',
+    stGoal_ingredients: 'Sammle 5 🌰, 5 🍓 und 10 📦 (werden verbraucht)',
+    stIcon_brew: '🫖', stTitle_brew: 'Dede-Çayı',
+    stText_brew: 'Der erste Sud läuft durch die alte Anlage. Der Duft zieht durchs ganze Tal — genau wie damals. Dedes Rezept lebt: Dein Tee ist ab jetzt dauerhaft 10 % mehr wert.',
+    stGoal_brew: 'Besitze die Çay-Fabrik',
+    stIcon_legacy: '🏆', stTitle_legacy: 'Das Erbe',
+    stText_legacy: 'Vom Jungen mit dem Korb zum Çay-Baron. Auf dem Trophäenregal glänzt jetzt Dedes goldener Samowar. Irgendwo nickt der Alte zufrieden. +2.000 ₺ Ehrenpreis der Kooperative.',
+    stGoal_legacy: 'Erreiche den Rang „Çay-Baron"',
+    questDone: 'Abgeschlossen',
+    questAllDone: 'Dedes Geschichte ist vollendet — der Samowar steht auf dem Regal.',
+    tabQuests: 'Görevler', tabAch: 'Erfolge',
+
+    // ---- v5: Erfolge ----
+    achUnlocked: (n) => `Erfolg freigeschaltet: ${n}`,
+    achProgress: (a, b) => `${a} von ${b} Erfolgen — alle 3 Erfolge gibt es einen Pokal fürs Regal.`,
+    ach_firstSell: 'Erster Verkauf', achDesc_firstSell: 'Verdiene dein erstes Geld',
+    ach_kg100: '100 Kilo', achDesc_kg100: 'Pflücke insgesamt 100 kg Tee',
+    ach_kg500: 'Ein halber Berg', achDesc_kg500: 'Pflücke insgesamt 500 kg Tee',
+    ach_firstWorker: 'Chef', achDesc_firstWorker: 'Stelle deinen ersten Arbeiter ein',
+    ach_farmFull: 'Volle Ställe', achDesc_farmFull: 'Halte Huhn, Kuh und Schaf gleichzeitig',
+    ach_firstCar: 'Führerschein', achDesc_firstCar: 'Kaufe dein erstes Fahrzeug',
+    ach_luxCar: 'Goldene Felgen', achDesc_luxCar: 'Kaufe den Sportwagen',
+    ach_allCities: 'Küstenkapitän', achDesc_allCities: 'Besuche Zonguldak, Ereğli und Devrek',
+    ach_factory: 'Industrieller', achDesc_factory: 'Kaufe die Çay-Fabrik',
+    ach_export10: 'Weltmarke', achDesc_export10: 'Erfülle 10 Export-Aufträge',
+    ach_gurbetci3: 'Almancı', achDesc_gurbetci3: 'Arbeite 3× in Almanya',
+    ach_fisher: 'Balıkçı', achDesc_fisher: 'Fange 10 Fische',
+    ach_kalkan: 'Der große Fang', achDesc_kalkan: 'Fange einen Kalkan',
+    ach_millionaer: 'Viertelmillion', achDesc_millionaer: 'Erreiche 250.000 ₺ Nettovermögen',
+    ach_dedeTea: 'Dedes Rezept', achDesc_dedeTea: 'Braue den Dede-Çayı',
+    ach_kemalBeaten: 'Çay-König', achDesc_kemalBeaten: 'Überhole Kemal Ağa am Markt (60 % Anteil)',
+
+    // ---- v5: Rivale ----
+    rivalDump: '📉 Kemal Ağa dumpt heute die Paketpreise! Dein Label bringt am Markt weniger.',
+    rivalDumpShort: 'Kemal Ağa dumpt heute die Preise',
+    rivalBeaten: '👑 60 % Marktanteil! Kemal Ağa gratuliert zähneknirschend — du bist der Çay-König des Tals.',
+    shareTitle: 'Marktanteil Tee-Regale',
+    shareInfo: (me, k) => `Dein Label: ${me} % · Kemal Ağa: ${k} % — verkaufe Pakete und exportiere, um zu wachsen.`,
+
+    // ---- v5: Foto & Save ----
+    saveExport: '💾 Spielstand exportieren',
+    saveImport: '📂 Importieren',
+    importBad: 'Diese Datei ist kein gültiger Spielstand.',
+    photoHint: '[F] Foto-Modus · WASD/QE fliegen · Maus ziehen: umsehen · [C] Foto speichern'
   },
   tr: {
     subtitle: 'Karadeniz kıyısında kendi çay bahçen',
@@ -596,7 +673,84 @@ const STRINGS = {
     intro1: 'Karadeniz, gün doğmadan az önce. Sis hâlâ denizin üstünde.',
     intro2: 'Deden sana bu vadiyi bıraktı: bir ev, çay dolu bir yamaç — ve bir mektup: „Değerlendir evlat."',
     intro3: 'İlk sepetten market rafındaki kendi markana: bu senin hikâyen.',
-    introSkip: 'Geç'
+    introSkip: 'Geç',
+
+    // ---- v5: Mevsimler & Hava ----
+    season_summer: 'Yaz', season_autumn: 'Sonbahar', season_winter: 'Kış', season_spring: 'İlkbahar',
+    seasonChange: (s) => `Yeni mevsim: ${s}!`,
+    winterInfo: '❄️ Kış: Çay uyuyor, toplayıcılar evde (yevmiye yok). Şimdi hayvanlar, fabrika deposu, balık ve borsa konuşur.',
+    stormHit: (n) => `⛈️ Fırtına! ${n} olgun sürgün hırpalandı — artık geçkin.`,
+
+    // ---- v5: Tekne & Balık ----
+    boatName: 'Motorlu tekne „Karadeniz"',
+    boatDesc: 'İskelede bağlı — açıl, rüzgârı hisset, balık tut',
+    boatBought: '🚤 Teknen şehirdeki iskelede!',
+    prompt_boat: 'Tekne — açıl',
+    prompt_exitBoat: 'Yanaş & in',
+    prompt_fish: 'Oltayı at',
+    prompt_waiting: 'Bekle … (E çeker)',
+    prompt_reelNow: '❗ ŞİMDİ çek!',
+    rodName: 'Olta',
+    rodDesc: 'İskeleden ya da tekneden balık: hamsi, lüfer, şansına kalkan',
+    rodBought: '🎣 Olta alındı! İskeleden ya da tekneden at.',
+    fishBite: '❗ Vurdu! Hemen çek [E]!',
+    fishLost: 'Kaçtı… geç kaldın.',
+    fishCaught: (f) => `Yakalandı: ${f}!`,
+    prod_hamsi: 'Hamsi', prod_lufer: 'Lüfer', prod_kalkan: 'Kalkan',
+
+    // ---- v5: Hikâye — Dede Çayı ----
+    stContinue: 'Devam',
+    stIcon_letter: '✉️', stTitle_letter: 'Dedenin mektubu',
+    stText_letter: '„Evlat, bunu okuyorsan vadi senindir. İlk 10 kilonu topla — o zaman neden hiç gitmediğimi anlarsın. Eski fabrikada senin için bir şey var." İlk 10 kilon tamam. Dedenin zarfından +250 ₺.',
+    stGoal_letter: 'Toplam 10 kg çay topla',
+    stIcon_tin: '🥫', stTitle_tin: 'Teneke kutu',
+    stText_tin: 'Eski fabrikanın gevşek taşının arkasında: paslı bir teneke. İçinde dedenin gençlik fotoğrafı — ve bir tarifin yarısı: „Dede Çayı. Eksik: vadiden fındık, Ereğli’den Osmanlı çileği…"',
+    stGoal_tin: 'Kıyıdaki eski fabrika arazisini araştır',
+    stIcon_ingredients: '🧺', stTitle_ingredients: 'Üç malzeme',
+    stText_ingredients: 'Her şey tamam: 5 fındık, 5 Osmanlı çileği ve en iyi çayından 10 paket. Tarif tamamlandı — şimdi tek eksik onu demleyecek fabrika.',
+    stGoal_ingredients: '5 🌰, 5 🍓 ve 10 📦 topla (harcanır)',
+    stIcon_brew: '🫖', stTitle_brew: 'Dede Çayı',
+    stText_brew: 'İlk dem eski tesisten süzülüyor. Koku bütün vadiye yayıldı — tıpkı eskisi gibi. Dedenin tarifi yaşıyor: çayın artık kalıcı %10 daha değerli.',
+    stGoal_brew: 'Çay fabrikasına sahip ol',
+    stIcon_legacy: '🏆', stTitle_legacy: 'Miras',
+    stText_legacy: 'Sepetli çocuktan Çay Ağası’na. Rafta artık dedenin altın semaveri parlıyor. Bir yerlerde ihtiyar memnun başını sallıyor. Kooperatiften +2.000 ₺ onur ödülü.',
+    stGoal_legacy: '„Çay Ağası" rütbesine ulaş',
+    questDone: 'Tamamlandı',
+    questAllDone: 'Dedenin hikâyesi tamam — semaver rafta.',
+    tabQuests: 'Görevler', tabAch: 'Başarılar',
+
+    // ---- v5: Başarılar ----
+    achUnlocked: (n) => `Başarı açıldı: ${n}`,
+    achProgress: (a, b) => `${b} başarıdan ${a} tanesi — her 3 başarıya rafa bir kupa.`,
+    ach_firstSell: 'İlk satış', achDesc_firstSell: 'İlk paranı kazan',
+    ach_kg100: '100 kilo', achDesc_kg100: 'Toplam 100 kg çay topla',
+    ach_kg500: 'Yarım dağ', achDesc_kg500: 'Toplam 500 kg çay topla',
+    ach_firstWorker: 'Patron', achDesc_firstWorker: 'İlk işçini al',
+    ach_farmFull: 'Dolu ahır', achDesc_farmFull: 'Aynı anda tavuk, inek ve koyun besle',
+    ach_firstCar: 'Ehliyet', achDesc_firstCar: 'İlk aracını al',
+    ach_luxCar: 'Altın jantlar', achDesc_luxCar: 'Spor arabayı al',
+    ach_allCities: 'Kıyı kaptanı', achDesc_allCities: 'Zonguldak, Ereğli ve Devrek’i ziyaret et',
+    ach_factory: 'Sanayici', achDesc_factory: 'Çay fabrikasını al',
+    ach_export10: 'Dünya markası', achDesc_export10: '10 ihracat siparişi tamamla',
+    ach_gurbetci3: 'Almancı', achDesc_gurbetci3: 'Almanya’da 3 kez çalış',
+    ach_fisher: 'Balıkçı', achDesc_fisher: '10 balık tut',
+    ach_kalkan: 'Büyük av', achDesc_kalkan: 'Bir kalkan yakala',
+    ach_millionaer: 'Çeyrek milyon', achDesc_millionaer: '250.000 ₺ net servete ulaş',
+    ach_dedeTea: 'Dedenin tarifi', achDesc_dedeTea: 'Dede Çayı’nı demle',
+    ach_kemalBeaten: 'Çay Kralı', achDesc_kemalBeaten: 'Pazarda Kemal Ağa’yı geç (%60 pay)',
+
+    // ---- v5: Rakip ----
+    rivalDump: '📉 Kemal Ağa bugün paket fiyatlarını düşürüyor! Markan pazarda daha az kazandırır.',
+    rivalDumpShort: 'Kemal Ağa bugün fiyat kırıyor',
+    rivalBeaten: '👑 %60 pazar payı! Kemal Ağa dişlerini sıkarak tebrik etti — vadinin Çay Kralı sensin.',
+    shareTitle: 'Çay rafı pazar payı',
+    shareInfo: (me, k) => `Senin markan: %${me} · Kemal Ağa: %${k} — büyümek için paket sat ve ihracat yap.`,
+
+    // ---- v5: Foto & Kayıt ----
+    saveExport: '💾 Kaydı dışa aktar',
+    saveImport: '📂 İçe aktar',
+    importBad: 'Bu dosya geçerli bir kayıt değil.',
+    photoHint: '[F] Foto modu · WASD/QE uç · fare sürükle: bak · [C] fotoğraf kaydet'
   }
 };
 

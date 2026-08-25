@@ -105,7 +105,10 @@ export const CFG = {
     straw: { sell: 300, icon: '🍓' },
     walnut: { sell: 640, icon: '🥜' },
     coal: { sell: 40, icon: '🪨' },          // Zonguldak-Kohle: Fabrik-Energie
-    tea_pack: { sell: 58, icon: '📦' }       // eigenes Tee-Label, 1 kg pro Paket
+    tea_pack: { sell: 58, icon: '📦' },      // eigenes Tee-Label, 1 kg pro Paket
+    hamsi:  { sell: 25,  icon: '🐟' },       // v5: Fang aus dem Schwarzen Meer
+    lufer:  { sell: 95,  icon: '🐠' },
+    kalkan: { sell: 380, icon: '🐡' }
   },
 
   // ---- v3: Reisen (İskele in der Stadt) ----
@@ -205,6 +208,47 @@ export const CFG = {
       pide:  { cost: 45, hunger: 60, icon: '🫓' },
       cayTea: { cost: 10, energy: 18, icon: '🍵' }
     }
+  },
+
+  // ---- v5: Jahreszeiten (wechseln alle seasonDays Tage, abgeleitet aus state.day) ----
+  seasonCycle: {
+    names: ['summer', 'autumn', 'winter', 'spring'],
+    teaGrowth: [1, 0.6, 0, 1.3],       // Wachstumsfaktor Tee
+    cropGrowth: [1, 1, 0, 1],          // Beete reifen (Winter: eingefroren)
+    rainMul: [1, 1.5, 0.9, 1.2],       // Regenhäufigkeit
+    snow: [0, 0, 1, 0],                // Schnee-Anteil
+    autumnTint: [0, 1, 0, 0],
+    workersRest: [false, false, true, false]   // Winter: Pflücker pausieren (kein Lohn)
+  },
+
+  // ---- v5: Wetter-Extras ----
+  weather: {
+    stormChance: 0.2,       // Chance pro Tag auf Fırtına
+    stormDamage: 0.12,      // Anteil reifer Triebe, die überständig werden
+    fogChance: 0.3,         // Morgennebel bis ~10 Uhr
+    rainbowSec: 40          // Regenbogen-Dauer nach Regenende
+  },
+
+  // ---- v5: Boot & Angeln ----
+  boat: {
+    cost: 5500, speed: 10, accel: 5.5, icon: '🚤',
+    dock: { x: 112, z: -150 }          // im Wasser vor dem Bootssteg
+  },
+  fishing: {
+    rodCost: 250,
+    biteMin: 2.5, biteMax: 7, window: 1.3,
+    fish: {
+      hamsi:  { p: 0.68, sell: 25,  icon: '🐟' },
+      lufer:  { p: 0.26, sell: 95,  icon: '🐠' },
+      kalkan: { p: 0.06, sell: 380, icon: '🐡' }
+    }
+  },
+
+  // ---- v5: Rivale ----
+  rival: {
+    winShare: 60,           // % Marktanteil zum Sieg
+    dumpChance: 0.25,       // Chance/Tag auf Preisdumping
+    dumpMul: 0.75           // tea_pack-Preis an Dumping-Tagen
   },
 
   // ---- v4: Rollen ----

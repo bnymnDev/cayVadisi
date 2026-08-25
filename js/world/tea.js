@@ -232,6 +232,15 @@ export function createTeaField(ctx, terrain) {
 
     setCastShadow(on) { leafMesh.castShadow = on; baseMesh.castShadow = on; },
 
+    // v5: Jahreszeiten-Färbung der Büsche
+    setSeason(snow, autumn) {
+      const c = leafMat.color;
+      c.setRGB(1, 1, 1);
+      if (autumn > 0) c.lerp(new THREE.Color(1.15, 0.9, 0.55), autumn * 0.6);
+      if (snow > 0) c.lerp(new THREE.Color(0.85, 0.9, 0.95), snow * 0.55);
+      shootMat.color.copy(c);
+    },
+
     update(dt, growSpeedFactor, elapsed, windStrength) {
       windUniforms.uTime.value = elapsed;
       windUniforms.uWind.value += (windStrength - windUniforms.uWind.value) * Math.min(1, dt);
@@ -310,8 +319,9 @@ export function createTeaField(ctx, terrain) {
       });
     },
 
-    // Nacht: ein Großteil reift über Nacht
-    newDay() {
+    // Nacht: ein Großteil reift über Nacht (growFactor 0 = Winterruhe)
+    newDay(growFactor = 1) {
+      if (growFactor <= 0) return;
       for (let i = 0; i < count; i++) {
         if (states[i] === ST_GROW) {
           if (Math.random() < 0.7) { states[i] = ST_RIPE; timers[i] = CFG.tea.ripeTime * (0.5 + Math.random() * 0.5); }

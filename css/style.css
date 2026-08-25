@@ -368,3 +368,11 @@ body {
 @media (max-width: 720px) {
   #survival-hud { right: 14px; bottom: 96px; width: 140px; }
 }
+
+/* ---- v5: Marktanteil ---- */
+.share-bar {
+  height: 14px; background: #7a3a30; border-radius: 7px; overflow: hidden;
+  border: 1px solid rgba(244,239,228,0.2);
+}
+.share-me { height: 100%; background: linear-gradient(90deg, var(--tea), var(--tea-bright)); }
+.share-legend { display: flex; justify-content: space-between; font-size: 12px; opacity: 0.75; margin-top: 5px; }

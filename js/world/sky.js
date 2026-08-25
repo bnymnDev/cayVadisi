@@ -103,6 +103,23 @@ export function createSky(ctx) {
   moonGlow.scale.setScalar(90);
   scene.add(moonGlow);
 
+  // ---- Regenbogen (nach Regen) ----
+  const rainbow = new THREE.Group();
+  {
+    const cols = [0xd0392b, 0xe07b2c, 0xe3c24f, 0x5d9138, 0x3f6d9a, 0x6a4f9a];
+    cols.forEach((c, i) => {
+      const arc = new THREE.Mesh(
+        new THREE.TorusGeometry(150 - i * 2.4, 1.1, 6, 48, Math.PI),
+        new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, fog: false, depthWrite: false })
+      );
+      rainbow.add(arc);
+    });
+    rainbow.position.set(-60, -10, 90);   // über den Bergen im Norden
+    rainbow.rotation.y = 0.4;
+    rainbow.visible = false;
+    scene.add(rainbow);
+  }
+
   scene.fog = new THREE.FogExp2(0xc3d2d8, 0.0018);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -120,6 +137,8 @@ export function createSky(ctx) {
   const api = {
     sun, hemi,
     rainT: 0,          // 0 = klar, 1 = Regen
+    extraFog: 0,       // v5: Morgennebel-Zuschlag (von game gesetzt)
+    rainbowT: 0,       // v5: 0..1 Regenbogen-Sichtbarkeit
     sunDir: new THREE.Vector3(0, 1, 0),
     hour: CFG.startHour,
     _envRT: null,
@@ -183,8 +202,18 @@ export function createSky(ctx) {
     // Nebel
     fogCol.copy(colDay).lerp(colDawn, lowSun * 0.8).lerp(colRain, r);
     scene.fog.color.copy(fogCol);
-    scene.fog.density = lerp(lerp(0.0019, 0.0033, lowSun), 0.0066, r);
+    scene.fog.density = lerp(lerp(0.0019, 0.0033, lowSun), 0.0066, r) + api.extraFog;
     renderer.setClearColor(fogCol);
+
+    // Regenbogen ein-/ausblenden
+    rainbow.visible = api.rainbowT > 0.01;
+    if (rainbow.visible) {
+      rainbow.children.forEach((arc, i) => {
+        arc.material.opacity = api.rainbowT * 0.22 * (1 - i * 0.06);
+      });
+      rainbow.position.x = playerPos.x - 60;
+      rainbow.position.z = playerPos.z + 150;
+    }
 
     renderer.toneMappingExposure = lerp(lerp(0.6, 0.8, 0.2 + 0.8 * elevN), 0.52, r * 0.8);
 

@@ -136,7 +136,9 @@ export function createTerrain(ctx) {
     normalScale: new THREE.Vector2(1, 1)
   });
 
+  const seasonUniforms = { uSnow: { value: 0 }, uAutumn: { value: 0 } };
   mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, seasonUniforms);
     shader.uniforms.tDirtD = { value: dirtD };
     shader.uniforms.tDirtN = { value: dirtN };
     shader.uniforms.tDirtA = { value: dirtA };
@@ -158,6 +160,7 @@ export function createTerrain(ctx) {
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform sampler2D tDirtD, tDirtN, tDirtA, tRockD, tRockN, tRockA;
+        uniform float uSnow, uAutumn;
         varying vec3 vMask;
         varying vec3 vWPos;
         varying float vSlope;
@@ -189,6 +192,14 @@ export function createTerrain(ctx) {
         texelColor.rgb = mix(texelColor.rgb, calmDirt(texelColor.rgb), sw.y);
         vec3 lush = texelColor.rgb * vec3(0.55, 1.02, 0.38) * 1.18;
         texelColor.rgb = mix(texelColor.rgb, lush, sw.x * (0.62 + 0.22 * vMask.z));
+        // Herbst: Wiesen ins Warme ziehen
+        vec3 autumnCol = texelColor.rgb * vec3(1.25, 0.98, 0.55);
+        texelColor.rgb = mix(texelColor.rgb, autumnCol, uAutumn * sw.x * 0.7);
+        // Winter: Schneedecke (auf Wegen etwas dünner, an Steilkanten kaum)
+        float snowW = uSnow * (1.0 - vSlope * 1.1) * (1.0 - sw.z * 0.55) * (1.0 - sw.y * 0.35);
+        snowW *= smoothstep(0.45, 1.4, vWPos.y);
+        vec3 snowCol = vec3(0.93, 0.95, 0.99) * (0.85 + 0.15 * vMask.z);
+        texelColor.rgb = mix(texelColor.rgb, snowCol, clamp(snowW, 0.0, 1.0));
         diffuseColor *= texelColor;`)
       .replace('#include <normal_fragment_maps>', `
         vec3 mapN = splatTex(normalMap, tDirtN, tRockN, tUv, sw).xyz * 2.0 - 1.0;
@@ -213,5 +224,11 @@ export function createTerrain(ctx) {
   mesh.castShadow = true;
   mesh.name = 'terrain';
   ctx.scene.add(mesh);
-  return { mesh, heightAt, normalAt, fieldMask, pathWeight };
+  return {
+    mesh, heightAt, normalAt, fieldMask, pathWeight,
+    setSeason(snow, autumn) {
+      seasonUniforms.uSnow.value = snow;
+      seasonUniforms.uAutumn.value = autumn;
+    }
+  };
 }

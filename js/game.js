@@ -2,16 +2,19 @@
 // v2: Arbeiter, Bauernhof, Markt, Fahrzeuge, Stadt, Wohlstand
 import * as THREE from 'three';
 import { CFG } from './config.js';
-import { state, save, basketCapacity, resetDay, netWorth } from './state.js';
+import { state, save, basketCapacity, resetDay, netWorth, seasonOf } from './state.js';
 import { t } from './i18n.js';
 import { clamp, fmtMoney } from './util.js';
 
 export function createGame(ctx, mods) {
-  const { terrain, tea, props, player, audio, ui, particles, sky, farm, vehicles, workers, extras, events } = mods;
+  const { terrain, tea, props, player, audio, ui, particles, sky, farm, vehicles, workers, extras, events, boat } = mods;
   const { camera } = ctx;
 
-  let showers = [];          // {start, end}
+  let showers = [];          // {start, end, storm?}
   let warnShown = false;
+  let fogMorning = false;
+  let stormDone = false;
+  let rainbowTimer = 0;
   let picking = false;
   let pickProgress = 0;
   let pickTarget = -1;
@@ -26,25 +29,54 @@ export function createGame(ctx, mods) {
   const v3 = new THREE.Vector3();
   const camDir = new THREE.Vector3();
 
+  const season = () => seasonOf(state.day, CFG);
+
   function planWeather() {
     showers = [];
     const R = CFG.rain;
-    const n = R.minPerDay + Math.floor(Math.random() * (R.maxPerDay - R.minPerDay + 1));
+    const S = CFG.seasonCycle;
+    const mul = S.rainMul[season()];
+    const n = Math.round((R.minPerDay + Math.floor(Math.random() * (R.maxPerDay - R.minPerDay + 1))) * mul);
     for (let i = 0; i < n; i++) {
       const start = CFG.dayLengthSec * (0.12 + Math.random() * 0.68);
       const dur = R.minDur + Math.random() * (R.maxDur - R.minDur);
       showers.push({ start, end: start + dur });
     }
+    // Fırtına: ein Schauer wird zum Sturm (nicht im Winter — da schneit es ohnehin)
+    stormDone = false;
+    if (showers.length && season() !== 2 && Math.random() < CFG.weather.stormChance) {
+      const s = showers[Math.floor(Math.random() * showers.length)];
+      s.storm = true;
+      s.end = s.start + (s.end - s.start) * 1.5;
+    }
+    fogMorning = Math.random() < CFG.weather.fogChance;
     showers.sort((a, b) => a.start - b.start);
     warnShown = false;
   }
 
-  // Markt-Tagespreise (±Schwankung)
+  function stormActive() {
+    for (const s of showers) {
+      if (s.storm && state.timeSec >= s.start && state.timeSec < s.end) return true;
+    }
+    return false;
+  }
+
+  // Markt-Tagespreise (±Schwankung) + Kemal Ağas Preisdumping
   function planMarket() {
     const swing = CFG.city.priceSwing;
     for (const id of Object.keys(CFG.products)) {
       state.marketMul[id] = 1 + (Math.random() * 2 - 1) * swing;
     }
+    state.rivalDump = state.factory && Math.random() < CFG.rival.dumpChance;
+    if (state.rivalDump) {
+      state.marketMul.tea_pack *= CFG.rival.dumpMul;
+      setTimeout(() => ui.toast(t('rivalDump'), false, 7000), 2500);
+    }
+  }
+
+  // v5: Marktanteil deines Labels vs. Kemal Ağa
+  function playerShare() {
+    return Math.min(95, Math.max(5, Math.round(5 + state.packsSold * 0.4 + state.exportsDone * 3)));
   }
 
   function newOrder() {
@@ -73,6 +105,7 @@ export function createGame(ctx, mods) {
   function endDay() {
     running = false;
     if (vehicles.driving) { vehicles.exit(); audio.engineStop(); }
+    if (boat.driving) boat.exit();
     player.setEnabled(false);
     player.releaseLock();
     audio.sleep();
@@ -129,8 +162,8 @@ export function createGame(ctx, mods) {
         lines.push({ k: 'sumRent', v: '+' + fmtMoney(rent, L) });
       }
     }
-    // Löhne zahlen
-    if (state.workers > 0) {
+    // Löhne zahlen (Winterpause: kein Lohn, keine Arbeit)
+    if (state.workers > 0 && !CFG.seasonCycle.workersRest[season()]) {
       const wages = state.workers * CFG.workers.wage;
       state.money -= wages; state.daySpent += wages;
       lines.push({ k: 'sumWages', v: '−' + fmtMoney(wages, L), sub: state.workers + ' 👷' });
@@ -153,12 +186,19 @@ export function createGame(ctx, mods) {
   }
 
   function nextDay() {
+    const prevSeason = season();
     state.day += 1;
+    if (season() !== prevSeason) {
+      ui.toast(t('seasonChange', t('season_' + CFG.seasonCycle.names[season()])), true, 8000);
+      if (season() === 2) ui.toast(t('winterInfo'), false, 8000);
+    }
 
-    // Felder wachsen einen Tag weiter (Bewässerung: ein Extra-Tag)
-    for (const p of state.plots) {
-      if (p && p.daysLeft > 0) p.daysLeft -= 1;
-      if (p && state.upgrades.sprinkler && p.daysLeft > 0) p.daysLeft -= 1;
+    // Felder wachsen einen Tag weiter (Bewässerung: ein Extra-Tag; Winter: Frost)
+    if (CFG.seasonCycle.cropGrowth[season()] > 0) {
+      for (const p of state.plots) {
+        if (p && p.daysLeft > 0) p.daysLeft -= 1;
+        if (p && state.upgrades.sprinkler && p.daysLeft > 0) p.daysLeft -= 1;
+      }
     }
     farm.refreshPlots();
 
@@ -181,7 +221,7 @@ export function createGame(ctx, mods) {
     }
     if (events) events.newDay();
 
-    tea.newDay();
+    tea.newDay(CFG.seasonCycle.teaGrowth[season()]);
     if (!state.seasonOver && state.day > CFG.seasonDays) {
       state.seasonOver = true;
       save();
@@ -292,7 +332,17 @@ export function createGame(ctx, mods) {
 
   // ---------- Verkauf ----------
   function sellValue() {
-    return state.basketValueKg * CFG.eco.pricePerKg;
+    return state.basketValueKg * CFG.eco.pricePerKg * (state.dedeBonus ? 1.1 : 1);
+  }
+
+  function trackPacks(n) {
+    const before = playerShare();
+    state.packsSold += n;
+    state._shareNow = playerShare();
+    if (before < CFG.rival.winShare && state._shareNow >= CFG.rival.winShare) {
+      ui.toast(t('rivalBeaten'), true, 9000);
+      audio.tierUp();
+    }
   }
 
   function doSell(silent = false) {
@@ -551,6 +601,7 @@ export function createGame(ctx, mods) {
     const price = CFG.products.tea_pack.sell * CFG.supermarket.retailFactor * (state.marketMul.tea_pack || 1);
     const sum = n * price * famBonus();
     state.inventory.tea_pack -= n;
+    trackPacks(n);
     state.money += sum;
     state.dayEarned += sum;
     state.totalEarned += sum;
@@ -569,6 +620,7 @@ export function createGame(ctx, mods) {
     const o = state.exportOffers[idx];
     if (!o || Math.floor(state.inventory.tea_pack) < o.qty) { audio.deny(); return false; }
     state.inventory.tea_pack -= o.qty;
+    trackPacks(o.qty);
     const sum = o.qty * o.price;
     state.money += sum;
     state.dayEarned += sum;
@@ -775,6 +827,32 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  function buyRod() {
+    if (state.rod || state.money < CFG.fishing.rodCost) { audio.deny(); return false; }
+    state.money -= CFG.fishing.rodCost;
+    state.daySpent += CFG.fishing.rodCost;
+    state.rod = true;
+    audio.buy();
+    ui.toast(t('rodBought'), true, 5000);
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function buyBoat() {
+    if (state.boat || state.money < CFG.boat.cost) { audio.deny(); return false; }
+    state.money -= CFG.boat.cost;
+    state.daySpent += CFG.boat.cost;
+    state.boat = true;
+    boat.syncOwned();
+    audio.cash();
+    ui.toast(t('boatBought'), true, 6000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
   // Tempo-Malus bei Hunger/Erschöpfung (für player.update)
   function speedMul() {
     let m = state.baston ? CFG.life.bastonSpeed : 1;
@@ -786,7 +864,8 @@ export function createGame(ctx, mods) {
 
   // ---------- Eingaben ----------
   window.addEventListener('mousedown', (e) => {
-    if (e.button !== 0 || !running || paused || vehicles.driving) return;
+    if (ctx.photoActive && ctx.photoActive()) return;
+    if (e.button !== 0 || !running || paused || vehicles.driving || boat.driving) return;
     if (ui.overlayOpen()) return;
     if (!player.locked && !ctx.isTouch) { player.requestLock(); return; }
     mouseDown = true;
@@ -816,6 +895,17 @@ export function createGame(ctx, mods) {
   }, { passive: true });
 
   function doInteract() {
+    if (boat.driving) {
+      if (boat.fishingState !== 'idle') { boat.reel(); return; }
+      // Am Ufer: anlegen. Auf offener See mit Olta: angeln.
+      if (boat.canExitHere()) {
+        boat.exit();
+        if (!ctx.isTouch) player.requestLock();
+      } else if (state.rod) {
+        boat.startFishing();
+      }
+      return;
+    }
     if (vehicles.driving) {
       vehicles.exit();
       audio.engineStop();
@@ -839,10 +929,14 @@ export function createGame(ctx, mods) {
     else if (act.id === 'super') { player.releaseLock(); ui.showSuper(); }
     else if (act.id === 'black') sellBlack();
     else if (act.id === 'airport') { player.releaseLock(); ui.showAirport(); }
+    else if (act.id === 'boat') boat.enter();
+    else if (act.id === 'fish') boat.startFishing();
+    else if (act.id === 'reel') boat.reel();
   }
 
   window.addEventListener('keydown', (e) => {
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    if (ctx.photoActive && ctx.photoActive()) return;
     if (e.code === 'KeyE' && running && !paused && !ui.overlayOpen()) doInteract();
     if (e.code === 'KeyH' && vehicles.driving) audio.horn(vehicles.driving);
     if (e.code === 'KeyP' && running && !paused) {
@@ -886,8 +980,11 @@ export function createGame(ctx, mods) {
     if (distTo(CFG.hut.x, CFG.hut.z) < CFG.interactDist + 1.5) return { id: 'sell' };
     if (distTo(CFG.home.x, CFG.home.z) < CFG.interactDist && sky.hour >= 18) return { id: 'sleep' };
     if (state.upgrades.cable && distTo(CFG.cableTop.x, CFG.cableTop.z) < CFG.interactDist) return { id: 'cable' };
+    if (boat.nearDock(player.pos.x, player.pos.z)) return { id: 'boat' };
+    if (boat.fishingState !== 'idle') return { id: 'reel' };
     const veh = vehicles.nearest(player.pos.x, player.pos.z);
     if (veh) return { id: 'vehicle', data: veh };
+    if (state.rod && boat.canFishHere()) return { id: 'fish' };
     const ready = farm.nearestReadyPlot(player.pos.x, player.pos.z);
     if (ready >= 0) return { id: 'harvest', data: ready };
     if (distTo(CFG.farm.sign.x, CFG.farm.sign.z) < CFG.interactDist + 1) return { id: 'farm' };
@@ -939,10 +1036,48 @@ export function createGame(ctx, mods) {
       state.wetTimer = CFG.tea.wetAfterRain;
       ui.toast(t('rainEnd'), true);
       if (state.day === 1) ui.toast(t('tut4'), false, 6000);
+      // v5: Regenbogen (nicht im Winter)
+      if (season() !== 2) rainbowTimer = CFG.weather.rainbowSec;
     }
     state.raining = rainingNow;
     ui.setRainWarn(warnSoon);
     if (state.wetTimer > 0) state.wetTimer -= dt;
+
+    // v5: Sturm — einmalig Triebe beschädigen
+    if (stormActive() && !stormDone) {
+      stormDone = true;
+      let hit = 0;
+      for (let i = 0; i < tea.count; i++) {
+        if (tea.states[i] === 1 && Math.random() < CFG.weather.stormDamage) { tea.states[i] = 2; hit++; }
+      }
+      ui.toast(t('stormHit', hit), false, 7000);
+      audio.thunderish();
+      setTimeout(() => audio.thunderish(), 700);
+    }
+
+    // v5: Morgennebel & Regenbogen ausblenden/einblenden
+    const wantFog = fogMorning && sky.hour < 10.5 ? 0.009 : 0;
+    sky.extraFog += (wantFog - sky.extraFog) * Math.min(1, dt * 0.5);
+    if (rainbowTimer > 0) {
+      rainbowTimer -= dt;
+      const T = CFG.weather.rainbowSec;
+      sky.rainbowT = Math.min(1, Math.min(rainbowTimer / 6, (T - rainbowTimer) / 4));
+    } else sky.rainbowT = 0;
+
+    // Bootfahren: eigener Modus (Tacho, Angel-Prompts)
+    if (boat.driving) {
+      ui.setSpeed(boat.speedKmh());
+      ui.setCrosshairActive(false);
+      ui.setPickProgress(0);
+      const fs = boat.fishingState;
+      ui.setPrompt(
+        fs === 'bite' ? t('prompt_reelNow') : fs === 'wait' ? t('prompt_waiting')
+          : boat.canExitHere() ? t('prompt_exitBoat')
+          : state.rod ? t('prompt_fish') : t('prompt_exitBoat'),
+        () => doInteract()
+      );
+      return;
+    }
 
     // Fahren: kein Pflücken, aber Motor & Tacho
     if (vehicles.driving) {
@@ -1024,21 +1159,27 @@ export function createGame(ctx, mods) {
     setIdentity, marry, haveChild, buyProperty, tradeStock, sellBlack, famBonus,
     canFlyIstanbul, flyIstanbul, istanbulPrice, sellIstanbul, flyAlmanya,
     buyHomeUpgrade, setRole, buyFood, speedMul,
+    buyRod, buyBoat, playerShare,
     update,
     get running() { return running; },
     get paused() { return paused; },
     cargoMulNow,
     growSpeedFactor() {
       const wet = state.raining || state.wetTimer > 0;
-      return (wet ? 1 / CFG.tea.wetBoost : 1) * (state.upgrades.fert ? 1 / 0.7 : 1);
+      return (wet ? 1 / CFG.tea.wetBoost : 1) * (state.upgrades.fert ? 1 / 0.7 : 1)
+        * CFG.seasonCycle.teaGrowth[season()];
     },
     windStrength() {
       let w = 0.45 + sky.rainT * 0.9;
       for (const s of showers) {
         if (state.timeSec > s.start - CFG.rain.warnSec && state.timeSec < s.start) w = 1.4;
       }
+      if (stormActive()) w = 2.6;
       return w;
     },
+    season,
+    stormActive,
+    winterRest() { return CFG.seasonCycle.workersRest[season()]; },
     tutorialStart() {
       if (state.day === 1) setTimeout(() => ui.toast(t('tut1'), false, 7000), 1600);
       if (state.day === 1) setTimeout(() => ui.toast(t('tutV2'), false, 8000), 10000);
