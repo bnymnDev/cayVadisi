@@ -1107,6 +1107,22 @@ export function createUI(ctx, hooks) {
         });
         animalList.appendChild(row);
       }
+      // v9: Mandıra (Milch -> Peynir, jede Nacht)
+      {
+        const owned = state.mandira;
+        const row = document.createElement('div');
+        row.className = 'upgrade-item' + (owned ? ' owned' : '');
+        row.innerHTML = `
+          <div class="u-icon">🧀</div>
+          <div class="u-body"><div class="u-name">${t('mandiraName')}</div>
+          <div class="u-desc">${t('mandiraDesc')}</div></div>
+          <button ${owned || state.money < CFG.mandira.cost ? 'disabled' : ''}>
+            ${owned ? t('owned') + ' ✓' : fmtMoney(CFG.mandira.cost, L)}</button>`;
+        if (!owned) row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyMandira()) api.renderFarm();
+        });
+        animalList.appendChild(row);
+      }
     },
 
     // ---------- v2: Markt ----------
@@ -1176,6 +1192,20 @@ export function createUI(ctx, hooks) {
         });
         list.appendChild(row);
       }
+      // v9: Muhlama-Lokanta (verkauft abends Peynir + Mais als Gericht)
+      if (!state.restaurant) {
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        row.innerHTML = `
+          <div class="u-icon">🫕</div>
+          <div class="u-body"><div class="u-name">${t('restaurantName')}</div>
+          <div class="u-desc">${t('restaurantDesc')}</div></div>
+          <button ${state.money < CFG.restaurant.cost ? 'disabled' : ''}>${fmtMoney(CFG.restaurant.cost, L)}</button>`;
+        row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyRestaurant()) api.renderMarket();
+        });
+        list.appendChild(row);
+      }
     },
 
     // Essstand (Survival): an Markt & Supermarkt angehängt
@@ -1238,6 +1268,22 @@ export function createUI(ctx, hooks) {
         });
         list.appendChild(row);
       }
+      // v9: Helikopter (Endgame)
+      {
+        const owned = state.heli;
+        const row = document.createElement('div');
+        row.className = 'upgrade-item' + (owned ? ' owned' : '');
+        row.innerHTML = `
+          <div class="u-icon">🚁</div>
+          <div class="u-body"><div class="u-name">${t('heliName')}</div>
+          <div class="u-desc">${t('heliDesc')}</div></div>
+          <button ${owned || state.money < CFG.heli.cost ? 'disabled' : ''}>
+            ${owned ? t('owned') + ' ✓' : fmtMoney(CFG.heli.cost, L)}</button>`;
+        if (!owned) row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyHeli()) api.renderDealer();
+        });
+        list.appendChild(row);
+      }
     },
 
     // ---------- v2: Betrieb ----------
@@ -1287,19 +1333,20 @@ export function createUI(ctx, hooks) {
         }
         body.innerHTML = html || `<div class="section-info">${t('storageEmpty')}</div>`;
       } else if (api._manageTab === 'quests') {
-        const cur = hooks.storyCurrent();
         let html = '';
-        const chapters = ['letter', 'tin', 'ingredients', 'brew', 'legacy'];
+        const chapters = ['letter', 'tin', 'ingredients', 'brew', 'legacy',
+          'rivalMeet', 'oldPhoto', 'partners', 'whiteGift', 'baris'];
         chapters.forEach((id, i) => {
+          if (i === 5) html += `<h3>📖 ${t('season2Title')}</h3>`;
           const done = state.story > i;
           const active = state.story === i;
           html += `<div class="upgrade-item${done ? ' owned' : ''}">
             <div class="u-icon">${done ? '✅' : active ? '🎯' : '🔒'}</div>
-            <div class="u-body"><div class="u-name">${i + 1}. ${t('stTitle_' + id)}</div>
+            <div class="u-body"><div class="u-name">${(i % 5) + 1}. ${t('stTitle_' + id)}</div>
             <div class="u-desc">${done ? t('questDone') : active ? t('stGoal_' + id) : '···'}</div></div>
           </div>`;
         });
-        if (state.story >= 5) html += `<div class="section-info">🏆 ${t('questAllDone')}</div>`;
+        if (state.story >= 10) html += `<div class="section-info">🏆 ${t('questAllDone')}</div>`;
         body.innerHTML = html;
       } else if (api._manageTab === 'ach') {
         let html = `<div class="section-info">${t('achProgress', hooks.achCount(), hooks.achTotal())}</div>`;

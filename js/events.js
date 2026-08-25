@@ -1,7 +1,7 @@
 // v4: Nachbarschafts-Ereignisse — Temel & Dursun, Streit und İmece
 // Ein Zufallsereignis pro Tag, als Entscheidungs-Dialog mit Konsequenzen.
 import { CFG } from './config.js';
-import { state, save, addRep } from './state.js';
+import { state, save, addRep, seasonOf } from './state.js';
 import { t } from './i18n.js';
 import { fmtMoney } from './util.js';
 
@@ -83,6 +83,31 @@ export function createEvents(ctx, ui, audio) {
       ]
     },
     {
+      id: 'wedding',   // v9: Dorfhochzeit — Davul & Zurna im ganzen Tal
+      cond: () => seasonOf(state.day, CFG) !== 2,   // im Winter heiratet keiner
+      choices: [
+        { id: 'dance', apply() {
+          state.timeSec += CFG.dayLengthSec / 13.5;   // eine Stunde Halay
+          addRep(3);
+          state.rel.temel += 1; state.rel.dursun += 1;
+          if (state.survival) state.energy = Math.min(100, state.energy + 15);
+          this._davul = true;
+          return 'weddingDance';
+        } },
+        { id: 'gift', apply() {
+          if (state.money < 300) return 'noMoney';
+          state.money -= 300; state.daySpent += 300;
+          addRep(4);
+          return 'weddingGift';
+        } },
+        { id: 'skip', apply() {
+          state.rel.temel -= 1;
+          addRep(-1);
+          return 'weddingSkip';
+        } }
+      ]
+    },
+    {
       id: 'sheepOut',   // Ein Schaf ist ausgebüxt
       cond: () => (state.animals.sheep || 0) > 0,
       choices: [
@@ -112,6 +137,8 @@ export function createEvents(ctx, ui, audio) {
       const res = choice.apply();
       const key = typeof res === 'string' ? res : res.key;
       const args = typeof res === 'string' ? [] : res.args;
+      // v9: Beim Hochzeits-Halay spielen Davul & Zurna auf
+      if (key === 'weddingDance' && audio.davulZurna) audio.davulZurna();
       ui.toast(t('ev_' + key, ...args), true, 6500);
       save();
     });

@@ -40,8 +40,46 @@ export function createStory(ctx, ui, audio, player) {
       id: 'legacy',
       check: () => state.wealthTier >= 4,
       apply() { state.money += 2000; state.dayEarned += 2000; }
+    },
+
+    // ---- v9: Saison 2 — Kemal Ağas Vergangenheit ----
+    {
+      id: 'rivalMeet',      // Kemal lädt dich zu sich ein, als dein Label wächst
+      check: () => share() >= 30,
+      apply() { }
+    },
+    {
+      id: 'oldPhoto',       // im Çayevi hängt ein altes Foto: Kemal & Dede, Arm in Arm
+      check: () => Math.hypot(player.pos.x - (CFG.city.x + 12), player.pos.z - (CFG.city.z - 4)) < 7,
+      apply() { }
+    },
+    {
+      id: 'partners',       // Temel erzählt beim Tavla die alte Geschichte
+      check: () => state.tavlaWins >= 1,
+      apply() { }
+    },
+    {
+      id: 'whiteGift',      // bring Kemal zwei Dosen Beyaz Çay — Dedes Rezept
+      check: () => Math.floor(state.inventory.tea_white) >= CFG.story2.whiteTeaGift,
+      apply() {
+        state.inventory.tea_white -= CFG.story2.whiteTeaGift;
+        state.rep = Math.min(100, state.rep + 5);
+      }
+    },
+    {
+      id: 'baris',          // Frieden: gemeinsames Festival, das Dumping endet
+      check: () => share() >= 50,
+      apply() {
+        state.kemalPeace = true;
+        state.money += CFG.story2.peacePrize;
+        state.dayEarned += CFG.story2.peacePrize;
+      }
     }
   ];
+
+  function share() {
+    return Math.min(95, Math.max(5, Math.round(5 + state.packsSold * 0.4 + state.exportsDone * 3)));
+  }
 
   function showCard(chapterId, done) {
     showing = true;

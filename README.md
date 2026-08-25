@@ -223,6 +223,25 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
 - **🛷 Rodelhang:** Im Winter mit dem Holzschlitten den Hang hinunter.
 - **📻 Radyo-News:** Beim Fahren tickern echte Wetter- und Markt-Nachrichten.
 
+### Derby, Peynir & Kemals Geheimnis (v9)
+- **⚽ Karadeniz-Derby:** Tor mit Netz am Stadtplatz — 60 Sekunden, so viele
+  Tore wie möglich mit dem physik-echten CC0-Fußball (Prämie pro Tor, Bonus
+  ab 3).
+- **🧀 Peynir-Kette:** Ziegen als neues Hoftier, **Mandıra** (macht nachts
+  aus 2 Milch 1 Peynir) und **Muhlama-Lokanta** in der Stadt (serviert abends
+  Peynir + Mais als Muhlama, 340 ₺ pro Pfanne).
+- **🚁 Helikopter:** Das Endgame-Fahrzeug — frei über das ganze Tal fliegen
+  (Leertaste steigen, Shift sinken), landet überall.
+- **🥁 Dorfhochzeit & Halay:** Neues Nachbarschafts-Event mit prozeduraler
+  **Davul-Zurna-Musik**; am Festivaltag kannst du am Platz Halay tanzen.
+- **🏞️ Bahçe Genişletme:** Neues Shop-Upgrade rodet die Randparzellen —
+  deutlich mehr Teebüsche, auch für die Arbeiter.
+- **🐐 Şelale-Bergpfad:** Wasserfall mit Gischt und Rastbank hoch in den
+  Bergen; die Ziegen klettern mit. Eine Rast pro Tag gibt Energie.
+- **📖 Story-Saison 2 — Kemal Ağas Vergangenheit:** 5 neue Kapitel (Die
+  Einladung, Das alte Foto, Temel erzählt, Dedes Rezept, Barış). Am Ende:
+  Frieden mit Kemal — nie wieder Preisdumping.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

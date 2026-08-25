@@ -72,6 +72,33 @@ function makeAnimalMesh(type) {
     }
     g.add(wool, head);
     parts.scale = 0.85; parts.bodyY = 0.72;
+  } else if (type === 'goat') {   // v9: Kletterziege
+    const body = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.26, 0.5, 4, 8),
+      new THREE.MeshStandardMaterial({ color: 0xe8e2d4, roughness: 0.95 })
+    );
+    body.rotation.z = Math.PI / 2;
+    body.position.y = 0.58;
+    body.castShadow = true;
+    const head = boxMesh(0.3, 0.26, 0.22, 0xded6c4);
+    head.position.set(0.58, 0.84, 0);
+    for (const s of [-1, 1]) {
+      const horn = new THREE.Mesh(
+        new THREE.ConeGeometry(0.035, 0.22, 5),
+        new THREE.MeshStandardMaterial({ color: 0x6a5a48, roughness: 0.9 })
+      );
+      horn.rotation.z = 0.6;
+      horn.position.set(0.5, 1.02, s * 0.07);
+      g.add(horn);
+    }
+    for (const [lx, lz] of [[-0.26, -0.14], [-0.26, 0.14], [0.26, -0.14], [0.26, 0.14]]) {
+      const leg = boxMesh(0.08, 0.4, 0.08, 0xded6c4);
+      leg.position.set(lx, 0.2, lz);
+      parts.legs.push(leg);
+      g.add(leg);
+    }
+    g.add(body, head);
+    parts.scale = 0.85; parts.bodyY = 0.58;
   } else { // chicken
     const body = new THREE.Mesh(
       new THREE.SphereGeometry(0.2, 8, 6),

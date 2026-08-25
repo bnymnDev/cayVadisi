@@ -54,7 +54,8 @@ export const CFG = {
     cable:    { cost: 1400, icon: '🚠' },
     foreman:  { cost: 1800, icon: '👷' },   // Vorarbeiter: Arbeiter +30 % Tempo
     sprinkler:{ cost: 2200, icon: '💦' },   // Bewässerung: Felder wachsen schneller
-    silo:     { cost: 2600, icon: '🏗️' }    // Silo: Lager-Verkauf automatisch am Abend
+    silo:     { cost: 2600, icon: '🏗️' },   // Silo: Lager-Verkauf automatisch am Abend
+    expand:   { cost: 9000, icon: '🏞️' }    // v9: Randparzellen roden -> mehr Büsche
   },
 
   // ---- v2: Arbeiter ----
@@ -91,7 +92,8 @@ export const CFG = {
   animals: {
     chicken: { cost: 120,  product: 'egg',  perDay: 2, icon: '🐔', max: 8 },
     cow:     { cost: 1500, product: 'milk', perDay: 1, icon: '🐄', max: 4 },
-    sheep:   { cost: 600,  product: 'wool', perDay: 0.5, icon: '🐑', max: 6 }
+    sheep:   { cost: 600,  product: 'wool', perDay: 0.5, icon: '🐑', max: 6 },
+    goat:    { cost: 400,  product: 'milk', perDay: 0.5, icon: '🐐', max: 6 }   // v9: klettert zur Şelale
   },
 
   products: {
@@ -111,7 +113,8 @@ export const CFG = {
     kalkan: { sell: 380, icon: '🐡' },
     tea_green: { sell: 76,  icon: '🍵' },    // v6: Yeşil Çay
     tea_white: { sell: 165, icon: '🏵️' },    // v6: Beyaz Çay (Rize-Rarität)
-    honey: { sell: 240, icon: '🍯' }         // v6: Anzer-Honig von der Yayla
+    honey: { sell: 240, icon: '🍯' },        // v6: Anzer-Honig von der Yayla
+    cheese: { sell: 260, icon: '🧀' }        // v9: Mandıra-Peynir (aus 2 Milch)
   },
 
   // ---- v3: Reisen (İskele in der Stadt) ----
@@ -410,6 +413,34 @@ export const CFG = {
 
   // ---- v8: Winter-Rodelhang ----
   sled: { top: { x: 60, z: -26 }, minSnow: 0.6 },   // offener Hang östlich vom Teefeld
+
+  // ---- v9: Karadeniz-Derby (Fußball am Stadtplatz) ----
+  derby: {
+    goal: { x: 108, z: -78, ry: 0.2, w: 4.6 },   // Tor am Platzrand
+    durationSec: 60, prizePerGoal: 120, bonusGoals: 3, bonus: 400, rep: 2
+  },
+
+  // ---- v9: Peynir-Kette ----
+  mandira: { cost: 6000, milkPerCheese: 2 },     // Molkerei am Hof
+  restaurant: {
+    cost: 18000, x: 96, z: -88, ry: -0.6,
+    dishCheese: 1, dishCorn: 1, maxDishes: 3, dishPay: 340
+  },
+
+  // ---- v9: Helikopter ----
+  heli: {
+    cost: 120000, speed: 34, accel: 12, lift: 7, maxAlt: 90,
+    pad: { x: 158, z: -74 }
+  },
+
+  // ---- v9: Feste ----
+  halay: { rep: 1, joy: 20 },                    // Festivaltag am Stadtplatz
+
+  // ---- v9: Şelale (Wasserfall-Bergpfad) ----
+  selale: { x: -62, z: 148, restEnergy: 25 },
+
+  // ---- v9: Story-Saison 2 (Kemal Ağas Vergangenheit) ----
+  story2: { whiteTeaGift: 2, peacePrize: 5000 },
 
   // ---- v4: Rollen ----
   roles: {
