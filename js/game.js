@@ -49,8 +49,7 @@ export function createGame(ctx, mods) {
 
   function newOrder() {
     const base = 5 + state.day * 1.5;
-    const gearBonus = (state.upgrades.shears ? 4 : 0) + (state.upgrades.basket1 ? 2 : 0) + (state.upgrades.basket2 ? 4 : 0)
-      + state.workers * 3;
+    const gearBonus = (state.upgrades.shears ? 4 : 0) + (state.upgrades.basket1 ? 2 : 0) + (state.upgrades.basket2 ? 4 : 0);
     state.orderTarget = Math.round(base + gearBonus + Math.random() * 3);
     state.orderDelivered = 0;
     state.orderRewarded = false;

@@ -62,9 +62,9 @@ export const CFG = {
     max: 6,
     hireCost: 350,          // einmalig pro Arbeiter
     wage: 130,              // Tageslohn
-    pickTime: 3.2,          // s pro Busch (ohne Vorarbeiter)
+    pickTime: 11,           // s pro Busch (ohne Vorarbeiter) — ~15 kg/Tag
     foremanFactor: 0.7,
-    walkSpeed: 2.1,
+    walkSpeed: 1.9,
     sellFactor: 0.9         // Arbeiter-Tee wird zu 90 % Preis verkauft
   },
 
