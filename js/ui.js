@@ -289,7 +289,7 @@ export function createUI(ctx, hooks) {
         const APPS = [
           ['hava', '⛅'], ['piyasa', '📊'], ['banka', '💳'],
           ['borsa', '📈'], ['taksi', '🚕'], ['karar', '📜'],
-          ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
+          ['lojistik', '🚚'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
         ];
         body.innerHTML = `<div class="app-grid">${APPS.map(([id, ic]) =>
           `<button class="app-btn" data-app="${id}"><span>${ic}</span><em>${t('app_' + id)}</em></button>`).join('')}</div>`;
@@ -400,6 +400,26 @@ export function createUI(ctx, hooks) {
           off.textContent = t('decreeAbolish');
           off.addEventListener('click', () => { hooks.setDecree(''); api.renderPhone(); });
           body.appendChild(off);
+        }
+      } else if (app === 'lojistik') {
+        const ready = state.sofor && state.vehicles.pickup;
+        let html = `<div class="section-info">${ready ? t('logiHint', fmtMoney(CFG.logistics.upkeep, L)) : t('logiNeeds')}</div>`;
+        body.innerHTML = html;
+        for (const [rule, icon, key] of [
+          ['exportA', '🌍', 'logiExport'], ['packs', '🛒', 'logiPacks'], ['goods', '🧺', 'logiGoods']
+        ]) {
+          const on = state.logi[rule];
+          const row = document.createElement('div');
+          row.className = 'upgrade-item' + (on ? '' : ' owned');
+          row.innerHTML = `<div class="u-icon">${icon}</div>
+            <div class="u-body"><div class="u-name">${t(key)}</div>
+            <div class="u-desc">${t(key + 'Desc')}</div></div>
+            <button ${ready ? '' : 'disabled'}>${on ? '🟢' : '⚪'}</button>`;
+          row.querySelector('button').addEventListener('click', () => {
+            hooks.setLogi(rule, !on);
+            api.renderPhone();
+          });
+          body.appendChild(row);
         }
       } else if (app === 'radyo') {
         const name = hooks.radioNext();
@@ -1184,10 +1204,11 @@ export function createUI(ctx, hooks) {
         const n = state.animals[id] || 0;
         const row = document.createElement('div');
         row.className = 'upgrade-item';
+        const names = (state.animalNames[id] || []).slice(0, 3).join(', ');
         row.innerHTML = `
           <div class="u-icon">${a.icon}</div>
           <div class="u-body"><div class="u-name">${t('animal_' + id)} <span class="row-sub">${n} / ${a.max}</span></div>
-          <div class="u-desc">${t('animalInfo', t('prod_' + a.product), a.perDay)}</div></div>
+          <div class="u-desc">${t('animalInfo', t('prod_' + a.product), a.perDay)}${names ? '<br>🏷️ ' + names + ((state.animalNames[id] || []).length > 3 ? '…' : '') : ''}</div></div>
           <button ${state.money < a.cost || n >= a.max ? 'disabled' : ''} data-id="${id}">
             ${fmtMoney(a.cost, L)}
           </button>`;
@@ -1225,6 +1246,22 @@ export function createUI(ctx, hooks) {
             ${owned ? t('owned') + ' ✓' : fmtMoney(CFG.mandira.cost, L)}</button>`;
         if (!owned) row.querySelector('button').addEventListener('click', () => {
           if (hooks.buyMandira()) api.renderFarm();
+        });
+        animalList.appendChild(row);
+      }
+      // v11: Haselnuss-Plantage
+      {
+        const owned = state.orchard;
+        const row = document.createElement('div');
+        row.className = 'upgrade-item' + (owned ? ' owned' : '');
+        row.innerHTML = `
+          <div class="u-icon">🌰</div>
+          <div class="u-body"><div class="u-name">${t('orchardName')}</div>
+          <div class="u-desc">${t('orchardDesc')}</div></div>
+          <button ${owned || state.money < CFG.orchard.cost ? 'disabled' : ''}>
+            ${owned ? t('owned') + ' ✓' : fmtMoney(CFG.orchard.cost, L)}</button>`;
+        if (!owned) row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyOrchard()) api.renderFarm();
         });
         animalList.appendChild(row);
       }

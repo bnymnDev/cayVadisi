@@ -40,6 +40,8 @@ import { createSelale } from './world/selale.js';
 import { createDolmus } from './dolmus.js';
 import { createCollectibles } from './collectibles.js';
 import { createKarsikoy } from './world/karsikoy.js';
+import { createFireworks } from './world/fireworks.js';
+import { createOrchard } from './world/orchard.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -109,6 +111,7 @@ let boat = null, story = null, achievements = null, radio = null, yaylaApi = nul
 let dog = null, istanbul = null, wildlife = null, race = null, sled = null;
 let heli = null, selale = null;
 let dolmus = null, collectibles = null, karsikoy = null;
+let fireworks = null, orchard = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -180,12 +183,14 @@ createProps(ctx, terrain).then(async (p) => {
   dolmus = createDolmus(ctx, terrain, audio);
   collectibles = createCollectibles(ctx, terrain);
   karsikoy = createKarsikoy(ctx, terrain, p.mats);
+  fireworks = createFireworks(ctx, audio);
+  orchard = createOrchard(ctx, terrain);
   allColliders.push(...selale.colliders, ...karsikoy.colliders);
   if (state.upgrades.expand) teaField.setExtension(true);   // v9: gekaufte Parzellen laden
   const gameMods = {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
     farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi, dog,
-    race, sled, heli, selale, cc0, dolmus, collectibles, istanbul: null
+    race, sled, heli, selale, cc0, dolmus, collectibles, orchard, istanbul: null, npcs: null
   };
   game = createGame(ctx, gameMods);
   minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
@@ -194,6 +199,7 @@ createProps(ctx, terrain).then(async (p) => {
   gameMods.istanbul = istanbul;
   allColliders.push(...istanbul.colliders);
   npcs = createNpcs(ctx, terrain, ui, player, () => game.playerShare());
+  gameMods.npcs = npcs;
   ui.bindTouch(player, vehicles, boat);
   wireHooks();
   propsApi = p;      // erst jetzt: der Render-Loop prüft propsApi als "alles bereit"
@@ -404,6 +410,8 @@ function wireHooks() {
   hooks.macResult = (g) => game.macResult(g);
   hooks.collectCount = () => collectibles.count();
   hooks.collectTotal = () => collectibles.total;
+  hooks.buyOrchard = () => game.buyOrchard();
+  hooks.setLogi = (r, v) => game.setLogi(r, v);
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -524,6 +532,8 @@ window.__game = {
   get selale() { return selale; },
   get dolmus() { return dolmus; },
   get collectibles() { return collectibles; },
+  get fireworks() { return fireworks; },
+  get orchard() { return orchard; },
   get story() { return story; },
   get achievements() { return achievements; },
   setPhotoMode,
@@ -644,6 +654,9 @@ function step(rawDt, manual, skipRender = false) {
     selale.update(dt, elapsed);
     dolmus.update(dt);
     collectibles.update(dt, elapsed);
+    fireworks.setActive(window.__started && game.isFestival() && game.isNight());
+    fireworks.update(dt);
+    orchard.setAutumn(seasonAutumn > 0.5);
     sled.setWinter(seasonSnow);
     if (playing) {
       story.update(dt);

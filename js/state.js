@@ -68,6 +68,12 @@ export const state = {
   dog: false,               // Kangal-Hund
   prestige: 0,              // New-Game+-Sterne
 
+  // v11
+  animalNames: {},          // Art -> [Namen]
+  orchard: false,           // Haselnuss-Plantage
+  logi: { packs: false, goods: false, exportA: false },   // Şoför-2.0-Regeln
+  heliJobsDone: 0,
+
   // v10
   dolmus: false,            // eigene Dolmuş-Linie
   collect: {},              // Basar-Schätze: id -> true
@@ -196,7 +202,9 @@ export function save() {
     heli: s.heli, mandira: s.mandira, restaurant: s.restaurant,
     derbyBest: s.derbyBest, kemalPeace: s.kemalPeace,
     dolmus: s.dolmus, collect: s.collect,
-    fishTournBest: s.fishTournBest, macWins: s.macWins
+    fishTournBest: s.fishTournBest, macWins: s.macWins,
+    animalNames: s.animalNames, orchard: s.orchard, logi: s.logi,
+    heliJobsDone: s.heliJobsDone
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -281,6 +289,10 @@ export function load() {
     state.collect = d.collect || {};
     state.fishTournBest = d.fishTournBest ?? 0;
     state.macWins = d.macWins ?? 0;
+    state.animalNames = d.animalNames || {};
+    state.orchard = d.orchard ?? false;
+    state.logi = d.logi || { packs: false, goods: false, exportA: false };
+    state.heliJobsDone = d.heliJobsDone ?? 0;
     return true;
   } catch (e) { return false; }
 }
@@ -336,6 +348,9 @@ export function resetProgress() {
   state.derbyBest = 0; state.kemalPeace = false;
   state.dolmus = false; state.collect = {};
   state.fishTournBest = 0; state.macWins = 0;
+  state.animalNames = {}; state.orchard = false;
+  state.logi = { packs: false, goods: false, exportA: false };
+  state.heliJobsDone = 0;
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -357,4 +372,6 @@ export function resetDay() {
   state._hiveDone = false;
   state._sandbag = false;
   state._tournDone = false;
+  state._ezan0 = false;
+  state._ezan1 = false;
 }

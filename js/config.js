@@ -466,6 +466,40 @@ export const CFG = {
     mac: { stake: 200, prize: 500, rep: 2, oppMax: 2 }
   },
 
+  // ---- v11: Heli-Aufträge ----
+  heliJobs: {
+    chance: 0.6,             // Chance pro Tag (wenn Heli vorhanden)
+    landRadius: 14,
+    rescue: { pay: 900, rep: 3, spots: [ { x: -62, z: 148 }, { x: 26, z: 96 }, { x: -14, z: 180 } ] },
+    express: { pay: 700, rep: 1, from: { x: -70, z: -112 }, to: { x: -138, z: 76 } }
+  },
+
+  // ---- v11: Festivalnacht-Feuerwerk ----
+  fireworks: { hourFrom: 20.5, launch: { x: 118, z: -150 } },
+
+  // ---- v11: Tierzucht ----
+  breeding: {
+    chance: 0.12,            // Chance/Nacht pro Art (ab 2 Tieren, unter Max)
+    contestMinAnimals: 5,    // Preistier-Wettbewerb am Festival
+    contestPrize: 400, contestRep: 1,
+    names: ['Sarıkız', 'Karabaş', 'Pamuk', 'Fındık', 'Duman', 'Bulut', 'Şeker', 'Maviş', 'Zeytin', 'Kiraz', 'Boncuk', 'Cesur']
+  },
+
+  // ---- v11: Lieferketten-Automation (Şoför 2.0) ----
+  logistics: {
+    upkeep: 80,              // pro Abend, wenn mindestens eine Regel aktiv
+    maxPacks: 10             // Auto-Verkauf Pakete/Tag im Supermarkt
+  },
+
+  // ---- v11: Haselnuss-Plantage ----
+  orchard: {
+    cost: 7000, x: 74, z: -44, rows: 4, cols: 5, gap: 5.5,
+    perDay: 8, season: 1     // Ernte im Herbst
+  },
+
+  // ---- v11: Ezan-Tagesrhythmus (bewusst dezent: kein Melodie-Imitat) ----
+  ezan: { hours: [12.5, 18.2], gatherSec: 45 },
+
   // ---- v4: Rollen ----
   roles: {
     farmer:   { pickFactor: 1 },
