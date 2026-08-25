@@ -281,7 +281,7 @@ export function createWorkers(ctx, terrain, tea, particles, chars) {
           const tx = tea.positions[w.target * 3], tz = tea.positions[w.target * 3 + 2];
           const dx = tx - w.x, dz = tz - w.z;
           const d = Math.hypot(dx, dz);
-          if (d < 1.05) {
+          if (d < 1.45) {   // am Buschrand stehen bleiben — die Working-Pose beugt sich weit vor
             const wi = workers.indexOf(w);
             const lvlF = CFG.workerLevelFactor[levelOf((state.workerData[wi] || {}).days || 0)];
             w.st = 'pick';
