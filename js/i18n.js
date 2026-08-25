@@ -718,7 +718,24 @@ const STRINGS = {
     jvDone: '🤝 Vertrag unterschrieben! „ÇAYKEM“ — eure gemeinsame Marke steht.',
     sumJV: '🤝 Joint-Venture-Werk',
     kemalFriend: 'Kemal Ağa: „Komşum! Der Tee schmeckt besser, seit wir Freunde sind.“',
-    kemalJV: 'Kemal Ağa: „Partner! ÇAYKEM läuft wie geschmiert, oder?“'
+    kemalJV: 'Kemal Ağa: „Partner! ÇAYKEM läuft wie geschmiert, oder?“',
+    // v13
+    villageTitle: 'Muhtarlık — Dorfprojekte',
+    villageIntro: (r) => `Der Muhtar breitet die Pläne aus: Wer dem Dorf etwas baut, dem dankt das Dorf. (Ab Ruf ${r} finanzierbar; Bau dauert einige Tage.)`,
+    villageNeedRep: (r) => `🏘️ Der Muhtar winkt ab — erst ab Ruf ${r} vertraut er dir Dorfprojekte an.`,
+    vproj_okul: 'Grundschule',
+    vprojDesc_okul: 'Eine Schule fürs Dorf — die dankbare Dorfjugend hilft: Löhne −10 %.',
+    vproj_cayevi2: 'Çay-Bahçesi-Anbau',
+    vprojDesc_cayevi2: 'Teegarten-Terrasse am Çayevi — dein Anteil: +150 pro Abend.',
+    vproj_cami: 'Moschee-Restaurierung',
+    vprojDesc_cami: 'Kuppel und Minarett erstrahlen neu — jedes Festival +2 Moral-Tage.',
+    villageBuilding: (d) => `🏗️ im Bau — noch ${d} Tag(e)`,
+    villageDoneLabel: 'fertig ✓',
+    villageFinanced: (name) => `🏗️ ${name} finanziert — der Bau beginnt morgen früh!`,
+    villageFinished: (name) => `🏘️ ${name} eröffnet! Das ganze Dorf feiert dich.`,
+    sumCayevi: '🍵 Çay-Bahçesi-Anteil',
+    sumCami: '🕌 Festtags-Segen',
+    prompt_muhtarlik: '🏘️ [E] Muhtarlık: Dorfprojekte'
   },
   tr: {
     subtitle: 'Karadeniz kıyısında kendi çay bahçen',
@@ -1438,7 +1455,24 @@ const STRINGS = {
     jvDone: '🤝 İmzalar atıldı! „ÇAYKEM“ — ortak markanız hazır.',
     sumJV: '🤝 Ortak girişim tesisi',
     kemalFriend: 'Kemal Ağa: „Komşum! Barıştığımızdan beri çayın tadı bir başka.“',
-    kemalJV: 'Kemal Ağa: „Ortak! ÇAYKEM tıkır tıkır işliyor, değil mi?“'
+    kemalJV: 'Kemal Ağa: „Ortak! ÇAYKEM tıkır tıkır işliyor, değil mi?“',
+    // v13
+    villageTitle: 'Muhtarlık — Köy Projeleri',
+    villageIntro: (r) => `Muhtar planları seriyor: Köye bir şey yapana köy teşekkür eder. (İtibar ${r} üstünde finanse edilir; inşaat birkaç gün sürer.)`,
+    villageNeedRep: (r) => `🏘️ Muhtar el sallıyor — köy projelerini ancak itibar ${r} üstünde emanet eder.`,
+    vproj_okul: 'İlkokul',
+    vprojDesc_okul: 'Köye bir okul — minnettar gençlik yardım eder: ücretler −%10.',
+    vproj_cayevi2: 'Çay Bahçesi Eki',
+    vprojDesc_cayevi2: 'Çayevine teraslı çay bahçesi — payın: her akşam +150.',
+    vproj_cami: 'Cami Onarımı',
+    vprojDesc_cami: 'Kubbe ve minare yeniden parlıyor — her festivalde +2 moral günü.',
+    villageBuilding: (d) => `🏗️ inşaatta — ${d} gün kaldı`,
+    villageDoneLabel: 'bitti ✓',
+    villageFinanced: (name) => `🏗️ ${name} finanse edildi — inşaat yarın sabah başlıyor!`,
+    villageFinished: (name) => `🏘️ ${name} açıldı! Bütün köy seni kutluyor.`,
+    sumCayevi: '🍵 Çay bahçesi payı',
+    sumCami: '🕌 Bayram bereketi',
+    prompt_muhtarlik: '🏘️ [E] Muhtarlık: Köy projeleri'
   },
 
   // ================= ENGLISH =================
@@ -2085,7 +2119,24 @@ const STRINGS = {
     jvDone: '🤝 Contract signed! “ÇAYKEM” — your shared brand is live.',
     sumJV: '🤝 Joint-venture plant',
     kemalFriend: 'Kemal Ağa: “Neighbour! The tea tastes better since we made peace.”',
-    kemalJV: 'Kemal Ağa: “Partner! ÇAYKEM is running like clockwork, isn’t it?”'
+    kemalJV: 'Kemal Ağa: “Partner! ÇAYKEM is running like clockwork, isn’t it?”',
+    // v13
+    villageTitle: 'Muhtarlık — Village Projects',
+    villageIntro: (r) => `The muhtar spreads out the plans: build something for the village and the village thanks you. (Financeable from reputation ${r}; construction takes a few days.)`,
+    villageNeedRep: (r) => `🏘️ The muhtar waves you off — he only entrusts village projects from reputation ${r}.`,
+    vproj_okul: 'Primary school',
+    vprojDesc_okul: 'A school for the village — the grateful youth helps out: wages −10%.',
+    vproj_cayevi2: 'Tea-garden annex',
+    vprojDesc_cayevi2: 'A terrace garden at the çayevi — your share: +150 per evening.',
+    vproj_cami: 'Mosque restoration',
+    vprojDesc_cami: 'Dome and minaret shine again — every festival +2 morale days.',
+    villageBuilding: (d) => `🏗️ under construction — ${d} day(s) left`,
+    villageDoneLabel: 'done ✓',
+    villageFinanced: (name) => `🏗️ ${name} financed — construction starts tomorrow morning!`,
+    villageFinished: (name) => `🏘️ ${name} opened! The whole village celebrates you.`,
+    sumCayevi: '🍵 Tea-garden share',
+    sumCami: '🕌 Festival blessing',
+    prompt_muhtarlik: '🏘️ [E] Muhtarlık: village projects'
   }
 };
 

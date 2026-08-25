@@ -76,6 +76,9 @@ export const state = {
   konak: 0,                 // Restaurierungs-Stufe 0..3 (3 = Museum)
   catFeeds: 0,              // gefütterte Katzen (kumulativ)
   jointVenture: false,      // Ortak Marka mit Kemal
+  // v13
+  village: { okul: 0, cayevi2: 0, cami: 0 },   // 0=offen, 1=Bau, 2=fertig
+  villageDays: { okul: 0, cayevi2: 0, cami: 0 },
 
   // v11
   animalNames: {},          // Art -> [Namen]
@@ -215,7 +218,8 @@ export function save() {
     animalNames: s.animalNames, orchard: s.orchard, logi: s.logi,
     heliJobsDone: s.heliJobsDone,
     photoMissionsDone: s.photoMissionsDone, gulet: s.gulet, guletTours: s.guletTours,
-    sampiyon: s.sampiyon, konak: s.konak, catFeeds: s.catFeeds, jointVenture: s.jointVenture
+    sampiyon: s.sampiyon, konak: s.konak, catFeeds: s.catFeeds, jointVenture: s.jointVenture,
+    village: s.village, villageDays: s.villageDays
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -311,6 +315,8 @@ export function load() {
     state.konak = d.konak ?? 0;
     state.catFeeds = d.catFeeds ?? 0;
     state.jointVenture = d.jointVenture ?? false;
+    state.village = d.village ?? { okul: 0, cayevi2: 0, cami: 0 };
+    state.villageDays = d.villageDays ?? { okul: 0, cayevi2: 0, cami: 0 };
     return true;
   } catch (e) { return false; }
 }
@@ -372,6 +378,8 @@ export function resetProgress() {
   state.photoMissionsDone = 0; state.gulet = false; state.guletTours = 0;
   state.sampiyon = false; state.konak = 0; state.catFeeds = 0;
   state.jointVenture = false;
+  state.village = { okul: 0, cayevi2: 0, cami: 0 };
+  state.villageDays = { okul: 0, cayevi2: 0, cami: 0 };
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();

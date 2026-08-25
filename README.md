@@ -310,6 +310,17 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   für die eigene Marke, Verkaufspreis +10 %, und Kemal grüßt endlich
   freundlich.
 
+### Dorf-Ausbau (v13)
+- **🏘️ Muhtarlık:** Neues Schild in der Kasaba — der Muhtar vertraut dir
+  ab Ruf 15 Dorfprojekte an, die du als Ağa finanzierst. Jedes Projekt
+  wächst sichtbar in drei Phasen: Bauschild → Gerüst → fertiges Gebäude.
+- **🏫 Grundschule (15.000 ₺, 2 Bautage):** Die dankbare Dorfjugend hilft
+  auf den Feldern — Löhne dauerhaft −10 %, +8 Ruf.
+- **🍵 Çay-Bahçesi-Anbau (9.000 ₺, 1 Bautag):** Teegarten-Terrasse mit
+  Markise am Çayevi — dein Anteil: +150 pro Abend, +5 Ruf.
+- **🕌 Moschee-Restaurierung (20.000 ₺, 2 Bautage):** Kuppel und Minarett
+  erstrahlen neu — jedes Festival +2 Moral-Tage (Verkaufsbonus), +10 Ruf.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

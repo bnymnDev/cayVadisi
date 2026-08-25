@@ -45,6 +45,7 @@ import { createOrchard } from './world/orchard.js';
 import { createGulet } from './gulet.js';
 import { createCats } from './cats.js';
 import { createKonak } from './world/konak.js';
+import { createVillage } from './world/village.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -115,7 +116,7 @@ let dog = null, istanbul = null, wildlife = null, race = null, sled = null;
 let heli = null, selale = null;
 let dolmus = null, collectibles = null, karsikoy = null;
 let fireworks = null, orchard = null;
-let gulet = null, cats = null, konak = null;
+let gulet = null, cats = null, konak = null, village = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -192,13 +193,14 @@ createProps(ctx, terrain).then(async (p) => {
   gulet = createGulet(ctx, player, ui, audio);
   cats = createCats(ctx, terrain);
   konak = createKonak(ctx, terrain, p.mats);
-  allColliders.push(...selale.colliders, ...karsikoy.colliders, ...konak.colliders);
+  village = createVillage(ctx, terrain, p.mats);
+  allColliders.push(...selale.colliders, ...karsikoy.colliders, ...konak.colliders, ...village.colliders);
   if (state.upgrades.expand) teaField.setExtension(true);   // v9: gekaufte Parzellen laden
   const gameMods = {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
     farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi, dog,
     race, sled, heli, selale, cc0, dolmus, collectibles, orchard,
-    gulet, cats, konak, istanbul: null, npcs: null
+    gulet, cats, konak, village, istanbul: null, npcs: null
   };
   game = createGame(ctx, gameMods);
   minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
@@ -430,6 +432,7 @@ function wireHooks() {
   hooks.meisterResult = (avg) => game.meisterResult(avg);
   hooks.restoreKonak = () => game.restoreKonak();
   hooks.buyJointVenture = () => game.buyJointVenture();
+  hooks.buyVillage = (id) => game.buyVillage(id);
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -555,6 +558,7 @@ window.__game = {
   get gulet() { return gulet; },
   get cats() { return cats; },
   get konak() { return konak; },
+  get village() { return village; },
   get story() { return story; },
   get achievements() { return achievements; },
   setPhotoMode,

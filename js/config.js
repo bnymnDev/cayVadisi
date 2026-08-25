@@ -534,6 +534,20 @@ export const CFG = {
   // ---- v12: Kemal-Joint-Venture (nach Barış) ----
   jointVenture: { cost: 10000, packsPerDay: 2, priceMul: 1.1 },
 
+  // ---- v13: Dorf-Ausbau (Tropico) — Projekte übers Muhtarlık finanzieren ----
+  village: {
+    muhtar: { x: 108, z: -112 },      // Muhtarlık-Schild in der Kasaba
+    minRep: 15,
+    projects: {
+      okul:    { cost: 15000, days: 2, rep: 8,  x: 96,  z: -122, ry: 0.6 },
+      cayevi2: { cost: 9000,  days: 1, rep: 5,  x: 136, z: -90,  ry: -1.2 },
+      cami:    { cost: 20000, days: 2, rep: 10, x: 86,  z: -84,  ry: 0.9 }
+    },
+    wageRebate: 0.9,      // Okul fertig: Dorfjugend hilft — Löhne −10 %
+    cayeviIncome: 150,    // Çayevi-Anbau fertig: täglicher Anteil
+    camiMoralDays: 2      // Cami fertig: jedes Festival +2 Moral-Tage
+  },
+
   // ---- v4: Rollen ----
   roles: {
     farmer:   { pickFactor: 1 },

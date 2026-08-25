@@ -759,6 +759,41 @@ export function createUI(ctx, hooks) {
       });
     },
 
+    // ---------- v13: Muhtarlık — Dorfprojekte finanzieren ----------
+    showVillage() {
+      const L = state.settings.lang;
+      $('event-icon').textContent = '🏘️';
+      $('event-title').textContent = t('villageTitle');
+      $('event-text').innerHTML = t('villageIntro', CFG.village.minRep);
+      const box = $('event-choices');
+      box.innerHTML = '';
+      for (const [id, P] of Object.entries(CFG.village.projects)) {
+        const st = state.village[id] || 0;
+        const row = document.createElement('div');
+        row.className = 'upgrade-item' + (st === 2 ? ' owned' : '');
+        const status = st === 2 ? t('villageDoneLabel')
+          : st === 1 ? t('villageBuilding', state.villageDays[id])
+          : fmtMoney(P.cost, L);
+        row.innerHTML = `
+          <div class="u-icon">${id === 'okul' ? '🏫' : id === 'cayevi2' ? '🍵' : '🕌'}</div>
+          <div class="u-body"><div class="u-name">${t('vproj_' + id)}</div>
+          <div class="u-desc">${t('vprojDesc_' + id)}</div></div>
+          <button ${st !== 0 || state.money < P.cost || state.rep < CFG.village.minRep ? 'disabled' : ''}>${status}</button>`;
+        if (st === 0) {
+          row.querySelector('button').addEventListener('click', () => {
+            if (hooks.buyVillage(id)) api.showVillage();
+          });
+        }
+        box.appendChild(row);
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
     // ---------- v12: Konak-Restaurierung ----------
     showKonak() {
       const L = state.settings.lang;
