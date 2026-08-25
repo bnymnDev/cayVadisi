@@ -43,6 +43,8 @@ alles liegt im Repo (offline lauffähig, direkt hostbar auf jedem Webspace).
 | `V` | First-/Third-Person-Ansicht |
 | `H` | Hupe (im Fahrzeug) |
 | `Leertaste` | Handbremse / Drift (im Fahrzeug) |
+| `F` | Foto-Modus (`C` = Foto speichern) |
+| 🎮 | Gamepad: Sticks bewegen/umsehen, Trigger Gas/Bremse, A benutzen, Y Ansicht |
 | `Shift` | Rennen |
 | `Esc` | Pause |
 
@@ -116,6 +118,24 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   (auch mit dem Auto!) durch die Gegend kicken kannst.
 - **Echte Fotoscan-Modelle** (Poly Haven, CC0): Fußball, Fässer,
   Çayevi-Terrasse mit Holztisch, Stühlen und Messing-Teekanne.
+
+### Jahreszeiten, Meer & Geschichte (v5)
+- **Jahreszeiten:** Alle 7 Tage wechselt die Saison — goldener Herbst,
+  **Winter mit Schneedecke und Schneefall** (der Tee ruht, die Pflücker
+  pausieren ohne Lohn), Frühling mit Wachstumsschub.
+- **Wetter mit Zähnen:** Fırtına-Stürme beschädigen reife Triebe,
+  Morgennebel hängt bis 10 Uhr überm Tal, nach dem Regen spannt sich ein
+  **Regenbogen** über die Berge.
+- **Boot & Angeln:** Motorboot am Steg kaufen, aufs Schwarze Meer rausfahren,
+  Olta auswerfen und beim Biss rechtzeitig einholen — Hamsi, Lüfer und mit
+  Glück ein teurer Kalkan.
+- **Dede-Çayı:** Eine Questlinie in 5 Kapiteln um das geheime Rezept deines
+  Großvaters — vom Brief bis zum goldenen Samowar (permanent +10 % Teepreis).
+- **16 Erfolge** mit Pokalen auf dem Trophäenregal am Haus.
+- **Kemal Ağa:** Der rivalisierende Teebaron kämpft mit Preisdumping um die
+  Supermarkt-Regale — erobere 60 % Marktanteil und werde Çay-König.
+- **Foto-Modus [F]:** freie Kamera ohne HUD, [C] speichert ein PNG.
+- **Gamepad-Support** und **Spielstand-Export/-Import** als Datei.
 
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
