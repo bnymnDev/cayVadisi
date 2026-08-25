@@ -54,7 +54,22 @@ export function makeBuildMaterials(ctx) {
     metalnessMap: tex(P + 'corrugated_steel/CorrugatedSteel005_1K-JPG_Metalness.jpg', false, 2.5, 1.6),
     metalness: 1, roughness: 1
   });
-  return { woodMat, woodBeamMat, steelMat };
+  // v10: Putzwand & Ziegeldach — hebt alle Gebäude sichtbar an
+  const plasterMat = new THREE.MeshStandardMaterial({
+    map: tex(P + 'painted_plaster_wall/painted_plaster_wall_diff_1k.jpg', true, 1.6, 1.1),
+    normalMap: tex(P + 'painted_plaster_wall/painted_plaster_wall_nor_gl_1k.jpg', false, 1.6, 1.1),
+    aoMap: tex(P + 'painted_plaster_wall/painted_plaster_wall_arm_1k.jpg', false, 1.6, 1.1),
+    roughnessMap: tex(P + 'painted_plaster_wall/painted_plaster_wall_arm_1k.jpg', false, 1.6, 1.1),
+    roughness: 1
+  });
+  const roofMat = new THREE.MeshStandardMaterial({
+    map: tex(P + 'clay_roof_tiles/clay_roof_tiles_diff_2k.jpg', true, 2.2, 1.4),
+    normalMap: tex(P + 'clay_roof_tiles/clay_roof_tiles_nor_gl_2k.jpg', false, 2.2, 1.4),
+    aoMap: tex(P + 'clay_roof_tiles/clay_roof_tiles_arm_2k.jpg', false, 2.2, 1.4),
+    roughnessMap: tex(P + 'clay_roof_tiles/clay_roof_tiles_arm_2k.jpg', false, 2.2, 1.4),
+    roughness: 1
+  });
+  return { woodMat, woodBeamMat, steelMat, plasterMat, roofMat };
 }
 
 // Einfaches Satteldach-Gebäude. opts: {wallMat, tint, signText, signBg, twoWindows}
@@ -75,10 +90,11 @@ export function building(ctx, terrain, colliders, x, z, ry, w, d, hWall, opts = 
   walls.position.y = hWall / 2;
   g.add(walls);
 
-  // Satteldach aus zwei Platten
+  // Satteldach aus zwei Platten (v10: Ziegeldach als Standard)
   const roofL = w * 0.62;
+  const roofMat = opts.roofMat || mats.roofMat || mats.steelMat;
   for (const sgn of [-1, 1]) {
-    const r = new THREE.Mesh(new THREE.BoxGeometry(roofL, 0.06, d + 0.5), mats.steelMat);
+    const r = new THREE.Mesh(new THREE.BoxGeometry(roofL, 0.06, d + 0.5), roofMat);
     r.position.set(sgn * roofL * 0.42, hWall + roofL * 0.30, 0);
     r.rotation.z = -sgn * 0.62;
     g.add(r);

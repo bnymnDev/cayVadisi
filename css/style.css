@@ -462,3 +462,14 @@ body {
 }
 
 .mk-haggle { margin-right: 6px; }
+
+/* ---- v10: Sammelalbum ---- */
+.collect-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+.collect-cell {
+  background: rgba(244,239,228,0.08); border: 1px solid rgba(244,239,228,0.16);
+  border-radius: 12px; padding: 10px 4px; text-align: center;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.collect-cell span { font-size: 26px; }
+.collect-cell em { font-style: normal; font-size: 10px; opacity: 0.8; }
+.collect-cell.locked { opacity: 0.45; }

@@ -442,6 +442,30 @@ export const CFG = {
   // ---- v9: Story-Saison 2 (Kemal Ağas Vergangenheit) ----
   story2: { whiteTeaGift: 2, peacePrize: 5000 },
 
+  // ---- v10: Dolmuş-Linie ----
+  dolmus: { cost: 12000, baseFare: 250, perRep: 4, fuel: 60, speed: 6.5 },
+
+  // ---- v10: Sel (Hochwasser) ----
+  flood: {
+    chance: 0.08, minDay: 6, hitHour: 15,
+    sandbagCost: 200, moneyLoss: 0.15, repSave: 2
+  },
+
+  // ---- v10: Angel-Turnier (Festivaltag am Steg) ----
+  fishTourn: { durationSec: 90, prize: 600, rep: 2, spot: { x: 108, z: -134 } },
+
+  // ---- v10: Basar-Schätze (Sammelalbum) ----
+  collectPrize: 2000, collectRep: 5,
+
+  // ---- v10: Karşıköy (zweites Dorf) ----
+  karsikoy: {
+    x: -138, z: 76, r: 22,
+    market: { x: -132, z: 70, ry: 0.8 },
+    pitch: { x: -146, z: 84 },
+    premium: { cheese: 1.45, honey: 1.3, egg: 1.25, milk: 1.2, tea_pack: 1.15 },
+    mac: { stake: 200, prize: 500, rep: 2, oppMax: 2 }
+  },
+
   // ---- v4: Rollen ----
   roles: {
     farmer:   { pickFactor: 1 },
@@ -484,6 +508,7 @@ export const PATH_WIDTH = 2.2;
 export const ROADS = [
   [ { x: -90, z: -96 }, { x: -60, z: -102 }, { x: -30, z: -108 }, { x: 8, z: -106 }, { x: 24, z: -102 } ],  // Hof -> Haus
   [ { x: 24, z: -102 }, { x: 52, z: -106 }, { x: 84, z: -104 }, { x: 104, z: -100 }, { x: 122, z: -102 } ], // Haus -> Stadt
-  [ { x: 4, z: -26 }, { x: 12, z: 12 }, { x: 18, z: 52 }, { x: 26, z: 88 } ]                                // Feld -> Yayla
+  [ { x: 4, z: -26 }, { x: 12, z: 12 }, { x: 18, z: 52 }, { x: 26, z: 88 } ],                               // Feld -> Yayla
+  [ { x: 26, z: 88 }, { x: -30, z: 86 }, { x: -90, z: 80 }, { x: -132, z: 77 } ]                            // v10: Yayla -> Karşıköy
 ];
 export const ROAD_WIDTH = 4.2;
