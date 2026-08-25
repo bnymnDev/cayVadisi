@@ -68,6 +68,12 @@ export const state = {
   dog: false,               // Kangal-Hund
   prestige: 0,              // New-Game+-Sterne
 
+  // v10
+  dolmus: false,            // eigene Dolmuş-Linie
+  collect: {},              // Basar-Schätze: id -> true
+  fishTournBest: 0,         // Bestwert Angel-Turnier
+  macWins: 0,               // Fußball-Siege gegen Karşıköy
+
   // v9
   heli: false,              // Helikopter
   mandira: false,           // Molkerei am Hof
@@ -188,7 +194,9 @@ export function save() {
     net: s.net, decree: s.decree, moralDays: s.moralDays, holidays: s.holidays,
     maldivDone: s.maldivDone, raceBest: s.raceBest,
     heli: s.heli, mandira: s.mandira, restaurant: s.restaurant,
-    derbyBest: s.derbyBest, kemalPeace: s.kemalPeace
+    derbyBest: s.derbyBest, kemalPeace: s.kemalPeace,
+    dolmus: s.dolmus, collect: s.collect,
+    fishTournBest: s.fishTournBest, macWins: s.macWins
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -269,6 +277,10 @@ export function load() {
     state.restaurant = d.restaurant ?? false;
     state.derbyBest = d.derbyBest ?? 0;
     state.kemalPeace = d.kemalPeace ?? false;
+    state.dolmus = d.dolmus ?? false;
+    state.collect = d.collect || {};
+    state.fishTournBest = d.fishTournBest ?? 0;
+    state.macWins = d.macWins ?? 0;
     return true;
   } catch (e) { return false; }
 }
@@ -322,6 +334,8 @@ export function resetProgress() {
   state.raceBest = 0;
   state.heli = false; state.mandira = false; state.restaurant = false;
   state.derbyBest = 0; state.kemalPeace = false;
+  state.dolmus = false; state.collect = {};
+  state.fishTournBest = 0; state.macWins = 0;
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -340,4 +354,7 @@ export function resetDay() {
   state._nightToast = false;
   state._halayDone = false;
   state._selaleDone = false;
+  state._hiveDone = false;
+  state._sandbag = false;
+  state._tournDone = false;
 }

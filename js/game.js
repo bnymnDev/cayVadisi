@@ -14,6 +14,9 @@ export function createGame(ctx, mods) {
   let showers = [];          // {start, end, storm?}
   let warnShown = false;
   let fogMorning = false;
+  let floodToday = false;    // v10: Sel
+  let floodDone = false;
+  let fishTourn = null;      // v10: {end, start}
   let stormDone = false;
   let rainbowTimer = 0;
   let picking = false;
@@ -51,6 +54,13 @@ export function createGame(ctx, mods) {
       s.end = s.start + (s.end - s.start) * 1.5;
     }
     fogMorning = Math.random() < CFG.weather.fogChance;
+    // v10: Sel-Gefahr (nicht im Winter, erst nach den ersten Tagen)
+    floodToday = season() !== 2 && state.day >= CFG.flood.minDay && Math.random() < CFG.flood.chance;
+    floodDone = false;
+    if (floodToday) {
+      setTimeout(() => ui.toast(t('floodWarn', CFG.flood.hitHour), false, 10000), 3000);
+      audio.thunderish();
+    }
     showers.sort((a, b) => a.start - b.start);
     warnShown = false;
   }
@@ -219,6 +229,13 @@ export function createGame(ctx, mods) {
         state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
         lines.push({ k: 'sumRestaurant', v: '+' + fmtMoney(sum, L), sub: dishes + ' 🫕' });
       }
+    }
+    // v10: Dolmuş-Linie — Fahrgeld minus Diesel
+    if (state.dolmus) {
+      const D = CFG.dolmus;
+      const net = Math.round(D.baseFare + state.rep * D.perRep - D.fuel);
+      state.money += net; state.dayEarned += net; state.totalEarned += net;
+      lines.push({ k: 'sumDolmus', v: '+' + fmtMoney(net, L) });
     }
     // v8: Pansiyon-Gäste (je besser der Ruf, desto voller das Haus)
     if (state.properties.pansiyon) {
@@ -1492,6 +1509,170 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ---------- v10: Dolmuş, Sel, Turnier, Schätze, Waben, Karşıköy ----------
+  function buyDolmus() {
+    if (state.dolmus || state.money < CFG.dolmus.cost) { audio.deny(); return false; }
+    state.money -= CFG.dolmus.cost;
+    state.daySpent += CFG.dolmus.cost;
+    state.dolmus = true;
+    if (mods.dolmus) mods.dolmus.syncOwned();
+    audio.horn('sedan');
+    ui.toast(t('dolmusBought'), true, 7000);
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  function placeSandbag() {
+    if (!floodToday || state._sandbag || state.money < CFG.flood.sandbagCost) { audio.deny(); return false; }
+    state.money -= CFG.flood.sandbagCost;
+    state.daySpent += CFG.flood.sandbagCost;
+    state._sandbag = true;
+    audio.harvest();
+    ui.toast(t('sandbagPlaced'), true, 6000);
+    ui.refreshMoney();
+    return true;
+  }
+
+  function floodHit() {
+    const F = CFG.flood;
+    showers.push({ start: state.timeSec, end: state.timeSec + 45 });
+    audio.thunderish();
+    setTimeout(() => audio.thunderish(), 600);
+    if (state._sandbag) {
+      addRep(F.repSave);
+      ui.toast(t('floodSaved'), true, 9000);
+    } else if (state.insured) {
+      ui.toast(t('floodInsured'), true, 9000);
+    } else {
+      const loss = Math.round(state.money * F.moneyLoss);
+      state.money -= loss;
+      state.daySpent += loss;
+      // Beete stehen unter Wasser
+      let crops = 0;
+      state.plots = state.plots.map(p => { if (p) crops++; return null; });
+      farm.refreshPlots();
+      ui.toast(t('floodHit', fmtMoney(loss, state.settings.lang), crops), false, 10000);
+      ui.refreshMoney();
+    }
+    save();
+  }
+
+  function startFishTourn() {
+    if (fishTourn || state._tournDone || !isFestival()) { audio.deny(); return false; }
+    state._tournDone = true;
+    fishTourn = { end: state.timeSec + CFG.fishTourn.durationSec, start: state.fishCaught };
+    audio.orderDone();
+    ui.toast(t('tournStart', CFG.fishTourn.durationSec), true, 8000);
+    return true;
+  }
+
+  function endFishTourn() {
+    const mine = state.fishCaught - fishTourn.start;
+    fishTourn = null;
+    const rivals = [
+      { name: 'Temel', n: 1 + Math.floor(Math.random() * 3) },
+      { name: 'Dursun', n: Math.floor(Math.random() * 3) },
+      { name: 'Kemal Ağa', n: Math.floor(Math.random() * 2) }
+    ].sort((a, b) => b.n - a.n);
+    if (mine > state.fishTournBest) state.fishTournBest = mine;
+    const board = rivals.map(r => `${r.name}: ${r.n}`).join(' · ');
+    if (mine > rivals[0].n) {
+      state.money += CFG.fishTourn.prize;
+      state.dayEarned += CFG.fishTourn.prize;
+      state.totalEarned += CFG.fishTourn.prize;
+      addRep(CFG.fishTourn.rep);
+      audio.tierUp();
+      ui.toast(t('tournWon', mine, fmtMoney(CFG.fishTourn.prize, state.settings.lang)), true, 9000);
+    } else {
+      audio.deny();
+      ui.toast(t('tournLost', mine, rivals[0].name, rivals[0].n), false, 9000);
+    }
+    ui.toast('🏆 ' + board, false, 8000);
+    ui.refreshMoney();
+    save();
+  }
+
+  function collectItem() {
+    const c = mods.collectibles;
+    if (!c) return false;
+    const def = c.nearest(player.pos.x, player.pos.z);
+    if (!def) return false;
+    state.collect[def.id] = true;
+    c.markCollected(def.id);
+    audio.cash();
+    ui.toast(t('collectFound', def.icon + ' ' + t('col_' + def.id), c.count(), c.total), true, 7000);
+    if (c.count() >= c.total) {
+      state.money += CFG.collectPrize;
+      state.dayEarned += CFG.collectPrize;
+      state.totalEarned += CFG.collectPrize;
+      addRep(CFG.collectRep);
+      audio.tierUp();
+      ui.toast(t('collectAll', fmtMoney(CFG.collectPrize, state.settings.lang)), true, 10000);
+    }
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
+  // Waben-Ernte (Timing-Minispiel, Ergebnis kommt aus der UI)
+  function hiveReward(scores) {
+    const good = scores.filter(s2 => s2 > 0.6).length;
+    let n = 1 + good;
+    const perfect = scores.length && Math.min(...scores) > 0.85;
+    if (perfect) n += 1;
+    state.inventory.honey += n;
+    state._hiveDone = true;
+    audio.cash();
+    ui.toast(perfect ? t('hivePerfect', n) : t('hiveHarvest', n), true, 7000);
+    save();
+    return n;
+  }
+
+  function karsikoyPrice(pid) {
+    const prem = CFG.karsikoy.premium[pid] || 1;
+    return CFG.products[pid].sell * (state.marketMul[pid] || 1) * prem * prestigeMul(CFG);
+  }
+
+  function sellKarsikoy(pid, count) {
+    const have = Math.floor(state.inventory[pid] || 0);
+    const n = Math.min(have, count);
+    if (n <= 0) { audio.deny(); return 0; }
+    const sum = n * karsikoyPrice(pid) * famBonus();
+    state.inventory[pid] -= n;
+    state.money += sum;
+    state.dayEarned += sum;
+    state.totalEarned += sum;
+    audio.cash();
+    checkWealth();
+    ui.refreshMoney();
+    save();
+    return sum;
+  }
+
+  // Elfmeter-Duell gegen die Karşıköy Gençlik (Treffer kommen aus der UI)
+  function macResult(goals) {
+    const M = CFG.karsikoy.mac;
+    const opp = Math.floor(Math.random() * (M.oppMax + 1));
+    const won = goals > opp;
+    if (won) {
+      state.money += M.prize;
+      state.dayEarned += M.prize;
+      state.totalEarned += M.prize;
+      state.macWins += 1;
+      addRep(M.rep);
+      audio.tierUp();
+    } else {
+      state.money = Math.max(0, state.money - M.stake);
+      state.daySpent += M.stake;
+      audio.deny();
+    }
+    ui.refreshMoney();
+    save();
+    return { goals, opp, won };
+  }
+
   function doSelaleRest() {
     if (state._selaleDone) { ui.toast(t('selaleAgain'), false); audio.deny(); return false; }
     state._selaleDone = true;
@@ -1664,6 +1845,12 @@ export function createGame(ctx, mods) {
     else if (act.id === 'sled') mods.sled && mods.sled.enter();
     else if (act.id === 'tour') startTour();
     else if (act.id === 'heli') { if (mods.heli.enter()) audio.engineStart(); }
+    else if (act.id === 'collect') collectItem();
+    else if (act.id === 'sandbag') placeSandbag();
+    else if (act.id === 'fishtourn') startFishTourn();
+    else if (act.id === 'hivegame') { player.releaseLock(); ui.showHiveGame(); }
+    else if (act.id === 'koymarket') { player.releaseLock(); ui.showKoyMarket(); }
+    else if (act.id === 'mac') { player.releaseLock(); ui.showMac(); }
     else if (act.id === 'derby') startDerby();
     else if (act.id === 'halay') doHalay();
     else if (act.id === 'selale') doSelaleRest();
@@ -1734,6 +1921,16 @@ export function createGame(ctx, mods) {
     if (mods.sled && mods.sled.nearSled(player.pos.x, player.pos.z)) return { id: 'sled' };
     if (state.properties.pansiyon && !tour
         && distTo(CFG.pension.x, CFG.pension.z) < CFG.interactDist + 2) return { id: 'tour' };
+    // v10
+    if (mods.collectibles && mods.collectibles.nearest(player.pos.x, player.pos.z)) return { id: 'collect' };
+    if (floodToday && !floodDone && !state._sandbag
+        && distTo(CFG.hut.x, CFG.hut.z) < CFG.interactDist + 4) return { id: 'sandbag' };
+    if (isFestival() && !state._tournDone && !fishTourn
+        && distTo(CFG.fishTourn.spot.x, CFG.fishTourn.spot.z) < CFG.interactDist + 2) return { id: 'fishtourn' };
+    if (state.hives > 0 && !state._hiveDone && CFG.yayla.honeySeasons.includes(season())
+        && distTo(CFG.yayla.x + 6, CFG.yayla.z + 2) < CFG.interactDist + 2) return { id: 'hivegame' };
+    if (distTo(CFG.karsikoy.market.x, CFG.karsikoy.market.z) < CFG.interactDist + 1.5) return { id: 'koymarket' };
+    if (distTo(CFG.karsikoy.pitch.x, CFG.karsikoy.pitch.z) < CFG.interactDist + 2) return { id: 'mac' };
     // v9
     if (mods.heli && mods.heli.near(player.pos.x, player.pos.z)) return { id: 'heli' };
     if (!derby && distTo(CFG.derby.goal.x, CFG.derby.goal.z) < CFG.interactDist + 2) return { id: 'derby' };
@@ -1807,6 +2004,14 @@ export function createGame(ctx, mods) {
 
     // v9: Derby-Timer & Tor-Erkennung
     updateDerby(dt);
+
+    // v10: Sel schlägt am Nachmittag zu
+    if (floodToday && !floodDone && sky.hour >= CFG.flood.hitHour) {
+      floodDone = true;
+      floodHit();
+    }
+    // v10: Angel-Turnier auswerten
+    if (fishTourn && state.timeSec >= fishTourn.end) endFishTourn();
 
     // v8: geführte Pansiyon-Tour
     if (tour) {
@@ -2008,7 +2213,11 @@ export function createGame(ctx, mods) {
     returnIstanbul, bookVacation, setDecree, taxiCost, callTaxi,
     haggleSell, brewReward, buyNet, forecast, marketTips, newsLine, startTour,
     startDerby, buyMandira, buyRestaurant, buyHeli, doHalay, doSelaleRest,
+    buyDolmus, placeSandbag, startFishTourn, collectItem, hiveReward,
+    karsikoyPrice, sellKarsikoy, macResult, floodHit,
     get derby() { return derby; },
+    get floodToday() { return floodToday; },
+    get fishTourn() { return fishTourn; },
     get istanbulMode() { return istanbulMode; },
     update,
     get running() { return running; },

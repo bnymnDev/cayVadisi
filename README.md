@@ -242,6 +242,27 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   Einladung, Das alte Foto, Temel erzählt, Dedes Rezept, Barış). Am Ende:
   Frieden mit Kemal — nie wieder Preisdumping.
 
+### Grafik-Paket, Dolmuş & Karşıköy (v10)
+- **✨ Grafik-Paket:** Ziegeldächer (2k-PBR) auf allen Häusern, Putzwände,
+  weiche Schatten (PCFSoft), echter **Fotoscan-Holzsteg** am Bootsanleger,
+  Laternen mit warmem Nachtlicht, Çay-Wagen, Bänke, Sträucher, Findlinge
+  und Moosfelsen aus Poly-Haven-Fotoscans im ganzen Tal.
+- **🚌 Dolmuş-Linie:** Dein Minibus pendelt sichtbar Hof–Haus–Stadt, hält an
+  drei Stationen und bringt jeden Abend Fahrgeld (wächst mit dem Ruf).
+- **🌊 Sel-Katastrophe:** Selten schwillt der Bach an — morgens kommt die
+  Warnung, bis 15 Uhr Sandsäcke stapeln (oder versichert sein), sonst
+  kostet das Hochwasser Geld und Beete.
+- **🎣 Angel-Turnier:** Am Festivaltag am Steg — 90 Sekunden gegen Temel,
+  Dursun und Kemal, mit Bestenliste und Preisgeld.
+- **🧿 Basar-Schätze:** Acht glitzernde Fundstücke liegen versteckt im Tal
+  (von der Yayla bis zum İstanbul-Kai). Sammelalbum im Betriebs-Panel,
+  Komplettbonus vom Antiquitätenhändler.
+- **🐝 Waben-Ernte:** Timing-Minispiel an den Bienenstöcken — bei perfekter
+  Hand gibt es **Anzer-Gold** und Extra-Honig.
+- **🏘️ Karşıköy:** Zweites Dorf am anderen Talende mit Putzhäusern,
+  Mini-Moschee, eigenem **Pazar** (Premium für Peynir, Honig & Hofprodukte)
+  und dem Bolzplatz der „Karşıköy Gençlik" — Elfmeter-Duell mit Einsatz.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

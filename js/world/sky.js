@@ -132,7 +132,7 @@ export function createSky(ctx) {
   envScene.add(envSky);
   // Das Sky-HDR trägt die volle Sonnenscheibe — als IBL stark dämpfen,
   // direkte Beleuchtung übernimmt die DirectionalLight.
-  scene.environmentIntensity = 0.3;
+  scene.environmentIntensity = 0.38;   // v10: etwas satteres Umgebungslicht
 
   const api = {
     sun, hemi,

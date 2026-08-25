@@ -37,6 +37,9 @@ import { createRace } from './race.js';
 import { createSled } from './sled.js';
 import { createHeli } from './heli.js';
 import { createSelale } from './world/selale.js';
+import { createDolmus } from './dolmus.js';
+import { createCollectibles } from './collectibles.js';
+import { createKarsikoy } from './world/karsikoy.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -59,7 +62,7 @@ const renderer = new THREE.WebGLRenderer({
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.85;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;   // v10: weiche Schatten
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(69, innerWidth / innerHeight, 0.1, 1400);
@@ -105,6 +108,7 @@ let cc0 = null, airport = null, avatar = null, events = null;
 let boat = null, story = null, achievements = null, radio = null, yaylaApi = null;
 let dog = null, istanbul = null, wildlife = null, race = null, sled = null;
 let heli = null, selale = null;
+let dolmus = null, collectibles = null, karsikoy = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -173,12 +177,15 @@ createProps(ctx, terrain).then(async (p) => {
   sled = createSled(ctx, terrain, player, ui, audio);
   heli = createHeli(ctx, terrain, player, audio);
   selale = createSelale(ctx, terrain);
-  allColliders.push(...selale.colliders);
+  dolmus = createDolmus(ctx, terrain, audio);
+  collectibles = createCollectibles(ctx, terrain);
+  karsikoy = createKarsikoy(ctx, terrain, p.mats);
+  allColliders.push(...selale.colliders, ...karsikoy.colliders);
   if (state.upgrades.expand) teaField.setExtension(true);   // v9: gekaufte Parzellen laden
   const gameMods = {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
     farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi, dog,
-    race, sled, heli, selale, cc0, istanbul: null
+    race, sled, heli, selale, cc0, dolmus, collectibles, istanbul: null
   };
   game = createGame(ctx, gameMods);
   minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
@@ -390,6 +397,13 @@ function wireHooks() {
   hooks.buyMandira = () => game.buyMandira();
   hooks.buyRestaurant = () => game.buyRestaurant();
   hooks.buyHeli = () => game.buyHeli();
+  hooks.buyDolmus = () => game.buyDolmus();
+  hooks.hiveReward = (s) => game.hiveReward(s);
+  hooks.karsikoyPrice = (p2) => game.karsikoyPrice(p2);
+  hooks.sellKarsikoy = (p2, n) => game.sellKarsikoy(p2, n);
+  hooks.macResult = (g) => game.macResult(g);
+  hooks.collectCount = () => collectibles.count();
+  hooks.collectTotal = () => collectibles.total;
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -508,6 +522,8 @@ window.__game = {
   get sled() { return sled; },
   get heli() { return heli; },
   get selale() { return selale; },
+  get dolmus() { return dolmus; },
+  get collectibles() { return collectibles; },
   get story() { return story; },
   get achievements() { return achievements; },
   setPhotoMode,
@@ -619,13 +635,15 @@ function step(rawDt, manual, skipRender = false) {
     npcs.update(dt, elapsed);
     extras.update(dt, elevN, elapsed);
     airport.update(dt, elapsed);
-    cc0.update(dt, player, vehicles.driving ? vehicles.speedKmh() / 3.6 : 0);
+    cc0.update(dt, player, vehicles.driving ? vehicles.speedKmh() / 3.6 : 0, elevN);
     boat.update(dt, elapsed);
     dog.update(dt, elapsed);
     istanbul.update(dt, elapsed);
     race.update(dt, elapsed, boat.pos, boat.driving);
     heli.update(dt, elapsed);
     selale.update(dt, elapsed);
+    dolmus.update(dt);
+    collectibles.update(dt, elapsed);
     sled.setWinter(seasonSnow);
     if (playing) {
       story.update(dt);

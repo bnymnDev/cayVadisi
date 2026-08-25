@@ -6,6 +6,7 @@ import { state, basketCapacity, save, resetProgress, hasSave, netWorth, seasonOf
 const SEASON_ICONS = ['☀️', '🍂', '❄️', '🌸'];
 import { t, tUpgrade, setLang, getLang, applyDom } from './i18n.js';
 import { fmtKg, fmtMoney, clamp } from './util.js';
+import { COLLECT_DEFS } from './collectibles.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -644,6 +645,110 @@ export function createUI(ctx, hooks) {
       show(els.eventS);
     },
 
+    // ---------- v10: generisches Timing-Minispiel (Balken + Klick) ----------
+    _timingGame(opts) {
+      $('event-icon').textContent = opts.icon;
+      $('event-title').textContent = opts.title;
+      $('event-text').innerHTML = `${opts.intro}<div class="brew-bar"><div class="brew-zone"></div><div id="brew-pin"></div></div>`;
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const scores = [];
+      let u = 0, dir = 1, raf = 0, running2 = true;
+      let last = performance.now();
+      const loop = (now) => {
+        if (!running2) return;
+        const dt2 = Math.min((now - last) / 1000, 0.05);
+        last = now;
+        u += dir * (opts.speed || 0.9) * dt2;
+        if (u > 1) { u = 1; dir = -1; }
+        if (u < 0) { u = 0; dir = 1; }
+        const p = $('brew-pin');
+        if (p) p.style.left = (u * 100) + '%';
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      const b = document.createElement('button');
+      b.className = 'big-btn';
+      b.textContent = opts.btn + ' (1/' + opts.rounds + ')';
+      b.addEventListener('click', () => {
+        scores.push(Math.min(1, Math.max(0, 1 - Math.abs(u - 0.5) / 0.5 * 1.6)));
+        if (scores.length >= opts.rounds) {
+          running2 = false;
+          cancelAnimationFrame(raf);
+          const html = opts.onDone(scores);
+          $('event-text').innerHTML = html;
+          box.innerHTML = '';
+          const done = document.createElement('button');
+          done.className = 'big-btn ghost';
+          done.textContent = t('back');
+          done.addEventListener('click', () => hooks.closeShop());
+          box.append(done);
+        } else {
+          b.textContent = opts.btn + ' (' + (scores.length + 1) + '/' + opts.rounds + ')';
+        }
+      });
+      const leave2 = document.createElement('button');
+      leave2.className = 'big-btn ghost';
+      leave2.textContent = t('back');
+      leave2.addEventListener('click', () => { running2 = false; cancelAnimationFrame(raf); hooks.closeShop(); });
+      box.append(b, leave2);
+      show(els.eventS);
+    },
+
+    // ---------- v10: Waben-Ernte an den Bienenstöcken ----------
+    showHiveGame() {
+      api._timingGame({
+        icon: '🐝', title: t('hiveTitle'), intro: t('hiveIntro'),
+        btn: t('hiveNow'), rounds: 3, speed: 1.05,
+        onDone(scores) {
+          const n = hooks.hiveReward(scores);
+          return `🍯 +${n} <br><b>${Math.min(...scores) > 0.85 ? t('hiveGoldLabel') : t('hiveOkLabel')}</b>`;
+        }
+      });
+    },
+
+    // ---------- v10: Elfmeter-Duell gegen die Karşıköy Gençlik ----------
+    showMac() {
+      api._timingGame({
+        icon: '⚽', title: t('macTitle'), intro: t('macIntro', fmtMoney(CFG.karsikoy.mac.stake, state.settings.lang), fmtMoney(CFG.karsikoy.mac.prize, state.settings.lang)),
+        btn: t('macShoot'), rounds: 3, speed: 1.25,
+        onDone(scores) {
+          const goals = scores.filter(s2 => s2 > 0.55).length;
+          const res = hooks.macResult(goals);
+          return `${t('macScore', res.goals, res.opp)}<br><b>${res.won ? t('macWon') : t('macLost')}</b>`;
+        }
+      });
+    },
+
+    // ---------- v10: Karşıköy Pazarı ----------
+    showKoyMarket() {
+      const L = state.settings.lang;
+      els.airportS.querySelector('h2').textContent = t('koyMarketTitle');
+      const body = $('airport-body');
+      body.innerHTML = `<div class="section-info">${t('koyMarketHint')}</div>`;
+      let any = false;
+      for (const pid of Object.keys(CFG.karsikoy.premium)) {
+        const have = Math.floor(state.inventory[pid] || 0);
+        if (have <= 0) continue;
+        any = true;
+        const price = Math.round(hooks.karsikoyPrice(pid));
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        row.innerHTML = `
+          <div class="u-icon">${CFG.products[pid].icon}</div>
+          <div class="u-body"><div class="u-name">${t('prod_' + pid)} × ${have} <span class="price-up">▲ ${t('premiumHere')}</span></div>
+          <div class="u-desc">${fmtMoney(price, L)} / Stk</div></div>
+          <button>${fmtMoney(have * price, L)}</button>`;
+        row.querySelector('button').addEventListener('click', () => {
+          hooks.sellKarsikoy(pid, have);
+          api.showKoyMarket();
+        });
+        body.appendChild(row);
+      }
+      if (!any) body.innerHTML += `<div class="section-info">${t('cityNoGoods')}</div>`;
+      show(els.airportS);
+    },
+
     // ---------- v8: Çay-Ustası (Demlik-Timing) ----------
     showBrew() {
       $('event-icon').textContent = '🫖';
@@ -1268,6 +1373,22 @@ export function createUI(ctx, hooks) {
         });
         list.appendChild(row);
       }
+      // v10: Dolmuş-Linie
+      {
+        const owned = state.dolmus;
+        const row = document.createElement('div');
+        row.className = 'upgrade-item' + (owned ? ' owned' : '');
+        row.innerHTML = `
+          <div class="u-icon">🚌</div>
+          <div class="u-body"><div class="u-name">${t('dolmusName')}</div>
+          <div class="u-desc">${t('dolmusDesc')}</div></div>
+          <button ${owned || state.money < CFG.dolmus.cost ? 'disabled' : ''}>
+            ${owned ? t('owned') + ' ✓' : fmtMoney(CFG.dolmus.cost, L)}</button>`;
+        if (!owned) row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyDolmus()) api.renderDealer();
+        });
+        list.appendChild(row);
+      }
       // v9: Helikopter (Endgame)
       {
         const owned = state.heli;
@@ -1359,6 +1480,14 @@ export function createUI(ctx, hooks) {
             ${got ? '<div style="font-size:20px">🏅</div>' : ''}
           </div>`;
         }
+        // v10: Basar-Schätze-Sammelalbum
+        html += `<h3>🧿 ${t('collectTitle')} (${hooks.collectCount()}/${hooks.collectTotal()})</h3>
+          <div class="section-info">${t('collectHint')}</div>
+          <div class="collect-grid">${COLLECT_DEFS.map(d => {
+            const got2 = !!state.collect[d.id];
+            return `<div class="collect-cell${got2 ? '' : ' locked'}" title="${t('col_' + d.id)}">
+              <span>${got2 ? d.icon : '❓'}</span><em>${got2 ? t('col_' + d.id) : '???'}</em></div>`;
+          }).join('')}</div>`;
         body.innerHTML = html;
       } else {
         const share = hooks.playerShare();

@@ -13,10 +13,17 @@ export async function createCc0Props(ctx, terrain) {
     loader.load(`${BASE}${slug}/${slug}_1k.gltf`, res, undefined, rej));
 
   const colliders = [];
-  const [footballG, barrelG, tableG, chairG, potG] = await Promise.all([
-    load('football'), load('Barrel_01'), load('WoodenTable_02'), load('WoodenChair_01'), load('brass_pot_01')
+  const [footballG, barrelG, tableG, chairG, potG,
+    lanternG, benchG, cartG, pierG, gnomeG, cheeseG,
+    shrubG, boulderG, mossG] = await Promise.all([
+    load('football'), load('Barrel_01'), load('WoodenTable_02'), load('WoodenChair_01'), load('brass_pot_01'),
+    // v10: Grafik-Paket
+    load('Lantern_01'), load('painted_wooden_bench'), load('CoffeeCart_01'),
+    load('modular_wooden_pier'), load('garden_gnome'), load('CheeseBox_01'),
+    load('shrub_01'), load('boulder_01'), load('rock_moss_set_01')
   ]);
-  for (const g of [footballG, barrelG, tableG, chairG, potG]) {
+  for (const g of [footballG, barrelG, tableG, chairG, potG, lanternG, benchG, cartG, pierG, gnomeG, cheeseG,
+    shrubG, boulderG, mossG]) {
     g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   }
 
@@ -60,6 +67,88 @@ export async function createCc0Props(ctx, terrain) {
     scene.add(pot);
   }
 
+  // ---- v10: Grafik-Paket — echte Modelle statt Kisten ----
+  // Çay-/Simit-Wagen am Stadtplatz
+  place(cartG, CFG.city.x - 6, CFG.city.z + 8, -0.7, 1, 1.1);
+  // Bänke: Stadtplatz, Annahmestelle, Yayla
+  place(benchG, CFG.city.x + 5, CFG.city.z + 9, 2.6, 1, 0.5);
+  place(benchG, CFG.hut.x - 4, CFG.hut.z + 3, 0.9, 1, 0.5);
+  place(benchG, CFG.yayla.x - 4, CFG.yayla.z - 3, -0.6, 1, 0.5);
+  // Laternen: Haus, Hütte, Çayevi, Pansiyon
+  for (const [lx, lz] of [
+    [CFG.home.x + 3, CFG.home.z + 3], [CFG.hut.x + 4, CFG.hut.z + 1],
+    [CFG.city.x + 10, CFG.city.z - 6], [CFG.pension.x - 4, CFG.pension.z + 3]
+  ]) {
+    place(lanternG, lx, lz, Math.random() * 3, 1, 0.25);
+  }
+  // Echter Holzsteg am Bootsanleger — aus dem Modul-Set nur den längsten
+  // Laufsteg verwenden (das Set enthält mehrere überlappende Varianten)
+  {
+    const B = CFG.boat.dock;
+    let best = null, bestSize = 0;
+    const box = new THREE.Box3();
+    for (const child of pierG.scene.children) {
+      box.setFromObject(child);
+      const size = box.max.distanceTo(box.min);
+      if (size > bestSize && size < 60) { bestSize = size; best = child; }
+    }
+    if (best) {
+      const inst = best.clone(true);
+      inst.position.set(B.x, 0.35, B.z + 10);
+      inst.rotation.y = Math.PI / 2;
+      scene.add(inst);
+      colliders.push({ x: B.x + 1.6, z: B.z + 10, r: 0.4 }, { x: B.x - 1.6, z: B.z + 10, r: 0.4 });
+    }
+  }
+  // Gartenzwerg vor der Pansiyon (Quatsch muss sein)
+  place(gnomeG, CFG.pension.x + 4.5, CFG.pension.z + 4.2, 2.4, 1, 0.2);
+  // Käsekisten an der Mandıra
+  place(cheeseG, CFG.farm.x + 16.5, CFG.farm.z + 6.5, 0.4, 1, 0.2);
+  place(cheeseG, CFG.farm.x + 16.9, CFG.farm.z + 7.3, 1.9, 1, 0);
+
+  // ---- v10b: Vegetation & Fels — Fotoscan-Sträucher, Findlinge, Moosfelsen ----
+  const K = CFG.karsikoy, SEL = CFG.selale;
+  for (const [sx, sz, r2, sc] of [
+    [CFG.home.x - 6, CFG.home.z + 6, 1.2, 1], [CFG.hut.x + 8, CFG.hut.z - 4, 1.4, 1.2],
+    [CFG.pension.x + 8, CFG.pension.z - 2, 1.2, 1], [CFG.city.x - 16, CFG.city.z + 14, 1.2, 1.1],
+    [CFG.farm.x + 8, CFG.farm.z - 12, 1.2, 1], [K.x + 14, K.z + 8, 1.2, 1.1],
+    [CFG.yayla.x - 8, CFG.yayla.z + 6, 1.2, 0.9], [12, -70, 0, 0.9]
+  ]) {
+    place(shrubG, sx, sz, Math.random() * 6, sc, r2);
+  }
+  for (const [bx, bz, sc] of [
+    [-60, -40, 1.4], [70, -20, 1.8], [40, 40, 1.5], [-40, 30, 1.3],
+    [K.x - 18, K.z - 14, 1.4], [96, -142, 1.1]
+  ]) {
+    place(boulderG, bx, bz, Math.random() * 6, sc, sc * 1.4);
+  }
+  for (const [mx, mz, sc] of [
+    [SEL.x + 5, SEL.z + 5, 1.2], [SEL.x - 6, SEL.z + 3, 1], [SEL.x + 2, SEL.z + 8, 0.8],
+    [CFG.boat.dock.x - 8, CFG.boat.dock.z + 16, 1], [-20, -120, 0.9]
+  ]) {
+    place(mossG, mx, mz, Math.random() * 6, sc, 0);
+  }
+
+  // ---- v10b: Laternen leuchten nachts (warmes Punktlicht) ----
+  const lanternLights = [];
+  for (const [lx, lz] of [
+    [CFG.home.x + 3, CFG.home.z + 3], [CFG.hut.x + 4, CFG.hut.z + 1],
+    [CFG.city.x + 10, CFG.city.z - 6], [CFG.pension.x - 4, CFG.pension.z + 3]
+  ]) {
+    const light = new THREE.PointLight(0xffd9a0, 0, 12, 1.8);
+    light.position.set(lx, terrain.heightAt(lx, lz) + 1.3, lz);
+    scene.add(light);
+    lanternLights.push(light);
+  }
+
+  // ---- v10b: mehr Leben in Karşıköy & auf dem İstanbul-Kai ----
+  place(benchG, K.x + 4, K.z + 6, 1.2, 1, 0.5);
+  place(lanternG, K.x - 2, K.z + 4, 0.5, 1, 0.25);
+  place(barrelG, K.market.x + 2.5, K.market.z + 1.5, 1.1, 1, 0.45);
+  place(benchG, CFG.istanbul.spawn.x + 8, CFG.istanbul.zone.z0 + 6, Math.PI, 1, 0);
+  place(lanternG, CFG.istanbul.gate.x + 3, CFG.istanbul.gate.z + 2, 1.4, 1, 0);
+  place(barrelG, CFG.istanbul.bazaar.x + 8, CFG.istanbul.bazaar.z + 2, 0.7, 1, 0);
+
   // ---- Fußball am Stadtplatz: kickbar, mit Physik ----
   const ball = {
     mesh: footballG.scene,
@@ -87,7 +176,10 @@ export async function createCc0Props(ctx, terrain) {
     ball,
     kickBall,
 
-    update(dt, player, drivingSpeed) {
+    update(dt, player, drivingSpeed, elevN = 1) {
+      // Laternen dämmerungsgesteuert
+      const dark = Math.max(0, 1 - elevN * 2.4);
+      for (const l of lanternLights) l.intensity = dark * 14;
       // Spieler / Fahrzeug kickt den Ball beim Reinlaufen
       ball.kickCooldown -= dt;
       const pdx = ball.pos.x - player.pos.x, pdz = ball.pos.z - player.pos.z;
