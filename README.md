@@ -38,6 +38,8 @@ alles liegt im Repo (offline lauffähig, direkt hostbar auf jedem Webspace).
 | Linksklick **halten** | Tee pflücken |
 | `E` | Benutzen: Verkaufen, Schlafen, Seilbahn, Ein-/Aussteigen, Ernten, Hof/Markt/Autohaus |
 | `Tab` | Betriebs-Panel (Arbeiter · Lager · Bilanz) |
+| `P` | Privatleben (Profil · Familie · Immobilien · Börse) |
+| `M` | Minimap ein/aus |
 | `Shift` | Rennen |
 | `Esc` | Pause |
 
@@ -70,8 +72,31 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
 - **Wohlstand:** Nettovermögen bestimmt deinen Rang — vom *Teepflücker* über
   den *Hofbesitzer* bis zur *Legende vom Karadeniz*.
 
+### Reisen & Imperium (v3)
+- **İskele-Reisen:** Vom Bootssteg aus nach **Zonguldak** (billige Kohle),
+  **Kdz. Ereğli** (Osmanlı-Erdbeer-Setzlinge) und **Devrek** (Baston mit
+  +8 % Tempo, Walnuss-Setzlinge). Jede Stadt zahlt Premium-Preise für
+  passende Waren — Reisezeit kostet Tagesstunden.
+- **Çay-Fabrik:** Verpackt die Arbeiter-Ernte abends automatisch zu Paketen
+  unter **deinem eigenen Label** (Name frei wählbar). Energie kommt aus
+  Zonguldak-Kohle oder von der Stromrechnung.
+- **Begehbarer Supermarkt:** Dein Label steht sichtbar im Regal; verkaufe
+  Pakete zum Tages-Einzelhandelspreis.
+- **Export:** Täglich neue Aufträge nach 🇩🇪 🇳🇱 🇦🇿 🇯🇵 🇺🇸 mit Großabnehmer-Preisen.
+
+### Privatleben (v3)
+- **Profil [P]:** Name, Label, Outfit-Farbe.
+- **Familie:** Hochzeit und Nachwuchs geben dauerhafte Verkaufsboni.
+- **Immobilien:** Yayla-Hütte, Stadthaus, Villa am Meer — Miete jeden Abend.
+- **Börse:** Drei Aktien mit Tageskursen (kaufen, halten, verkaufen).
+- **Kaçak çay:** Nachts hinterm Markt wartet ein Schwarzhändler: +60 %
+  steuerfrei — aber die Jandarma kontrolliert, beschlagnahmt und kassiert
+  Bußgelder. Jeder Deal erhöht den Fahndungsdruck.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
+- Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,
+  Dorfbewohner-NPCs, Traktor-Anhänger.
 - Fortschritt wird automatisch gespeichert (`localStorage`, alte v1-Stände
   werden übernommen).
 
