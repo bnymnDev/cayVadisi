@@ -3,8 +3,20 @@
 import * as THREE from 'three';
 import { CFG, ROADS } from './config.js';
 import { state } from './state.js';
+import { spawnVehicleModel } from './vehicles.js';
 
 function buildDolmusMesh() {
+  // v13.6: Kenney-Van als Dolmuş, mit klassischem Dachschild
+  const m = spawnVehicleModel('dolmus');
+  if (m) {
+    const sign = new THREE.Mesh(
+      new THREE.BoxGeometry(0.9, 0.22, 0.06),
+      new THREE.MeshStandardMaterial({ color: 0xe3c24f, roughness: 0.6 })
+    );
+    sign.position.set(0, m.size.h + 0.14, m.size.l * 0.3);
+    m.group.add(sign);
+    return { group: m.group, heads: [] };
+  }
   const g = new THREE.Group();
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(1.7, 1.5, 4.4),
