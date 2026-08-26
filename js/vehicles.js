@@ -133,6 +133,30 @@ export function buildVehicleMesh(id) {
       g.add(w);
     }
     lightPos = [[-0.55, 0.7, 1.92], [0.55, 0.7, 1.92]];
+  } else if (id === 'moto') {
+    // v14: Kurye-Moped — schmal, flink, mit Gepäckträger-Kiste
+    const frame = box(0.22, 0.3, 1.7, 0xb3402a, { rough: 0.4, metal: 0.4 });
+    frame.position.set(0, 0.62, 0);
+    const tank = box(0.3, 0.24, 0.5, 0xb3402a, { rough: 0.3, metal: 0.5 });
+    tank.position.set(0, 0.82, 0.35);
+    const seat = box(0.3, 0.12, 0.55, 0x1d1a17, { rough: 0.9 });
+    seat.position.set(0, 0.86, -0.3);
+    const bar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 0.62, 6),
+      new THREE.MeshStandardMaterial({ color: 0x3c3c3e, roughness: 0.4, metalness: 0.7 })
+    );
+    bar.rotation.z = Math.PI / 2;
+    bar.position.set(0, 1.05, 0.72);
+    const crate = box(0.5, 0.4, 0.5, 0x8a6d42, { rough: 0.9 });
+    crate.position.set(0, 1.0, -0.85);
+    g.add(frame, tank, seat, bar, crate);
+    for (const [z, front] of [[0.85, true], [-0.72, false]]) {
+      const w = wheel(0.3, 0.12);
+      w.position.set(0, 0.3, z);
+      wheels.push({ mesh: w, front, r: 0.3 });
+      g.add(w);
+    }
+    lightPos = [[0, 0.95, 0.95]];
   } else { // lux — tiefer Sportwagen
     const base = box(1.7, 0.35, 4.0, 0xa31621, { rough: 0.15, metal: 0.75 });
     base.position.set(0, 0.5, 0);
