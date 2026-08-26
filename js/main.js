@@ -48,6 +48,8 @@ import { createKonak } from './world/konak.js';
 import { createVillage } from './world/village.js';
 import { createChars } from './chars.js';
 import { createAnimals3d } from './animals3d.js';
+import { createVehModels } from './vehmodels.js';
+import { setVehicleModels } from './vehicles.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -172,7 +174,9 @@ createProps(ctx, terrain).then(async (p) => {
   // v13.3/13.5: geriggte Menschen & Tiere zuerst laden
   const chars = createChars(ctx);
   const animals3d = createAnimals3d(ctx);
-  await Promise.all([chars.load(), animals3d.load()]);
+  const vehModels = createVehModels(ctx);
+  await Promise.all([chars.load(), animals3d.load(), vehModels.load()]);
+  setVehicleModels(vehModels);   // v13.6: vor createVehicles/createDolmus setzen
   cc0 = await createCc0Props(ctx, terrain);
   farm = createFarm(ctx, terrain, p.mats, animals3d);
   city = createCity(ctx, terrain, p.mats);

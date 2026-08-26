@@ -31,8 +31,38 @@ function box(w, h, d, color, opts = {}) {
   return m;
 }
 
+// v13.6: echte Kenney-Modelle, wenn geladen (main.js setzt die Bibliothek)
+let vehLib = null;
+export function setVehicleModels(lib) { vehLib = lib; }
+export function spawnVehicleModel(id) { return vehLib && vehLib.has(id) ? vehLib.spawn(id) : null; }
+
 // Alle Maße: +z = Fahrtrichtung
 export function buildVehicleMesh(id) {
+  // ---- Modell-Variante ----
+  if (vehLib && vehLib.has(id)) {
+    const m = vehLib.spawn(id);
+    const headMat = new THREE.MeshStandardMaterial({
+      color: 0xfff6d8, emissive: 0xfff0b8, emissiveIntensity: 0, roughness: 0.3
+    });
+    const tailMat = new THREE.MeshStandardMaterial({
+      color: 0x5a1210, emissive: 0xff2a1a, emissiveIntensity: 0, roughness: 0.4
+    });
+    // Licht-Positionen aus der Bounding-Box ableiten
+    const lightPos = [
+      [-m.size.w * 0.3, m.size.h * 0.32, m.size.l * 0.49],
+      [m.size.w * 0.3, m.size.h * 0.32, m.size.l * 0.49]
+    ];
+    for (const [x, y, z] of lightPos) {
+      const h = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), headMat);
+      h.position.set(x, y, z);
+      m.group.add(h);
+      const t = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.07, 0.04), tailMat);
+      t.position.set(x, y, -z);
+      m.group.add(t);
+    }
+    return { group: m.group, wheels: m.wheels, headMat, tailMat, lightPos };
+  }
+
   const g = new THREE.Group();
   const wheels = [];       // {mesh, front}
   let lightPos = [[-0.55, 0.55, 1.9], [0.55, 0.55, 1.9]];

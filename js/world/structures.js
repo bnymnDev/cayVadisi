@@ -138,6 +138,47 @@ export function building(ctx, terrain, colliders, x, z, ry, w, d, hWall, opts = 
     g.add(sign);
   }
 
+  // v13.6: Haus-Details — deterministisch je Position, damit jedes Haus anders aussieht
+  const seed = Math.abs(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1;
+  // Schornstein mit Abdeckplatte
+  if (seed > 0.22) {
+    const chimMat = new THREE.MeshStandardMaterial({ color: 0x8a7364, roughness: 0.95 });
+    const cx2 = (seed > 0.6 ? 1 : -1) * w * 0.26;
+    const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.32, 1.0, 0.32), chimMat);
+    chimney.position.set(cx2, hWall + roofL * 0.34, -d * 0.18);
+    g.add(chimney);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 0.42), chimMat);
+    cap.position.set(cx2, hWall + roofL * 0.34 + 0.53, -d * 0.18);
+    g.add(cap);
+  }
+  // Fensterläden an den Frontfenstern
+  {
+    const shMat = new THREE.MeshStandardMaterial({
+      color: seed > 0.5 ? 0x3f6d5a : 0x7d4a3a, roughness: 0.9
+    });
+    const winXs = [w * 0.28];
+    if (opts.twoWindows) winXs.push(-w * 0.28);
+    for (const wx of winXs) {
+      for (const s of [-1, 1]) {
+        const sh = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.72), shMat);
+        sh.position.set(wx + s * 0.55, 1.45, d / 2 + 0.01);
+        sh.rotation.y = -s * 0.35;   // leicht geöffnet
+        g.add(sh);
+      }
+    }
+  }
+  // Sat-Schüssel am Dachrand (das halbe Dorf schaut dieselbe Dizi)
+  if (seed > 0.45) {
+    const dishMat = new THREE.MeshStandardMaterial({ color: 0xd6d9dc, roughness: 0.5, metalness: 0.4, side: THREE.DoubleSide });
+    const dish = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.45), dishMat);
+    dish.position.set(-w * 0.34, hWall + 0.35, d * 0.32);
+    dish.rotation.x = Math.PI * 0.62;
+    g.add(dish);
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.3, 5), dishMat);
+    arm.position.set(-w * 0.34, hWall + 0.2, d * 0.32);
+    g.add(arm);
+  }
+
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   scene.add(g);
   colliders.push({ x, z, r: Math.max(w, d) * 0.62 });

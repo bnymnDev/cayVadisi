@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { CFG } from '../config.js';
+import { CFG, ROADS, PATHS } from '../config.js';
 import { mulberry32 } from '../util.js';
 import { makeBuildMaterials, building } from './structures.js';
 
@@ -136,6 +136,46 @@ export async function createProps(ctx, terrain) {
   place(tree2far, 66, -70, 1.25, 5.1, 0.5);
   place(tree2far, 12, 14, 1.05, 0.4, 0.5);
   place(tree1far, -42, 16, 1.0, 4.0, 0.6);
+
+  // v13.6: dichterer Baumbestand — deterministisch verstreut, POIs und
+  // Straßen werden ausgespart
+  {
+    const AVOID = [
+      [CFG.city.x, CFG.city.z, 48], [CFG.field.cx, CFG.field.cz, 42],
+      [CFG.farm.x ?? -95, CFG.farm.z ?? -80, 36], [CFG.hut.x, CFG.hut.z, 18],
+      [CFG.home.x, CFG.home.z, 18], [CFG.yayla.x ?? 20, CFG.yayla.z ?? 90, 34],
+      [CFG.karsikoy.x, CFG.karsikoy.z, 34], [CFG.selale.x, CFG.selale.z, 28],
+      [CFG.factory.x, CFG.factory.z, 24], [CFG.airport.x, CFG.airport.z, 45],
+      [CFG.supermarket.x, CFG.supermarket.z, 18], [CFG.pension.x ?? 0, CFG.pension.z ?? 0, 18],
+      [CFG.konak.x, CFG.konak.z, 16], [CFG.orchard?.x ?? 999, CFG.orchard?.z ?? 999, 26]
+    ].filter((a) => Number.isFinite(a[0]) && Number.isFinite(a[1]));
+    const segDist = (px, pz, a, b) => {
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const t = Math.max(0, Math.min(1, ((px - a.x) * dx + (pz - a.z) * dz) / (dx * dx + dz * dz || 1)));
+      return Math.hypot(px - (a.x + dx * t), pz - (a.z + dz * t));
+    };
+    const nearRoad = (px, pz) => {
+      for (const line of [...ROADS, ...PATHS]) {
+        for (let i = 0; i < line.length - 1; i++) {
+          if (segDist(px, pz, line[i], line[i + 1]) < 7) return true;
+        }
+      }
+      return false;
+    };
+    const rng2 = mulberry32(4711);
+    const kinds = [tree1, tree2, tree1far, tree2far];
+    let placed = 0, tries = 0;
+    while (placed < 26 && tries < 500) {
+      tries++;
+      const x = (rng2() - 0.5) * 330, z = (rng2() - 0.5) * 330;
+      const h = terrain.heightAt(x, z);
+      if (h < 2.5 || h > 34) continue;                              // kein Strand, keine Gipfel
+      if (AVOID.some(([ax, az, ar]) => Math.hypot(x - ax, z - az) < ar)) continue;
+      if (nearRoad(x, z)) continue;
+      place(kinds[Math.floor(rng2() * kinds.length)], x, z, 0.8 + rng2() * 0.55, rng2() * 6.28, 0.55);
+      placed++;
+    }
+  }
   place(tree1far, 96, -104, 1.2, 1.7, 0.6);
   place(tree2far, -96, -80, 1.15, 2.9, 0.5);
 
