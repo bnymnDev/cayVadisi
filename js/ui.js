@@ -773,6 +773,110 @@ export function createUI(ctx, hooks) {
       });
     },
 
+    // ---------- v15: Hochzeitsplanung mit Temel ----------
+    showWeddingPlan() {
+      const L = state.settings.lang;
+      $('event-icon').textContent = '💍';
+      $('event-title').textContent = t('weddingTitle');
+      $('event-text').innerHTML = t('weddingIntro', state.wedding.catering);
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const ITEMS = [['cheese', 2, '🧀'], ['honey', 2, '🍯'], ['tea_pack', 3, '📦']];
+      for (const [id, need, ic] of ITEMS) {
+        const have = Math.floor(state.inventory[id] || 0);
+        const b = document.createElement('button');
+        b.className = 'big-btn ghost';
+        b.disabled = state.wedding.catering >= 3 || have < need;
+        b.textContent = `${ic} ${t('weddingGive', need, t('prod_' + id))} (${have})`;
+        b.addEventListener('click', () => { if (hooks.weddingContribute(id)) api.showWeddingPlan(); });
+        box.appendChild(b);
+      }
+      const go = document.createElement('button');
+      go.className = 'big-btn';
+      go.textContent = t('weddingGo');
+      go.addEventListener('click', () => { hooks.weddingPlan(); hooks.closeShop(); });
+      box.appendChild(go);
+      show(els.eventS);
+    },
+
+    // ---------- v15: Frachter-Routen ----------
+    showFreighter() {
+      const L = state.settings.lang;
+      const F = CFG.freighter;
+      const have = Math.min(F.maxPacks, Math.floor(state.inventory.tea_pack));
+      $('event-icon').textContent = '⚓';
+      $('event-title').textContent = t('freightTitle');
+      $('event-text').innerHTML = t('freightIntro', have, F.maxPacks);
+      const box = $('event-choices');
+      box.innerHTML = '';
+      for (const [route, r] of Object.entries(F.routes)) {
+        const b = document.createElement('button');
+        b.className = 'big-btn';
+        b.disabled = have < 1;
+        b.textContent = `${t('route_' + route)} · ×${r.mul} · ${t('freightRisk', Math.round(r.risk * 100))}`;
+        b.addEventListener('click', () => { if (hooks.shipFreight(route)) hooks.closeShop(); });
+        box.appendChild(b);
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
+    // ---------- v15: Panayır-Losbude ----------
+    showLot() {
+      const L = state.settings.lang;
+      $('event-icon').textContent = '🎟️';
+      $('event-title').textContent = t('lotTitle');
+      $('event-text').innerHTML = t('lotIntro', fmtMoney(CFG.panayir.lotTicket, L));
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const b = document.createElement('button');
+      b.className = 'big-btn';
+      b.textContent = t('lotBuy');
+      b.addEventListener('click', () => {
+        const res = hooks.buyLot();
+        if (!res) return;
+        $('event-text').innerHTML = t('lot_' + res.kind, res.n || 0);
+        b.disabled = state.money < CFG.panayir.lotTicket;
+      });
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.append(b, leave);
+      show(els.eventS);
+    },
+
+    // ---------- v15: Kraftmesser ----------
+    showKraft() {
+      api._timingGame({
+        icon: '🔨', title: t('kraftTitle'), intro: t('kraftIntro'),
+        btn: t('kraftHit'), rounds: 3, speed: 1.5,
+        onDone(scores) {
+          const res = hooks.kraftResult(scores);
+          return `${res.bell ? '🔔 ' + t('kraftBell') : t('kraftMeh')}<br><b>+${res.prize}</b>`;
+        }
+      });
+    },
+
+    // ---------- v15: Bergwerk ----------
+    showMine() {
+      api._timingGame({
+        icon: '⛏️', title: t('mineTitle'), intro: t('mineIntro'),
+        btn: t('mineHit'), rounds: 3, speed: 1.3,
+        onDone(scores) {
+          const res = hooks.mineReward(scores);
+          let html = t('mineCoal', res.coal);
+          if (res.gem) html += `<br>💎 <b>${t('mineGem', res.gemValue)}</b>`;
+          if (res.injury) html += `<br>🤕 ${t('mineInjury', res.injuryCost)}`;
+          return html;
+        }
+      });
+    },
+
     // ---------- v14: Dede-Erinnerung (Rückblende-Vignette) ----------
     showMemory(i, found, total) {
       $('event-icon').textContent = '🖼️';
@@ -1658,6 +1762,22 @@ export function createUI(ctx, hooks) {
             ${owned ? t('owned') + ' ✓' : fmtMoney(CFG.heli.cost, L)}</button>`;
         if (!owned) row.querySelector('button').addEventListener('click', () => {
           if (hooks.buyHeli()) api.renderDealer();
+        });
+        list.appendChild(row);
+      }
+      // v15: Küstenfrachter
+      {
+        const owned = state.freighter;
+        const row = document.createElement('div');
+        row.className = 'upgrade-item' + (owned ? ' owned' : '');
+        row.innerHTML = `
+          <div class="u-icon">⚓</div>
+          <div class="u-body"><div class="u-name">${t('freightName')}</div>
+          <div class="u-desc">${t('freightDesc')}</div></div>
+          <button ${owned || state.money < CFG.freighter.cost ? 'disabled' : ''}>
+            ${owned ? t('owned') + ' ✓' : fmtMoney(CFG.freighter.cost, L)}</button>`;
+        if (!owned) row.querySelector('button').addEventListener('click', () => {
+          if (hooks.buyFreighter()) api.renderDealer();
         });
         list.appendChild(row);
       }
