@@ -296,7 +296,7 @@ export function createUI(ctx, hooks) {
         const APPS = [
           ['hava', '⛅'], ['piyasa', '📊'], ['banka', '💳'],
           ['borsa', '📈'], ['taksi', '🚕'], ['karar', '📜'],
-          ['lojistik', '🚚'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
+          ['lojistik', '🚚'], ['kurye', '🏍️'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
         ];
         body.innerHTML = `<div class="app-grid">${APPS.map(([id, ic]) =>
           `<button class="app-btn" data-app="${id}"><span>${ic}</span><em>${t('app_' + id)}</em></button>`).join('')}</div>`;
@@ -319,6 +319,20 @@ export function createUI(ctx, hooks) {
           html += `<div class="upgrade-item"><div class="u-icon">${s.storm ? '⛈️' : '🌧️'}</div>
             <div class="u-body"><div class="u-name">${fmtH(s.from)} – ${fmtH(s.to)}</div>
             <div class="u-desc">${s.storm ? t('stormWarn') : t('rainPlain')}</div></div></div>`;
+        }
+        body.innerHTML = html;
+      } else if (app === 'kurye') {
+        // v14: Lieferservice-Status
+        const j = state._kuryeJob;
+        let html = `<div class="section-info">${t('kuryeHint', CFG.kurye.perDay)}</div>`;
+        if (j) {
+          html += `<div class="upgrade-item"><div class="u-icon">${j.stage === 'pick' ? '📦' : '🏍️'}</div>
+            <div class="u-body"><div class="u-name">${t(j.stage === 'pick' ? 'kuryePickLabel' : 'kuryeDropLabel', t('kuryeT_' + j.id))}</div>
+            <div class="u-desc">${t('kuryeTip')}</div></div></div>`;
+        } else {
+          html += `<div class="upgrade-item"><div class="u-icon">💤</div>
+            <div class="u-body"><div class="u-name">${t('kuryeNone')}</div>
+            <div class="u-desc">${t('kuryeStats', state.kuryeDone)}</div></div></div>`;
         }
         body.innerHTML = html;
       } else if (app === 'piyasa') {
@@ -759,6 +773,111 @@ export function createUI(ctx, hooks) {
       });
     },
 
+    // ---------- v14: Dede-Erinnerung (Rückblende-Vignette) ----------
+    showMemory(i, found, total) {
+      $('event-icon').textContent = '🖼️';
+      $('event-title').textContent = t('memoryTitle', found, total);
+      $('event-text').innerHTML = `<em>${t('memory_' + i)}</em>`;
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const done = document.createElement('button');
+      done.className = 'big-btn ghost';
+      done.textContent = t('back');
+      done.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(done);
+      show(els.eventS);
+    },
+
+    // ---------- v14: Story 3 — das Kartell klopft an ----------
+    showStory3Choice() {
+      $('event-icon').textContent = '🕵️';
+      $('event-title').textContent = t('story3Title');
+      $('event-text').innerHTML = t('story3Intro');
+      const box = $('event-choices');
+      box.innerHTML = '';
+      for (const path of ['jandarma', 'kacak']) {
+        const b = document.createElement('button');
+        b.className = 'big-btn' + (path === 'kacak' ? ' ghost' : '');
+        b.textContent = t('story3Btn_' + path);
+        b.addEventListener('click', () => { hooks.story3Choose(path); hooks.closeShop(); });
+        box.appendChild(b);
+      }
+      show(els.eventS);
+    },
+
+    // ---------- v14: Arcade-Automat „Hamsi Yakala" ----------
+    showArcade() {
+      if (!hooks.arcadeStart()) return;
+      $('event-icon').textContent = '🕹️';
+      $('event-title').textContent = t('arcadeTitle');
+      $('event-text').innerHTML = `${t('arcadeIntro', state.arcadeBest)}
+        <canvas id="arcade-cv" width="300" height="330" style="display:block;margin:10px auto;background:#0d1a24;border-radius:10px"></canvas>`;
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const cv = $('arcade-cv');
+      const cx2 = cv.getContext('2d');
+      let bx = 150, score = 0, tLeft = 25, running2 = true, raf = 0;
+      const drops = [];
+      let last = performance.now();
+      const onMove = (e) => {
+        const r = cv.getBoundingClientRect();
+        bx = Math.max(24, Math.min(276, (e.clientX - r.left) / r.width * 300));
+      };
+      const onKey = (e) => {
+        if (e.code === 'ArrowLeft') bx = Math.max(24, bx - 22);
+        if (e.code === 'ArrowRight') bx = Math.min(276, bx + 22);
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('keydown', onKey);
+      const finish = () => {
+        running2 = false;
+        cancelAnimationFrame(raf);
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('keydown', onKey);
+        const res = hooks.arcadeResult(score);
+        $('event-text').innerHTML = `${t('arcadeScore', score, res.opp)}<br>
+          <b>${res.won ? t('arcadeWon', fmtMoney(CFG.arcade.duelPrize, state.settings.lang)) : t('arcadeLost')}</b><br>
+          ${t('arcadePay', fmtMoney(res.pay, state.settings.lang))} · 🏆 ${res.best}`;
+        box.innerHTML = '';
+        const done = document.createElement('button');
+        done.className = 'big-btn ghost';
+        done.textContent = t('back');
+        done.addEventListener('click', () => hooks.closeShop());
+        box.appendChild(done);
+      };
+      const loop = (now) => {
+        if (!running2) return;
+        const dt2 = Math.min((now - last) / 1000, 0.06);
+        last = now;
+        tLeft -= dt2;
+        if (tLeft <= 0) { finish(); return; }
+        if (Math.random() < dt2 * 1.7) {
+          drops.push({ x: 20 + Math.random() * 260, y: -12, v: 55 + Math.random() * 65 });
+        }
+        for (let i = drops.length - 1; i >= 0; i--) {
+          const d = drops[i];
+          d.y += d.v * dt2;
+          if (d.y > 296 && Math.abs(d.x - bx) < 26) { score++; drops.splice(i, 1); }
+          else if (d.y > 330) drops.splice(i, 1);
+        }
+        cx2.clearRect(0, 0, 300, 330);
+        cx2.font = '20px serif';
+        for (const d of drops) cx2.fillText('🐟', d.x - 10, d.y);
+        cx2.fillText('🧺', bx - 12, 318);
+        cx2.fillStyle = '#f4efe4';
+        cx2.font = '14px sans-serif';
+        cx2.fillText('⏱ ' + Math.ceil(tLeft) + '   ✚ ' + score, 10, 20);
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => { finish(); });
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
     // ---------- v13: Muhtarlık — Dorfprojekte finanzieren ----------
     showVillage() {
       const L = state.settings.lang;
@@ -1055,6 +1174,7 @@ export function createUI(ctx, hooks) {
             <button class="big-btn style-btn ${state.teaStyle === 'siyah' ? '' : 'ghost'}" data-s="siyah">📦 ${t('style_siyah')}</button>
             <button class="big-btn style-btn ${state.teaStyle === 'yesil' ? '' : 'ghost'}" data-s="yesil" ${state.greenLine ? '' : 'disabled'}>🍵 ${t('style_yesil')}</button>
             <button class="big-btn style-btn ${state.teaStyle === 'beyaz' ? '' : 'ghost'}" data-s="beyaz" ${state.dedeBonus ? '' : 'disabled'}>🏵️ ${t('style_beyaz')}</button>
+            <button class="big-btn style-btn ${state.teaStyle === 'harman' ? '' : 'ghost'}" data-s="harman" ${state.dedeHarman ? '' : 'disabled'}>🫖 ${t('style_harman')}</button>
           </div>
           <div class="section-info">${t('styleInfo_' + state.teaStyle)}</div>
           ${!state.greenLine ? `<button id="btn-greenline" class="big-btn ghost" ${state.money < CFG.teaStyles.yesil.lineCost ? 'disabled' : ''}>

@@ -340,6 +340,31 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   Lauftempo, Katzenfell wird pro Tier eingefärbt. Ziege & Bär bleiben
   vorerst prozedural (kein passendes CC0-Modell), Fallbacks überall.
 
+### Kartell, Wahl & die Insel (v14)
+- **🕵️ Story 3 — Das Kartell:** Ein Aufkäufer-Kartell drückt die Preise.
+  Entscheide dich: der Jandarma melden (Beweise sammeln, Razzia am
+  Festival, +10 Ruf) oder mitverdienen (Nachtlieferungen, großer Payout,
+  dauerhaft 20 % bessere Kaçak-Konditionen, −5 Ruf). Zwei Enden.
+- **🌪️ Jahres-Events:** Jedes Spieljahr (28 Tage) würfelt das Tal ein
+  Großereignis — Rekordhitze, Hamsi-Schwemme, Tourismus-Boom oder
+  Stromausfall — mit echten Wirtschaftsfolgen.
+- **🏍️ Kurye-Moped & Lieferservice:** Neues Moped beim Händler; bis zu
+  drei Bestellungen am Tag (Telefon-App „Kurye"): Paket an der
+  Annahmestelle holen, schnell ausliefern — Trinkgeld schmilzt pro Sekunde.
+- **🖼️ Dede-Erinnerungen:** Zehn leuchtende Fotorahmen an bedeutsamen
+  Orten erzählen Rückblenden aus Dedes Leben. Alle gefunden: das
+  Familienrezept **„Dede Harmanı"** wird als vierte Teesorte frei (2 kg
+  je Packung, Spitzenpreis).
+- **🕹️ Arcade-Automat „Hamsi Yakala":** Vorm Çayevi steht ein Automat —
+  fallende Hamsi mit dem Korb fangen (25 s), Einsatz 50, Auszahlung pro
+  Fang, Wochenduell gegen Temel.
+- **🗺️ Insel „Ada":** Nur per Boot erreichbar — Leuchtturm in zwei Etappen
+  restaurieren (nachts pulsierendes Leuchtfeuer), Schmugglerhöhle plündern,
+  wilder Inselhonig und der beste Angelspot des Schwarzen Meers.
+- **🗳️ Belediye-Wahl:** Am Ende jedes Jahres wählt das Dorf — dein Ruf und
+  fertige Dorfprojekte zählen als Stimmen gegen Kemal Ağa. Sieg bringt den
+  täglichen Amtsbonus, Niederlage Kemals Sondersteuer.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

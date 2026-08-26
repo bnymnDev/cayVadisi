@@ -113,6 +113,7 @@ export const CFG = {
     kalkan: { sell: 380, icon: '🐡' },
     tea_green: { sell: 76,  icon: '🍵' },    // v6: Yeşil Çay
     tea_white: { sell: 165, icon: '🏵️' },    // v6: Beyaz Çay (Rize-Rarität)
+    tea_harman: { sell: 210, icon: '🫖' },   // v14: Dede Harmanı (Familienrezept)
     honey: { sell: 240, icon: '🍯' },        // v6: Anzer-Honig von der Yayla
     cheese: { sell: 260, icon: '🧀' }        // v9: Mandıra-Peynir (aus 2 Milch)
   },
@@ -181,7 +182,8 @@ export const CFG = {
     tractor: { cost: 3800,  speed: 7,  accel: 5.5,  icon: '🚜', cargo: 5 },  // Korb ×5
     pickup:  { cost: 7500,  speed: 13, accel: 8,    icon: '🛻', cargo: 3 },
     sedan:   { cost: 16000, speed: 17, accel: 10,   icon: '🚗', cargo: 1 },
-    lux:     { cost: 48000, speed: 26, accel: 15,   icon: '🏎️', cargo: 1 }
+    lux:     { cost: 48000, speed: 26, accel: 15,   icon: '🏎️', cargo: 1 },
+    moto:    { cost: 5200,  speed: 22, accel: 15,   icon: '🏍️', cargo: 1 }   // v14: Kurye-Moped
   },
   parking: { x: 24, z: -100 },   // Stellplatz beim Spielerhaus
 
@@ -278,7 +280,8 @@ export const CFG = {
   teaStyles: {
     siyah: { product: 'tea_pack', kgPerPack: 1 },
     yesil: { product: 'tea_green', kgPerPack: 1, lineCost: 4000 },
-    beyaz: { product: 'tea_white', kgPerPack: 2, needsDede: true }
+    beyaz: { product: 'tea_white', kgPerPack: 2, needsDede: true },
+    harman: { product: 'tea_harman', kgPerPack: 2, needsMemories: true }   // v14: Dede Harmanı
   },
 
   // ---- v6: Yayla (Hochalm) ----
@@ -535,6 +538,45 @@ export const CFG = {
   jointVenture: { cost: 10000, packsPerDay: 2, priceMul: 1.1 },
 
   // ---- v13: Dorf-Ausbau (Tropico) — Projekte übers Muhtarlık finanzieren ----
+  // ---- v14: Jahres-Events, Kurye, Dede, Arcade, Ada, Wahl, Story 3 ----
+  yearEvents: {
+    cycleDays: 28,
+    list: ['heat', 'hamsi', 'boom', 'blackout']
+  },
+  kurye: {
+    perDay: 3, basePay: 140, tipPerSec: 3, maxTime: 100,
+    targets: [
+      { id: 'pension', x: 46, z: -116 }, { id: 'city', x: 104, z: -96 },
+      { id: 'karsikoy', x: -132, z: 82 }, { id: 'yayla', x: 20, z: 90 },
+      { id: 'factory', x: -66, z: -110 }
+    ]
+  },
+  dede: {
+    spots: [
+      { x: 34, z: -95 },     // Baum am Spawn
+      { x: 24, z: -120 },    // am Steg
+      { x: -60, z: 146 },    // Şelale
+      { x: 28, z: 94 },      // Yayla-Hütte
+      { x: -32, z: 40 },     // Konak
+      { x: -130, z: 74 },    // Karşıköy
+      { x: 116, z: -96 },    // Çayevi
+      { x: -106, z: -102 },  // Scheune
+      { x: 6, z: -28 },      // Feldrand
+      { x: 130, z: -90 }     // Supermarkt-Ecke
+    ]
+  },
+  arcade: { spot: { x: 116, z: -106 }, stake: 50, perPoint: 6, duelPrize: 250 },
+  ada: {
+    cx: -62, cz: -172, r: 21,
+    zone: { x0: -76, x1: -48, z0: -186, z1: -158, h: 2.2 },
+    lighthouse: { x: -68, z: -178, stages: [4000, 6000], rep: 6 },
+    cave: { x: -54, z: -164, loot: 2500 },
+    fishSpot: { x: -50, z: -180 },
+    honey: { x: -70, z: -164, perVisit: 2 }
+  },
+  election: { everyDays: 28, kemalBase: 34, villageVotes: 9, bonus: 160, tax: 120 },
+  story3: { startDay: 8, kacakPay: [1500, 4000], jandarmaPay: [800, 2000], packCost: 5 },
+
   village: {
     muhtar: { x: 108, z: -112 },      // Muhtarlık-Schild in der Kasaba
     minRep: 15,

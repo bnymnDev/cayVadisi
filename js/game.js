@@ -114,6 +114,15 @@ export function createGame(ctx, mods) {
     planHeliJob();
     planPhotoMission();
     planMarket();
+    // v14: das Kartell meldet sich
+    if (state.day >= CFG.story3.startDay && state.story3.ch === 0) {
+      state.story3.ch = 1;
+      setTimeout(() => {
+        if (!running || paused || ui.overlayOpen()) { state.story3.ch = 0; return; }
+        ui.showStory3Choice();
+        player.releaseLock();
+      }, 5000);
+    }
     initStocks();
     if (!state.exportOffers.length) regenExports();
     newOrder();
@@ -155,6 +164,11 @@ export function createGame(ctx, mods) {
           if (Math.floor(state.inventory.coal) >= CFG.factory.energyCoal) {
             state.inventory.coal -= CFG.factory.energyCoal;
             lines.push({ k: 'sumFactory', v: '+' + packs + ' 📦', sub: '🪨 −' + CFG.factory.energyCoal });
+          } else if (yearEventIs('blackout')) {
+            // v14: Stromausfall — ohne Kohle steht die Fabrik
+            state.inventory[style.product] -= packs;
+            state.packedToday = 0;
+            lines.push({ k: 'sumBlackout', v: '0 📦' });
           } else {
             state.money -= CFG.factory.energyCost;
             state.daySpent += CFG.factory.energyCost;
@@ -317,7 +331,8 @@ export function createGame(ctx, mods) {
       const guests = Math.min(P.maxGuests,
         Math.round(state.rep / 25) + (season() === 0 ? 1 : 0) + (isFestival() ? 1 : 0));
       if (guests > 0) {
-        const sum = guests * P.guestPay;
+        // v14: Tourismus-Boom zahlt +50 %
+        const sum = Math.round(guests * P.guestPay * (yearEventIs('boom') ? 1.5 : 1));
         state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
         lines.push({ k: 'sumPension', v: '+' + fmtMoney(sum, L), sub: guests + ' 🧳' });
       }
@@ -378,6 +393,45 @@ export function createGame(ctx, mods) {
         lines.push({ k: 'sumSilo', v: '+' + fmtMoney(sum, L) });
       }
     }
+    // v14: Muhtarlık-Amtsbonus bzw. Kemals Sondersteuer
+    if (state.muhtarluk) {
+      const b = CFG.election.bonus;
+      state.money += b; state.dayEarned += b; state.totalEarned += b;
+      lines.push({ k: 'sumMuhtar', v: '+' + fmtMoney(b, L) });
+    } else if (state.day > CFG.election.everyDays) {
+      state.money -= CFG.election.tax;
+      state.daySpent += CFG.election.tax;
+      lines.push({ k: 'sumKemalTax', v: '−' + fmtMoney(CFG.election.tax, L) });
+    }
+    // v14: Story-3-Finale am Festivalabend
+    if (isFestival() && state.story3.ch === 3) {
+      const S3 = CFG.story3;
+      if (state.story3.path === 'jandarma') {
+        state.money += S3.jandarmaPay[1]; state.dayEarned += S3.jandarmaPay[1]; state.totalEarned += S3.jandarmaPay[1];
+        addRep(10);
+        lines.push({ k: 'sumRazzia', v: '+' + fmtMoney(S3.jandarmaPay[1], L) });
+      } else {
+        state.money += S3.kacakPay[1]; state.dayEarned += S3.kacakPay[1]; state.totalEarned += S3.kacakPay[1];
+        addRep(-5);
+        state.kacakBonus = true;
+        lines.push({ k: 'sumKartell', v: '+' + fmtMoney(S3.kacakPay[1], L) });
+      }
+      state.story3.ch = 4;
+      state.story3.done = true;
+      setTimeout(() => ui.toast(t(state.story3.path === 'jandarma' ? 'story3EndJandarma' : 'story3EndKacak'), true, 12000), 2500);
+    }
+    // v14: Belediye-Wahl am letzten Tag jedes Jahres
+    if (state.day % CFG.election.everyDays === 0) {
+      const E = CFG.election;
+      const villageDone = Object.values(state.village).filter((v2) => v2 === 2).length;
+      const mine = Math.round(state.rep + villageDone * E.villageVotes + (state.muhtarluk ? 5 : 0));
+      const kemal = Math.round(E.kemalBase + state.day * 0.3 - (state.kemalPeace ? 8 : 0));
+      const won = mine > kemal;
+      state.muhtarluk = won;
+      if (won) state.electionsWon += 1;
+      lines.push({ k: won ? 'sumElectionWin' : 'sumElectionLose', v: mine + ' : ' + kemal });
+      setTimeout(() => ui.toast(t(won ? 'electionWin' : 'electionLose', mine, kemal), won, 11000), 1500);
+    }
     // v13: fertige Dorfprojekte zahlen zurück
     if (state.village.cayevi2 === 2) {
       const inc = CFG.village.cayeviIncome;
@@ -420,6 +474,14 @@ export function createGame(ctx, mods) {
       if (season() === 2) ui.toast(t('winterInfo'), false, 8000);
     }
 
+    // v14: Jahres-Event würfeln bzw. weiterticken
+    if (state.day > 1 && (state.day - 1) % CFG.yearEvents.cycleDays === 0) {
+      rollYearEvent();
+    } else if (state.yearEvent) {
+      state.yearEvent.daysLeft -= 1;
+      if (state.yearEvent.daysLeft <= 0) state.yearEvent = null;
+    }
+
     // v13: Dorfprojekte bauen über Nacht weiter
     for (const id of Object.keys(CFG.village.projects)) {
       if (state.village[id] === 1) {
@@ -439,6 +501,8 @@ export function createGame(ctx, mods) {
       for (const p of state.plots) {
         if (p && p.daysLeft > 0) p.daysLeft -= 1;
         if (p && state.upgrades.sprinkler && p.daysLeft > 0) p.daysLeft -= 1;
+        // v14: Rekordhitze — Bewässerung zählt doppelt
+        if (p && state.upgrades.sprinkler && yearEventIs('heat') && p.daysLeft > 0) p.daysLeft -= 1;
       }
     }
     farm.refreshPlots();
@@ -780,7 +844,9 @@ export function createGame(ctx, mods) {
     const have = Math.floor(state.inventory[id] || 0);
     const n = Math.min(have, count);
     if (n <= 0) { audio.deny(); return 0; }
-    const price = CFG.products[id].sell * (state.marketMul[id] || 1) * prestigeMul(CFG);
+    let price = CFG.products[id].sell * (state.marketMul[id] || 1) * prestigeMul(CFG);
+    // v14: Hamsi-Schwemme drückt alle Fischpreise
+    if (yearEventIs('hamsi') && (id === 'hamsi' || id === 'lufer' || id === 'kalkan')) price *= 0.5;
     const sum = n * price;
     state.inventory[id] -= n;
     state.money += sum;
@@ -1228,6 +1294,7 @@ export function createGame(ctx, mods) {
     if (!s) return false;
     if (styleId === 'yesil' && !state.greenLine) { audio.deny(); return false; }
     if (styleId === 'beyaz' && !state.dedeBonus) { audio.deny(); return false; }
+    if (styleId === 'harman' && !state.dedeHarman) { audio.deny(); return false; }   // v14
     state.teaStyle = styleId;
     audio.buy();
     save();
@@ -1300,7 +1367,8 @@ export function createGame(ctx, mods) {
     if (state.role === 'jandarma') { ui.toast(t('blackJandarma'), false); audio.deny(); return false; }
     const packs = Math.floor(state.inventory.tea_pack || 0);
     if (packs < 1) { ui.toast(t('kacakNoPacks'), false); audio.deny(); return false; }
-    const value = packs * CFG.products.tea_pack.sell * K.priceMul * prestigeMul(CFG);
+    const value = packs * CFG.products.tea_pack.sell * K.priceMul * prestigeMul(CFG)
+      * (state.kacakBonus ? 1.2 : 1);   // v14: Kartell-Konditionen nach dem Kaçak-Ende
     let risk = K.baseRisk + state.blackHeat * K.heatRisk;
     state.inventory.tea_pack -= packs;
     if (Math.random() < risk) {
@@ -2048,6 +2116,165 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ---------- v14: Jahres-Events, Kurye, Dede, Arcade, Ada, Wahl, Story 3 ----------
+  function yearEventIs(id) { return state.yearEvent && state.yearEvent.id === id; }
+
+  function rollYearEvent() {
+    const list = CFG.yearEvents.list;
+    const id = list[Math.floor(Math.random() * list.length)];
+    state.yearEvent = { id, daysLeft: CFG.yearEvents.cycleDays };
+    setTimeout(() => ui.toast(t('yearEvent_' + id), false, 11000), 3000);
+  }
+
+  // --- Kurye (Lieferservice) ---
+  function spawnKuryeJob() {
+    const T = CFG.kurye.targets;
+    const tgt = T[Math.floor(Math.random() * T.length)];
+    state._kuryeJob = { id: tgt.id, x: tgt.x, z: tgt.z, stage: 'pick', t0: state.timeSec };
+    ui.toast(t('kuryeNew', t('kuryeT_' + tgt.id)), true, 9000);
+    audio.pickDone();
+  }
+  function kuryePickup() {
+    const j = state._kuryeJob;
+    if (!j || j.stage !== 'pick') return;
+    j.stage = 'drop';
+    j.t0 = state.timeSec;
+    audio.harvest();
+    ui.toast(t('kuryeGo', t('kuryeT_' + j.id)), true, 7000);
+  }
+  function kuryeDeliver() {
+    const j = state._kuryeJob;
+    if (!j || j.stage !== 'drop') return;
+    const K = CFG.kurye;
+    const el = state.timeSec - j.t0;
+    const tip = Math.max(0, Math.round((K.maxTime - el) * K.tipPerSec));
+    const pay = K.basePay + tip;
+    state.money += pay; state.dayEarned += pay; state.totalEarned += pay;
+    state.kuryeDone += 1;
+    state._kuryeCount = (state._kuryeCount || 0) + 1;
+    state._kuryeJob = null;
+    if (tip > 0) addRep(1);
+    audio.cash();
+    ui.toast(t('kuryeDone', fmtMoney(pay, state.settings.lang), tip), true, 8000);
+    ui.refreshMoney();
+    save();
+  }
+
+  // --- Dede-Erinnerungen ---
+  function foundMemory(i) {
+    if (state.memories.includes(i)) return false;
+    state.memories.push(i);
+    if (mods.memories) mods.memories.sync();
+    audio.tierUp();
+    player.releaseLock();
+    ui.showMemory(i, state.memories.length, CFG.dede.spots.length);
+    if (state.memories.length >= CFG.dede.spots.length && !state.dedeHarman) {
+      state.dedeHarman = true;
+      addRep(5);
+      setTimeout(() => ui.toast(t('dedeUnlock'), true, 11000), 1200);
+    }
+    save();
+    return true;
+  }
+
+  // --- Arcade ---
+  function arcadeStart() {
+    if (state.money < CFG.arcade.stake) { audio.deny(); return false; }
+    state.money -= CFG.arcade.stake;
+    state.daySpent += CFG.arcade.stake;
+    ui.refreshMoney();
+    return true;
+  }
+  function arcadeResult(score) {
+    const A = CFG.arcade;
+    let pay = score * A.perPoint;
+    const opp = 8 + Math.floor(Math.random() * 10);
+    const won = score > opp;
+    if (won && !state._arcadeDone) { pay += A.duelPrize; state._arcadeDone = true; }
+    state.money += pay; state.dayEarned += pay; state.totalEarned += pay;
+    if (score > state.arcadeBest) state.arcadeBest = score;
+    if (pay > 0) audio.cash(); else audio.deny();
+    ui.refreshMoney();
+    save();
+    return { pay, opp, won, best: state.arcadeBest };
+  }
+
+  // --- Ada ---
+  function adaRestore() {
+    const L2 = CFG.ada.lighthouse;
+    const cost = L2.stages[state.ada.light];
+    if (cost == null || state.money < cost) { audio.deny(); return false; }
+    state.money -= cost;
+    state.daySpent += cost;
+    state.ada.light += 1;
+    if (mods.ada) mods.ada.sync();
+    if (state.ada.light >= 2) { addRep(L2.rep); ui.toast(t('adaLightDone'), true, 9000); audio.tierUp(); }
+    else { ui.toast(t('adaLightStage'), true, 7000); audio.harvest(); }
+    checkWealth(); ui.refreshMoney(); save();
+    return true;
+  }
+  function adaCave() {
+    if (state.ada.cave) { audio.deny(); return false; }
+    state.ada.cave = true;
+    const loot = CFG.ada.cave.loot;
+    state.money += loot; state.dayEarned += loot; state.totalEarned += loot;
+    if (mods.ada) mods.ada.sync();
+    audio.cash();
+    ui.toast(t('adaCave', fmtMoney(loot, state.settings.lang)), true, 9000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+  function adaFish() {
+    if (!state.rod || state._adaFish) { audio.deny(); return false; }
+    state._adaFish = true;
+    const n = 2 + Math.floor(Math.random() * 3);
+    state.inventory.kalkan += n;
+    audio.harvest();
+    ui.toast(t('adaFish', n), true, 7000);
+    save();
+    return true;
+  }
+  function adaHoney() {
+    if (state._adaHoney) { audio.deny(); return false; }
+    state._adaHoney = true;
+    state.inventory.honey += CFG.ada.honey.perVisit;
+    audio.harvest();
+    ui.toast(t('adaHoney', CFG.ada.honey.perVisit), true, 7000);
+    save();
+    return true;
+  }
+
+  // --- Story 3: das Kartell ---
+  function story3Choose(path) {
+    state.story3 = { ch: 2, path, done: false };
+    ui.toast(t(path === 'jandarma' ? 'story3ObjJandarma' : 'story3ObjKacak'), true, 11000);
+    save();
+  }
+  function story3Ship() {
+    const S3 = CFG.story3;
+    const st = state.story3;
+    if (st.ch !== 2) return false;
+    if (st.path === 'kacak') {
+      if (Math.floor(state.inventory.tea_pack) < S3.packCost) {
+        ui.toast(t('story3NeedPacks', S3.packCost), false, 6000);
+        audio.deny();
+        return false;
+      }
+      state.inventory.tea_pack -= S3.packCost;
+      state.money += S3.kacakPay[0]; state.dayEarned += S3.kacakPay[0]; state.totalEarned += S3.kacakPay[0];
+      ui.toast(t('story3KacakDone', fmtMoney(S3.kacakPay[0], state.settings.lang)), true, 9000);
+    } else {
+      state.money += S3.jandarmaPay[0]; state.dayEarned += S3.jandarmaPay[0]; state.totalEarned += S3.jandarmaPay[0];
+      addRep(3);
+      ui.toast(t('story3JandarmaDone', fmtMoney(S3.jandarmaPay[0], state.settings.lang)), true, 9000);
+    }
+    st.ch = 3;
+    audio.cash();
+    ui.refreshMoney();
+    save();
+    return true;
+  }
+
   function doSelaleRest() {
     if (state._selaleDone) { ui.toast(t('selaleAgain'), false); audio.deny(); return false; }
     state._selaleDone = true;
@@ -2169,8 +2396,12 @@ export function createGame(ctx, mods) {
     }
     if (boat.driving) {
       if (boat.fishingState !== 'idle') { boat.reel(); return; }
-      // v7: Nachts am Schmugglerschiff — Kaçak-Deal
-      if (nearKacakShip()) { sellKacak(); return; }
+      // v7: Nachts am Schmugglerschiff — Kaçak-Deal (v14: Story-3-Mission zuerst)
+      if (nearKacakShip()) {
+        if (state.story3.ch === 2) { story3Ship(); return; }
+        sellKacak();
+        return;
+      }
       // v8: Kayık-Rennen an der Startboje
       if (mods.race && mods.race.nearStart(boat.pos.x, boat.pos.z)) { mods.race.start(); return; }
       // Am Ufer: anlegen. Auf offener See: Netz schleppen oder angeln.
@@ -2237,6 +2468,14 @@ export function createGame(ctx, mods) {
     else if (act.id === 'meister') { if (startMeister()) { player.releaseLock(); ui.showMeister(); } }
     else if (act.id === 'cat') feedCat();
     else if (act.id === 'muhtarlik') { player.releaseLock(); ui.showVillage(); }
+    else if (act.id === 'kuryepick') kuryePickup();
+    else if (act.id === 'kuryedrop') kuryeDeliver();
+    else if (act.id === 'memory') foundMemory(act.data);
+    else if (act.id === 'arcade') { player.releaseLock(); ui.showArcade(); }
+    else if (act.id === 'adalight') adaRestore();
+    else if (act.id === 'adacave') adaCave();
+    else if (act.id === 'adafish') adaFish();
+    else if (act.id === 'adahoney') adaHoney();
   }
 
   window.addEventListener('keydown', (e) => {
@@ -2315,6 +2554,21 @@ export function createGame(ctx, mods) {
         && distTo(CFG.yayla.x + 6, CFG.yayla.z + 2) < CFG.interactDist + 2) return { id: 'hivegame' };
     if (distTo(CFG.karsikoy.market.x, CFG.karsikoy.market.z) < CFG.interactDist + 1.5) return { id: 'koymarket' };
     if (distTo(CFG.karsikoy.pitch.x, CFG.karsikoy.pitch.z) < CFG.interactDist + 2) return { id: 'mac' };
+    // v14
+    const kj = state._kuryeJob;
+    if (kj && kj.stage === 'pick' && distTo(CFG.hut.x, CFG.hut.z) < CFG.interactDist + 2) return { id: 'kuryepick' };
+    if (kj && kj.stage === 'drop' && distTo(kj.x, kj.z) < CFG.interactDist + 3) return { id: 'kuryedrop' };
+    if (mods.memories) {
+      const mi = mods.memories.nearest(player.pos.x, player.pos.z);
+      if (mi >= 0) return { id: 'memory', data: mi };
+    }
+    if (distTo(CFG.arcade.spot.x, CFG.arcade.spot.z) < CFG.interactDist + 1.5) return { id: 'arcade' };
+    if (mods.ada && mods.ada.onIsland(player.pos.x, player.pos.z)) {
+      if (state.ada.light < 2 && mods.ada.nearLight(player.pos.x, player.pos.z)) return { id: 'adalight' };
+      if (!state.ada.cave && mods.ada.nearCave(player.pos.x, player.pos.z)) return { id: 'adacave' };
+      if (state.rod && !state._adaFish && mods.ada.nearFish(player.pos.x, player.pos.z)) return { id: 'adafish' };
+      if (!state._adaHoney && mods.ada.nearHoney(player.pos.x, player.pos.z)) return { id: 'adahoney' };
+    }
     // v13
     if (mods.village && mods.village.nearMuhtar(player.pos.x, player.pos.z)) return { id: 'muhtarlik' };
     // v12
@@ -2379,6 +2633,12 @@ export function createGame(ctx, mods) {
 
     // v11: Heli-Aufträge (muss VOR dem Heli-Early-Return laufen)
     updateHeliJobs(dt);
+
+    // v14: Kurye-Bestellungen trudeln tagsüber ein
+    if (!state._kuryeJob && (state._kuryeCount || 0) < CFG.kurye.perDay
+        && sky.hour > 8.5 && sky.hour < 16 && Math.random() < dt * 0.012) {
+      spawnKuryeJob();
+    }
 
     // v11: Ezan — bewusst dezent: kurzer Hinweis, das Dorf sammelt sich
     CFG.ezan.hours.forEach((h, i) => {
@@ -2640,6 +2900,8 @@ export function createGame(ctx, mods) {
     buyOrchard, setLogi, spawnHeliJob,
     planPhotoMission, photoTaken, buyGulet, startMeister, meisterResult,
     restoreKonak, feedCat, buyJointVenture, buyVillage,
+    arcadeStart, arcadeResult, story3Choose, foundMemory, yearEventIs,
+    adaRestore, adaCave, adaFish, adaHoney, spawnKuryeJob, kuryePickup, kuryeDeliver,
     get photoMission() { return photoMission; },
     set photoMission(v) { photoMission = v; },
     get heliJob() { return heliJob; },

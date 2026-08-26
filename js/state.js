@@ -23,9 +23,9 @@ export const state = {
     egg: 0, milk: 0, wool: 0, corn: 0, tomato: 0, cabbage: 0, hazel: 0,
     straw: 0, walnut: 0, coal: 0, tea_pack: 0,
     hamsi: 0, lufer: 0, kalkan: 0,
-    tea_green: 0, tea_white: 0, honey: 0, cheese: 0
+    tea_green: 0, tea_white: 0, honey: 0, cheese: 0, tea_harman: 0
   },
-  vehicles: { tractor: false, pickup: false, sedan: false, lux: false },
+  vehicles: { tractor: false, pickup: false, sedan: false, lux: false, moto: false },
   marketMul: {},              // Tagespreis-Faktoren pro Produkt
   wealthTier: 0,
 
@@ -79,6 +79,16 @@ export const state = {
   // v13
   village: { okul: 0, cayevi2: 0, cami: 0 },   // 0=offen, 1=Bau, 2=fertig
   villageDays: { okul: 0, cayevi2: 0, cami: 0 },
+  // v14
+  yearEvent: null,          // { id, daysLeft }
+  kuryeDone: 0,             // ausgelieferte Bestellungen (kumulativ)
+  memories: [],             // gefundene Dede-Erinnerungen (Indizes)
+  dedeHarman: false,        // Familienrezept freigeschaltet
+  arcadeBest: 0,
+  muhtarluk: false,         // Belediye-Wahl gewonnen
+  electionsWon: 0,
+  story3: { ch: 0, path: null, done: false },
+  ada: { light: 0, cave: false },
 
   // v11
   animalNames: {},          // Art -> [Namen]
@@ -219,7 +229,10 @@ export function save() {
     heliJobsDone: s.heliJobsDone,
     photoMissionsDone: s.photoMissionsDone, gulet: s.gulet, guletTours: s.guletTours,
     sampiyon: s.sampiyon, konak: s.konak, catFeeds: s.catFeeds, jointVenture: s.jointVenture,
-    village: s.village, villageDays: s.villageDays
+    village: s.village, villageDays: s.villageDays,
+    yearEvent: s.yearEvent, kuryeDone: s.kuryeDone, memories: s.memories,
+    dedeHarman: s.dedeHarman, arcadeBest: s.arcadeBest, muhtarluk: s.muhtarluk,
+    electionsWon: s.electionsWon, story3: s.story3, ada: s.ada
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -317,6 +330,17 @@ export function load() {
     state.jointVenture = d.jointVenture ?? false;
     state.village = d.village ?? { okul: 0, cayevi2: 0, cami: 0 };
     state.villageDays = d.villageDays ?? { okul: 0, cayevi2: 0, cami: 0 };
+    state.yearEvent = d.yearEvent ?? null;
+    state.kuryeDone = d.kuryeDone ?? 0;
+    state.memories = d.memories ?? [];
+    state.dedeHarman = d.dedeHarman ?? false;
+    state.arcadeBest = d.arcadeBest ?? 0;
+    state.muhtarluk = d.muhtarluk ?? false;
+    state.electionsWon = d.electionsWon ?? 0;
+    state.story3 = d.story3 ?? { ch: 0, path: null, done: false };
+    state.ada = d.ada ?? { light: 0, cave: false };
+    state.vehicles.moto = state.vehicles.moto ?? false;
+    state.inventory.tea_harman = state.inventory.tea_harman ?? 0;
     return true;
   } catch (e) { return false; }
 }
@@ -380,6 +404,10 @@ export function resetProgress() {
   state.jointVenture = false;
   state.village = { okul: 0, cayevi2: 0, cami: 0 };
   state.villageDays = { okul: 0, cayevi2: 0, cami: 0 };
+  state.yearEvent = null; state.kuryeDone = 0; state.memories = [];
+  state.dedeHarman = false; state.arcadeBest = 0; state.muhtarluk = false;
+  state.electionsWon = 0; state.story3 = { ch: 0, path: null, done: false };
+  state.ada = { light: 0, cave: false };
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -404,5 +432,7 @@ export function resetDay() {
   state._ezan0 = false;
   state._ezan1 = false;
   state._guletDone = false;
+  state._kuryeJob = null; state._kuryeCount = 0; state._arcadeDone = false;
+  state._adaFish = false; state._adaHoney = false;
   state._meisterDone = false;
 }

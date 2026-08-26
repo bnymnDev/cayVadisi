@@ -50,6 +50,8 @@ import { createChars } from './chars.js';
 import { createAnimals3d } from './animals3d.js';
 import { createVehModels } from './vehmodels.js';
 import { setVehicleModels } from './vehicles.js';
+import { createAda } from './world/ada.js';
+import { createMemories } from './memories.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -125,6 +127,7 @@ let heli = null, selale = null;
 let dolmus = null, collectibles = null, karsikoy = null;
 let fireworks = null, orchard = null;
 let gulet = null, cats = null, konak = null, village = null;
+let ada = null, memories = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -208,13 +211,32 @@ createProps(ctx, terrain).then(async (p) => {
   cats = createCats(ctx, terrain, animals3d);
   konak = createKonak(ctx, terrain, p.mats);
   village = createVillage(ctx, terrain, p.mats);
+  memories = createMemories(ctx, terrain);
   allColliders.push(...selale.colliders, ...karsikoy.colliders, ...konak.colliders, ...village.colliders);
+  // v14: Arcade-Automat vorm Çayevi
+  {
+    const cab = new THREE.Group();
+    const bodyM = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.7, 0.7),
+      new THREE.MeshStandardMaterial({ color: 0x24455a, roughness: 0.5 }));
+    bodyM.position.y = 0.85;
+    cab.add(bodyM);
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.45),
+      new THREE.MeshStandardMaterial({ color: 0x0d1a24, emissive: 0x2a9bd8, emissiveIntensity: 0.7 }));
+    screen.position.set(0, 1.25, 0.36);
+    screen.rotation.x = -0.15;
+    cab.add(screen);
+    cab.position.set(CFG.arcade.spot.x, terrain.heightAt(CFG.arcade.spot.x, CFG.arcade.spot.z), CFG.arcade.spot.z);
+    cab.rotation.y = -0.6;
+    cab.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    scene.add(cab);
+    allColliders.push({ x: CFG.arcade.spot.x, z: CFG.arcade.spot.z, r: 0.7 });
+  }
   if (state.upgrades.expand) teaField.setExtension(true);   // v9: gekaufte Parzellen laden
   const gameMods = {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
     farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi, dog,
     race, sled, heli, selale, cc0, dolmus, collectibles, orchard,
-    gulet, cats, konak, village, istanbul: null, npcs: null
+    gulet, cats, konak, village, memories, istanbul: null, npcs: null, ada: null
   };
   game = createGame(ctx, gameMods);
   minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
@@ -222,6 +244,10 @@ createProps(ctx, terrain).then(async (p) => {
   istanbul = createIstanbul(ctx, terrain);
   gameMods.istanbul = istanbul;
   allColliders.push(...istanbul.colliders);
+  // v14: Ada ebenfalls NACH der Minimap (eigene Höhen-Zone, siehe CLAUDE.md)
+  ada = createAda(ctx, terrain, p.mats);
+  gameMods.ada = ada;
+  allColliders.push(...ada.colliders);
   npcs = createNpcs(ctx, terrain, ui, player, () => game.playerShare(), chars);
   gameMods.npcs = npcs;
   ui.bindTouch(player, vehicles, boat);
@@ -447,6 +473,9 @@ function wireHooks() {
   hooks.restoreKonak = () => game.restoreKonak();
   hooks.buyJointVenture = () => game.buyJointVenture();
   hooks.buyVillage = (id) => game.buyVillage(id);
+  hooks.story3Choose = (p2) => game.story3Choose(p2);
+  hooks.arcadeStart = () => game.arcadeStart();
+  hooks.arcadeResult = (s2) => game.arcadeResult(s2);
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -573,6 +602,8 @@ window.__game = {
   get cats() { return cats; },
   get konak() { return konak; },
   get village() { return village; },
+  get ada() { return ada; },
+  get memories() { return memories; },
   get story() { return story; },
   get achievements() { return achievements; },
   setPhotoMode,
@@ -697,6 +728,8 @@ function step(rawDt, manual, skipRender = false) {
     collectibles.update(dt, elapsed);
     gulet.update(dt, elapsed);
     cats.update(dt, elapsed, player.pos);
+    if (ada) ada.update(dt, elapsed, window.__started && game.isNight());
+    if (memories) memories.update(elapsed);
     fireworks.setActive(window.__started && game.isFestival() && game.isNight());
     fireworks.update(dt);
     orchard.setAutumn(seasonAutumn > 0.5);
