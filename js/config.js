@@ -538,6 +538,42 @@ export const CFG = {
   jointVenture: { cost: 10000, packsPerDay: 2, priceMul: 1.1 },
 
   // ---- v13: Dorf-Ausbau (Tropico) — Projekte übers Muhtarlık finanzieren ----
+  // ---- v15: Frachter, Panayır, Bergwerk, Hochzeit, Kemal-KI, Falke, Brücke ----
+  freighter: {
+    cost: 42000, mooring: { x: 136, z: -162 }, maxPacks: 40,
+    routes: {
+      trabzon: { mul: 1.35, risk: 0.10 },
+      samsun:  { mul: 1.75, risk: 0.25 }
+    },
+    lossFactor: 0.4   // bei Sturm auf See geht dieser Anteil verloren
+  },
+  panayir: {
+    everyDays: 14, offset: 7,          // Festtage: Tag 7, 21, 35 …
+    spot: { x: 86, z: -74 },
+    lotTicket: 100,
+    strengthStake: 100, strengthPrize: 450
+  },
+  mine: {
+    spot: { x: 96, z: 128 },
+    coalPerHit: 2, gemChance: 0.18, gemValue: 800, injuryCost: 150
+  },
+  wedding: {
+    minDay: 12,
+    spot: { x: 110, z: -92 },          // Festwiese an der Kasaba
+    guests: 8,
+    taki: [400, 800, 1400, 2200]       // Takı nach Catering-Stufe 0..3
+  },
+  kemalAI: { dumpMul: 0.85, pressurePerMove: 1 },
+  falcon: {
+    perch: { x: 32, z: 102 },          // Yayla-Felsen
+    feedsNeeded: 3, hintHours: 2
+  },
+  bridge: {
+    cost: 6000,
+    x0: -48, x1: -24, z: 132,          // Hängebrücke überm Şelale-Tobel
+    sign: { x: -50, z: 132 }
+  },
+
   // ---- v14: Jahres-Events, Kurye, Dede, Arcade, Ada, Wahl, Story 3 ----
   yearEvents: {
     cycleDays: 28,

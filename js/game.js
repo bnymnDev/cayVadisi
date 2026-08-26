@@ -97,7 +97,9 @@ export function createGame(ctx, mods) {
 
   // v5: Marktanteil deines Labels vs. Kemal Ağa
   function playerShare() {
-    return Math.min(95, Math.max(5, Math.round(5 + state.packsSold * 0.4 + state.exportsDone * 3)));
+    // v15: Kemals Wirtschaftsdruck drückt deinen Anteil sichtbar
+    return Math.min(95, Math.max(5, Math.round(
+      5 + state.packsSold * 0.4 + state.exportsDone * 3 - (state.kemalPressure || 0) * 2)));
   }
 
   function newOrder() {
@@ -114,6 +116,16 @@ export function createGame(ctx, mods) {
     planHeliJob();
     planPhotoMission();
     planMarket();
+    // v15: Kemals täglicher Wirtschaftszug
+    kemalMove();
+    // v15: Temel bittet um Hilfe für die Hochzeit
+    if (state.day >= CFG.wedding.minDay && state.wedding.stage === 0) {
+      setTimeout(() => {
+        if (!running || paused || ui.overlayOpen()) return;
+        ui.showWeddingPlan();
+        player.releaseLock();
+      }, 9000);
+    }
     // v14: das Kartell meldet sich
     if (state.day >= CFG.story3.startDay && state.story3.ch === 0) {
       state.story3.ch = 1;
@@ -196,6 +208,7 @@ export function createGame(ctx, mods) {
         state.dayEarned += CFG.festival.prize;
         state.totalEarned += CFG.festival.prize;
         addRep(CFG.rep.festivalWin);
+        state.kemalPressure = Math.max(0, state.kemalPressure - 1);   // v15: Sieg nimmt Kemal den Wind
         lines.push({ k: 'sumFestivalWin', v: '+' + fmtMoney(CFG.festival.prize, L), sub: Math.round(mine) + ' kg' });
       } else {
         lines.push({ k: 'sumFestivalLose', v: Math.round(mine) + ' / ' + Math.round(kemal) + ' kg' });
@@ -393,6 +406,21 @@ export function createGame(ctx, mods) {
         lines.push({ k: 'sumSilo', v: '+' + fmtMoney(sum, L) });
       }
     }
+    // v15: Frachter kommt zurück — Abrechnung mit Sturm-Risiko
+    if (state.shipment) {
+      const F = CFG.freighter;
+      const sh = state.shipment;
+      const r = F.routes[sh.route];
+      let rev = Math.round(sh.packs * CFG.products.tea_pack.sell * r.mul);
+      const storm = Math.random() < r.risk;
+      if (storm) rev = Math.round(rev * (1 - F.lossFactor));
+      state.money += rev; state.dayEarned += rev; state.totalEarned += rev;
+      trackPacks(sh.packs);
+      lines.push({ k: 'sumFreight', v: '+' + fmtMoney(rev, L), sub: t('route_' + sh.route) + (storm ? ' ⛈️' : '') });
+      if (storm) setTimeout(() => ui.toast(t('freightStorm'), false, 9000), 2000);
+      state.shipment = null;
+      if (mods.freighter) mods.freighter.syncOwned();
+    }
     // v14: Muhtarlık-Amtsbonus bzw. Kemals Sondersteuer
     if (state.muhtarluk) {
       const b = CFG.election.bonus;
@@ -473,6 +501,9 @@ export function createGame(ctx, mods) {
       ui.toast(t('seasonChange', t('season_' + CFG.seasonCycle.names[season()])), true, 8000);
       if (season() === 2) ui.toast(t('winterInfo'), false, 8000);
     }
+
+    // v15: gefeierte Hochzeit abhaken
+    if (state.wedding.stage === 1 && state.day > state.wedding.day) state.wedding.stage = 2;
 
     // v14: Jahres-Event würfeln bzw. weiterticken
     if (state.day > 1 && (state.day - 1) % CFG.yearEvents.cycleDays === 0) {
@@ -692,6 +723,7 @@ export function createGame(ctx, mods) {
       * (state.koop ? CFG.koop.priceBonus : 1)
       * (dec && dec.teaMul ? dec.teaMul : 1)                  // v8: Subvention
       * (state.moralDays > 0 ? CFG.vacation.moralBonus : 1)
+      * (state._kemalDump ? CFG.kemalAI.dumpMul : 1)   // v15: Kemals Dumping-Tag
       * prestigeMul(CFG);
   }
 
@@ -976,7 +1008,8 @@ export function createGame(ctx, mods) {
     const n = Math.min(have, count);
     if (n <= 0) { audio.deny(); return 0; }
     const price = CFG.products.tea_pack.sell * CFG.supermarket.retailFactor * (state.marketMul.tea_pack || 1)
-      * (state.jointVenture ? CFG.jointVenture.priceMul : 1);   // v12: JV-Markenaufschlag
+      * (state.jointVenture ? CFG.jointVenture.priceMul : 1)    // v12: JV-Markenaufschlag
+      * (state._kemalDump ? CFG.kemalAI.dumpMul : 1);           // v15: Kemals Dumping-Tag
     const sum = n * price * famBonus();
     state.inventory.tea_pack -= n;
     trackPacks(n);
@@ -2275,6 +2308,201 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ---------- v15: Frachter, Panayır, Bergwerk, Hochzeit, Kemal-KI, Falke, Brücke ----------
+  function buyFreighter() {
+    if (state.freighter || state.money < CFG.freighter.cost) { audio.deny(); return false; }
+    state.money -= CFG.freighter.cost;
+    state.daySpent += CFG.freighter.cost;
+    state.freighter = true;
+    if (mods.freighter) mods.freighter.syncOwned();
+    audio.tierUp();
+    ui.toast(t('freightBought'), true, 9000);
+    checkWealth(); ui.refreshMoney(); save();
+    return true;
+  }
+  function shipFreight(route) {
+    const F = CFG.freighter;
+    const r = F.routes[route];
+    const have = Math.floor(state.inventory.tea_pack);
+    if (!r || state.shipment || have < 1) { audio.deny(); return false; }
+    const packs = Math.min(F.maxPacks, have);
+    state.inventory.tea_pack -= packs;
+    state.shipment = { route, packs };
+    if (mods.freighter) mods.freighter.syncOwned();
+    audio.gondola();
+    ui.toast(t('freightOut', packs, t('route_' + route)), true, 9000);
+    save();
+    return true;
+  }
+
+  function buyLot() {
+    const P = CFG.panayir;
+    if (state.money < P.lotTicket) { audio.deny(); return null; }
+    state.money -= P.lotTicket;
+    state.daySpent += P.lotTicket;
+    const r = Math.random();
+    let res;
+    if (r < 0.4) { res = { kind: 'none' }; audio.deny(); }
+    else if (r < 0.65) { state.inventory.honey += 3; res = { kind: 'honey', n: 3 }; audio.harvest(); }
+    else if (r < 0.9) {
+      state.money += 200; state.dayEarned += 200; state.totalEarned += 200;
+      res = { kind: 'money', n: 200 }; audio.cash();
+    } else {
+      state.money += 800; state.dayEarned += 800; state.totalEarned += 800;
+      res = { kind: 'jackpot', n: 800 }; audio.tierUp();
+    }
+    ui.refreshMoney(); save();
+    return res;
+  }
+  function kraftStart() {
+    if (state._kraftDone || state.money < CFG.panayir.strengthStake) { audio.deny(); return false; }
+    state.money -= CFG.panayir.strengthStake;
+    state.daySpent += CFG.panayir.strengthStake;
+    state._kraftDone = true;
+    ui.refreshMoney();
+    return true;
+  }
+  function kraftResult(scores) {
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const prize = avg > 0.82 ? CFG.panayir.strengthPrize
+      : avg > 0.55 ? Math.round(CFG.panayir.strengthPrize * 0.4) : 0;
+    if (prize > 0) {
+      state.money += prize; state.dayEarned += prize; state.totalEarned += prize;
+      audio.cash();
+    } else audio.deny();
+    ui.refreshMoney(); save();
+    return { prize, bell: avg > 0.82 };
+  }
+
+  function mineStart() {
+    if (state._mineDone) { ui.toast(t('mineAgain'), false, 4000); audio.deny(); return false; }
+    state._mineDone = true;
+    return true;
+  }
+  function mineReward(scores) {
+    const M = CFG.mine;
+    const coal = scores.filter((s) => s > 0.45).length * M.coalPerHit;
+    state.inventory.coal += coal;
+    let gem = false, injury = false;
+    if (scores.some((s) => s > 0.9) && Math.random() < M.gemChance) {
+      gem = true;
+      state.money += M.gemValue; state.dayEarned += M.gemValue; state.totalEarned += M.gemValue;
+    }
+    if (Math.min(...scores) < 0.18) {
+      injury = true;
+      state.money = Math.max(0, state.money - M.injuryCost);
+      state.daySpent += M.injuryCost;
+      if (state.survival) state.energy = Math.max(0, state.energy - 15);
+    }
+    audio.harvest();
+    ui.refreshMoney(); save();
+    return { coal, gem, gemValue: M.gemValue, injury, injuryCost: M.injuryCost };
+  }
+
+  // --- Hochzeit ---
+  const CATERING_NEED = { cheese: 2, honey: 2, tea_pack: 3 };
+  function weddingContribute(item) {
+    const need = CATERING_NEED[item];
+    if (!need || state.wedding.catering >= 3 || Math.floor(state.inventory[item] || 0) < need) {
+      audio.deny();
+      return false;
+    }
+    state.inventory[item] -= need;
+    state.wedding.catering += 1;
+    audio.buy();
+    save();
+    return true;
+  }
+  function weddingPlan() {
+    const d = state.day;
+    state.wedding.stage = 1;
+    state.wedding.day = d % CFG.seasonDays === 0 ? d + CFG.seasonDays : d + (CFG.seasonDays - d % CFG.seasonDays);
+    ui.toast(t('weddingSet', state.wedding.day), true, 10000);
+    save();
+  }
+  function weddingJoin() {
+    if (state._weddingJoined) { audio.deny(); return false; }
+    state._weddingJoined = true;
+    const taki = CFG.wedding.taki[state.wedding.catering] || CFG.wedding.taki[0];
+    state.money += taki; state.dayEarned += taki; state.totalEarned += taki;
+    addRep(4);
+    audio.tierUp();
+    ui.toast(t('weddingTaki', fmtMoney(taki, state.settings.lang)), true, 11000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  // --- Kemal-KI: ein Zug pro Tag ---
+  function kemalMove() {
+    if (state.kemalPeace && Math.random() < 0.5) return;   // Frieden: oft Ruhe
+    const r = Math.random();
+    if (r < 0.35) {
+      state._kemalDump = true;
+      setTimeout(() => ui.toast(t('kemalMoveDump'), false, 8000), 8000);
+    } else if (r < 0.6) {
+      state.kemalPressure = Math.min(12, state.kemalPressure + CFG.kemalAI.pressurePerMove);
+      setTimeout(() => ui.toast(t('kemalMoveField'), false, 8000), 8000);
+    }
+    // sonst: Ruhetag
+  }
+
+  // --- Falke ---
+  function falconFeed() {
+    if (state.falcon.tame) { audio.deny(); return false; }
+    if (Math.floor(state.inventory.hamsi) < 1) {
+      ui.toast(t('falconHungry'), false, 5000);
+      audio.deny();
+      return false;
+    }
+    state.inventory.hamsi -= 1;
+    state.falcon.feeds += 1;
+    if (state.falcon.feeds >= CFG.falcon.feedsNeeded) {
+      state.falcon.tame = true;
+      addRep(2);
+      audio.tierUp();
+      ui.toast(t('falconTame'), true, 11000);
+    } else {
+      audio.harvest();
+      ui.toast(t('falconFed', state.falcon.feeds, CFG.falcon.feedsNeeded), true, 6000);
+    }
+    save();
+    return true;
+  }
+  function octantName(dx, dz) {
+    const a = Math.atan2(dx, -dz);   // Norden = -z
+    const oct = Math.round(((a + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / 4)) % 8;
+    return t('dir_' + oct);
+  }
+  function falconHintTick(dt) {
+    if (!state.falcon.tame) return;
+    state._falconHint = (state._falconHint || 0) + dt;
+    if (state._falconHint < 110) return;
+    state._falconHint = 0;
+    let best = null, bd = 1e9;
+    CFG.dede.spots.forEach((s, i) => {
+      if (state.memories.includes(i)) return;
+      const d = Math.hypot(s.x - player.pos.x, s.z - player.pos.z);
+      if (d < bd) { bd = d; best = s; }
+    });
+    if (best) {
+      ui.toast(t('falconHint', octantName(best.x - player.pos.x, best.z - player.pos.z)), false, 8000);
+      audio.gull && audio.gull();
+    }
+  }
+
+  function buildBridge() {
+    if (state.bridge || state.money < CFG.bridge.cost) { audio.deny(); return false; }
+    state.money -= CFG.bridge.cost;
+    state.daySpent += CFG.bridge.cost;
+    state.bridge = true;
+    if (mods.bridge) mods.bridge.sync();
+    addRep(3);
+    audio.tierUp();
+    ui.toast(t('bridgeDone'), true, 10000);
+    checkWealth(); ui.refreshMoney(); save();
+    return true;
+  }
+
   function doSelaleRest() {
     if (state._selaleDone) { ui.toast(t('selaleAgain'), false); audio.deny(); return false; }
     state._selaleDone = true;
@@ -2476,6 +2704,13 @@ export function createGame(ctx, mods) {
     else if (act.id === 'adacave') adaCave();
     else if (act.id === 'adafish') adaFish();
     else if (act.id === 'adahoney') adaHoney();
+    else if (act.id === 'wedding') weddingJoin();
+    else if (act.id === 'freighter') { player.releaseLock(); ui.showFreighter(); }
+    else if (act.id === 'lot') { player.releaseLock(); ui.showLot(); }
+    else if (act.id === 'kraft') { if (kraftStart()) { player.releaseLock(); ui.showKraft(); } }
+    else if (act.id === 'mine') { if (mineStart()) { player.releaseLock(); ui.showMine(); } }
+    else if (act.id === 'falcon') falconFeed();
+    else if (act.id === 'bridgebuild') buildBridge();
   }
 
   window.addEventListener('keydown', (e) => {
@@ -2554,6 +2789,16 @@ export function createGame(ctx, mods) {
         && distTo(CFG.yayla.x + 6, CFG.yayla.z + 2) < CFG.interactDist + 2) return { id: 'hivegame' };
     if (distTo(CFG.karsikoy.market.x, CFG.karsikoy.market.z) < CFG.interactDist + 1.5) return { id: 'koymarket' };
     if (distTo(CFG.karsikoy.pitch.x, CFG.karsikoy.pitch.z) < CFG.interactDist + 2) return { id: 'mac' };
+    // v15
+    if (mods.wedding && mods.wedding.active && !state._weddingJoined
+        && mods.wedding.near(player.pos.x, player.pos.z)) return { id: 'wedding' };
+    if (mods.freighter && mods.freighter.nearMooring(player.pos.x, player.pos.z)) return { id: 'freighter' };
+    if (mods.panayir && mods.panayir.nearLot(player.pos.x, player.pos.z)) return { id: 'lot' };
+    if (mods.panayir && !state._kraftDone && mods.panayir.nearKraft(player.pos.x, player.pos.z)) return { id: 'kraft' };
+    if (mods.mine && !state._mineDone && mods.mine.near(player.pos.x, player.pos.z)) return { id: 'mine' };
+    if (mods.falcon && Math.floor(state.inventory.hamsi) >= 1
+        && mods.falcon.nearPerch(player.pos.x, player.pos.z)) return { id: 'falcon' };
+    if (mods.bridge && mods.bridge.nearSign(player.pos.x, player.pos.z)) return { id: 'bridgebuild' };
     // v14
     const kj = state._kuryeJob;
     if (kj && kj.stage === 'pick' && distTo(CFG.hut.x, CFG.hut.z) < CFG.interactDist + 2) return { id: 'kuryepick' };
@@ -2633,6 +2878,9 @@ export function createGame(ctx, mods) {
 
     // v11: Heli-Aufträge (muss VOR dem Heli-Early-Return laufen)
     updateHeliJobs(dt);
+
+    // v15: Falken-Hinweise
+    falconHintTick(dt);
 
     // v14: Kurye-Bestellungen trudeln tagsüber ein
     if (!state._kuryeJob && (state._kuryeCount || 0) < CFG.kurye.perDay
@@ -2902,6 +3150,8 @@ export function createGame(ctx, mods) {
     restoreKonak, feedCat, buyJointVenture, buyVillage,
     arcadeStart, arcadeResult, story3Choose, foundMemory, yearEventIs,
     adaRestore, adaCave, adaFish, adaHoney, spawnKuryeJob, kuryePickup, kuryeDeliver,
+    buyFreighter, shipFreight, buyLot, kraftStart, kraftResult, mineStart, mineReward,
+    weddingContribute, weddingPlan, weddingJoin, falconFeed, buildBridge,
     get photoMission() { return photoMission; },
     set photoMission(v) { photoMission = v; },
     get heliJob() { return heliJob; },

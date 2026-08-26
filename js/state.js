@@ -89,6 +89,13 @@ export const state = {
   electionsWon: 0,
   story3: { ch: 0, path: null, done: false },
   ada: { light: 0, cave: false },
+  // v15
+  freighter: false,
+  shipment: null,           // { route, packs } — Frachter unterwegs
+  wedding: { stage: 0, catering: 0, day: 0 },   // 0=offen 1=geplant 2=gefeiert
+  kemalPressure: 0,         // Kemals Wirtschaftsdruck (drückt deinen Marktanteil)
+  falcon: { feeds: 0, tame: false },
+  bridge: false,
 
   // v11
   animalNames: {},          // Art -> [Namen]
@@ -232,7 +239,9 @@ export function save() {
     village: s.village, villageDays: s.villageDays,
     yearEvent: s.yearEvent, kuryeDone: s.kuryeDone, memories: s.memories,
     dedeHarman: s.dedeHarman, arcadeBest: s.arcadeBest, muhtarluk: s.muhtarluk,
-    electionsWon: s.electionsWon, story3: s.story3, ada: s.ada
+    electionsWon: s.electionsWon, story3: s.story3, ada: s.ada,
+    freighter: s.freighter, shipment: s.shipment, wedding: s.wedding,
+    kemalPressure: s.kemalPressure, falcon: s.falcon, bridge: s.bridge
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -339,6 +348,12 @@ export function load() {
     state.electionsWon = d.electionsWon ?? 0;
     state.story3 = d.story3 ?? { ch: 0, path: null, done: false };
     state.ada = d.ada ?? { light: 0, cave: false };
+    state.freighter = d.freighter ?? false;
+    state.shipment = d.shipment ?? null;
+    state.wedding = d.wedding ?? { stage: 0, catering: 0, day: 0 };
+    state.kemalPressure = d.kemalPressure ?? 0;
+    state.falcon = d.falcon ?? { feeds: 0, tame: false };
+    state.bridge = d.bridge ?? false;
     state.vehicles.moto = state.vehicles.moto ?? false;
     state.inventory.tea_harman = state.inventory.tea_harman ?? 0;
     return true;
@@ -408,6 +423,10 @@ export function resetProgress() {
   state.dedeHarman = false; state.arcadeBest = 0; state.muhtarluk = false;
   state.electionsWon = 0; state.story3 = { ch: 0, path: null, done: false };
   state.ada = { light: 0, cave: false };
+  state.freighter = false; state.shipment = null;
+  state.wedding = { stage: 0, catering: 0, day: 0 };
+  state.kemalPressure = 0; state.falcon = { feeds: 0, tame: false };
+  state.bridge = false;
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -434,5 +453,7 @@ export function resetDay() {
   state._guletDone = false;
   state._kuryeJob = null; state._kuryeCount = 0; state._arcadeDone = false;
   state._adaFish = false; state._adaHoney = false;
+  state._mineDone = false; state._kraftDone = false; state._weddingJoined = false;
+  state._kemalDump = false; state._falconHint = 0;
   state._meisterDone = false;
 }

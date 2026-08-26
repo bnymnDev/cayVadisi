@@ -365,6 +365,30 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   fertige Dorfprojekte zählen als Stimmen gegen Kemal Ağa. Sieg bringt den
   täglichen Amtsbonus, Niederlage Kemals Sondersteuer.
 
+### Frachter, Hochzeit & der Falke (v15)
+- **⚓ Küstenfrachter:** Beim Händler kaufen, Tee-Pakete verladen und Route
+  wählen — Trabzon (×1,35, 10 % Risiko) oder Samsun (×1,75, 25 %). Abrechnung
+  am Abend; bei Sturm geht ein Teil der Ladung über Bord.
+- **🎪 Panayır:** Alle zwei Wochen steht der Jahrmarkt auf der Wiese —
+  bunte Buden, Wimpelketten, **Losbude** (Hauptgewinn 800) und
+  **Kraftmesser** mit Glocke.
+- **⛏️ Das alte Bergwerk:** Stollen am Nordkamm — einmal täglich Kohle
+  hauen (Timing-Minispiel): saubere Treffer bringen Kohle, perfekte einen
+  Bergkristall, Patzer einen Steinschlag samt Arztkosten.
+- **💍 Temels Dorfhochzeit (komplett visuell):** Du organisierst das Fest
+  (Catering aus Peynir, Honig, Tee). Am Festtag steht auf der Festwiese
+  eine echte Szene: Lichterketten, Fahnen-Girlanden, Festtafeln, Brautpaar
+  mit Schleier — und ein **tanzender Halay-Kreis aus acht geriggten
+  Gästen** zu Davul & Zurna. Mitfeiern bringt Takı-Geld je nach Catering.
+- **📈 Kemal-KI:** Kemal Ağa wirtschaftet jetzt sichtbar mit — Dumping-Tage
+  (−15 % auf deine Verkäufe), Landkäufe, die deinen Marktanteil drücken;
+  Festivalsiege nehmen ihm den Wind aus den Segeln.
+- **🦅 Der Falke:** Auf der Yayla sitzt ein verletzter Falke — mit drei
+  Hamsi aufpäppeln, dann kreist er über dir und meldet alle zwei Stunden
+  die Richtung zur nächsten Dede-Erinnerung.
+- **🌉 Hängebrücke:** Bauprojekt überm Şelale-Tobel (6.000) — begehbar mit
+  Wackel-Physik: Das Deck federt sichtbar unter deinen Schritten.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

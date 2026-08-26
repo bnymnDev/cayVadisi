@@ -52,6 +52,12 @@ import { createVehModels } from './vehmodels.js';
 import { setVehicleModels } from './vehicles.js';
 import { createAda } from './world/ada.js';
 import { createMemories } from './memories.js';
+import { createWedding } from './wedding.js';
+import { createFreighter } from './freighter.js';
+import { createPanayir } from './world/panayir.js';
+import { createMine } from './world/mine.js';
+import { createFalcon } from './falcon.js';
+import { createBridge } from './world/bridge.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -128,6 +134,7 @@ let dolmus = null, collectibles = null, karsikoy = null;
 let fireworks = null, orchard = null;
 let gulet = null, cats = null, konak = null, village = null;
 let ada = null, memories = null;
+let wedding = null, freighter = null, panayir = null, mine = null, falcon = null, bridgeMod = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -212,6 +219,12 @@ createProps(ctx, terrain).then(async (p) => {
   konak = createKonak(ctx, terrain, p.mats);
   village = createVillage(ctx, terrain, p.mats);
   memories = createMemories(ctx, terrain);
+  wedding = createWedding(ctx, terrain, chars, audio);
+  freighter = createFreighter(ctx);
+  panayir = createPanayir(ctx, terrain);
+  mine = createMine(ctx, terrain);
+  falcon = createFalcon(ctx, terrain, player);
+  allColliders.push(...mine.colliders);
   allColliders.push(...selale.colliders, ...karsikoy.colliders, ...konak.colliders, ...village.colliders);
   // v14: Arcade-Automat vorm Çayevi
   {
@@ -236,7 +249,8 @@ createProps(ctx, terrain).then(async (p) => {
     terrain, tea: teaField, props: p, player, audio, ui, particles, sky,
     farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi, dog,
     race, sled, heli, selale, cc0, dolmus, collectibles, orchard,
-    gulet, cats, konak, village, memories, istanbul: null, npcs: null, ada: null
+    gulet, cats, konak, village, memories, wedding, freighter, panayir, mine, falcon,
+    istanbul: null, npcs: null, ada: null, bridge: null
   };
   game = createGame(ctx, gameMods);
   minimap = createMinimap(ctx, terrain, player, () => workers.list(), () => vehicles.fleet);
@@ -248,6 +262,8 @@ createProps(ctx, terrain).then(async (p) => {
   ada = createAda(ctx, terrain, p.mats);
   gameMods.ada = ada;
   allColliders.push(...ada.colliders);
+  bridgeMod = createBridge(ctx, terrain);   // v15: Zone erst beim Bau — trotzdem nach Minimap
+  gameMods.bridge = bridgeMod;
   npcs = createNpcs(ctx, terrain, ui, player, () => game.playerShare(), chars);
   gameMods.npcs = npcs;
   ui.bindTouch(player, vehicles, boat);
@@ -476,6 +492,13 @@ function wireHooks() {
   hooks.story3Choose = (p2) => game.story3Choose(p2);
   hooks.arcadeStart = () => game.arcadeStart();
   hooks.arcadeResult = (s2) => game.arcadeResult(s2);
+  hooks.buyFreighter = () => game.buyFreighter();
+  hooks.shipFreight = (r2) => game.shipFreight(r2);
+  hooks.buyLot = () => game.buyLot();
+  hooks.kraftResult = (s2) => game.kraftResult(s2);
+  hooks.mineReward = (s2) => game.mineReward(s2);
+  hooks.weddingContribute = (id) => game.weddingContribute(id);
+  hooks.weddingPlan = () => game.weddingPlan();
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -604,6 +627,11 @@ window.__game = {
   get village() { return village; },
   get ada() { return ada; },
   get memories() { return memories; },
+  get wedding() { return wedding; },
+  get freighter() { return freighter; },
+  get panayir() { return panayir; },
+  get falcon() { return falcon; },
+  get bridge() { return bridgeMod; },
   get story() { return story; },
   get achievements() { return achievements; },
   setPhotoMode,
@@ -730,6 +758,11 @@ function step(rawDt, manual, skipRender = false) {
     cats.update(dt, elapsed, player.pos);
     if (ada) ada.update(dt, elapsed, window.__started && game.isNight());
     if (memories) memories.update(elapsed);
+    if (wedding) wedding.update(dt, elapsed);
+    if (freighter) freighter.update(dt, elapsed);
+    if (panayir) panayir.update();
+    if (falcon) falcon.update(dt, elapsed);
+    if (bridgeMod) bridgeMod.update(dt, elapsed, player.pos);
     fireworks.setActive(window.__started && game.isFestival() && game.isNight());
     fireworks.update(dt);
     orchard.setAutumn(seasonAutumn > 0.5);
