@@ -389,6 +389,16 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
 - **🌉 Hängebrücke:** Bauprojekt überm Şelale-Tobel (6.000) — begehbar mit
   Wackel-Physik: Das Deck federt sichtbar unter deinen Schritten.
 
+### Energie & Akku (v15.1)
+- **FPS-Drossel:** Das Spiel rendert nur noch so oft wie nötig — 60 FPS im
+  Spiel, 30 im Eco-Modus oder auf Akku (automatische Erkennung), 20 in
+  Menü-Overlays, 15 im Pausenbildschirm. Notebook bleibt kühl.
+- **Eco-Schalter im Pausenmenü:** Auto (Akku-Sparmodus) / Eco (30 FPS) /
+  Leistung (60 FPS).
+- **Schatten-Drossel:** Schatten werden nur noch 4× pro Sekunde neu
+  berechnet statt in jedem Frame; Grafikstufe „Hoch" fährt Grasmenge,
+  Schattenauflösung und Renderskalierung auf vernünftige Werte zurück.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

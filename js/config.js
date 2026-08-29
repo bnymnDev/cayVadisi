@@ -651,7 +651,7 @@ export const CFG = {
 
   // Grafik-Qualität: [Gras-Instanzen, Gras-Radius, Schatten-Map, PixelRatio-Deckel]
   quality: {
-    high:   { grass: 70000, grassR: 42, shadow: 4096, pr: 2 },
+    high:   { grass: 48000, grassR: 40, shadow: 2048, pr: 1.5 },   // v15.1: Energie
     medium: { grass: 45000, grassR: 36, shadow: 2048, pr: 1.5 },
     low:    { grass: 20000, grassR: 28, shadow: 1024, pr: 1 }
   }
