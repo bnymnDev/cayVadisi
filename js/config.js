@@ -111,6 +111,9 @@ export const CFG = {
     hamsi:  { sell: 25,  icon: '🐟' },       // v5: Fang aus dem Schwarzen Meer
     lufer:  { sell: 95,  icon: '🐠' },
     kalkan: { sell: 380, icon: '🐡' },
+    levrek: { sell: 160, icon: '🎏' },       // v16: seltene Fänge nach Angel-Level
+    kofana: { sell: 340, icon: '🐬' },
+    mersin: { sell: 950, icon: '🦈' },
     tea_green: { sell: 76,  icon: '🍵' },    // v6: Yeşil Çay
     tea_white: { sell: 165, icon: '🏵️' },    // v6: Beyaz Çay (Rize-Rarität)
     tea_harman: { sell: 210, icon: '🫖' },   // v14: Dede Harmanı (Familienrezept)
@@ -297,7 +300,7 @@ export const CFG = {
   festival: {
     priceBonus: 1.25,
     contestBase: 18,          // Kemals Ernte: base + day
-    prize: 600
+    prize: 1200   // v16: Payout verdoppelt
   },
 
   // ---- v7: Nacht (freiwillige Verlängerung bis Mitternacht) ----
@@ -404,7 +407,7 @@ export const CFG = {
   race: {
     start: { x: 96, z: -170 },
     buoys: [ { x: 60, z: -186 }, { x: 30, z: -160 }, { x: 64, z: -148 }, { x: 96, z: -152 } ],
-    radius: 9, targetSec: 75, prize: 800, rep: 2
+    radius: 9, targetSec: 75, prize: 1600, rep: 2   // v16: Payout verdoppelt
   },
 
   // ---- v8: Pansiyon-Tourismus ----
@@ -420,7 +423,7 @@ export const CFG = {
   // ---- v9: Karadeniz-Derby (Fußball am Stadtplatz) ----
   derby: {
     goal: { x: 108, z: -78, ry: 0.2, w: 4.6 },   // Tor am Platzrand
-    durationSec: 60, prizePerGoal: 120, bonusGoals: 3, bonus: 400, rep: 2
+    durationSec: 60, prizePerGoal: 240, bonusGoals: 3, bonus: 800, rep: 2   // v16: Payout verdoppelt
   },
 
   // ---- v9: Peynir-Kette ----
@@ -455,7 +458,7 @@ export const CFG = {
   },
 
   // ---- v10: Angel-Turnier (Festivaltag am Steg) ----
-  fishTourn: { durationSec: 90, prize: 600, rep: 2, spot: { x: 108, z: -134 } },
+  fishTourn: { durationSec: 90, prize: 1200, rep: 2, spot: { x: 108, z: -134 } },   // v16: Payout verdoppelt
 
   // ---- v10: Basar-Schätze (Sammelalbum) ----
   collectPrize: 2000, collectRep: 5,
@@ -466,7 +469,7 @@ export const CFG = {
     market: { x: -132, z: 70, ry: 0.8 },
     pitch: { x: -146, z: 84 },
     premium: { cheese: 1.45, honey: 1.3, egg: 1.25, milk: 1.2, tea_pack: 1.15 },
-    mac: { stake: 200, prize: 500, rep: 2, oppMax: 2 }
+    mac: { stake: 200, prize: 1000, rep: 2, oppMax: 2 }   // v16: Payout verdoppelt
   },
 
   // ---- v11: Heli-Aufträge ----
@@ -519,7 +522,7 @@ export const CFG = {
   },
 
   // ---- v12: Çay-Meisterschaft von Rize (Festival-Endgame) ----
-  meister: { entry: 500, prize: 3000, rep: 10, minRep: 40 },
+  meister: { entry: 500, prize: 6000, rep: 10, minRep: 40 },   // v16: Payout verdoppelt
 
   // ---- v12: Konak-Restaurierung -> Museum ----
   konak: {
@@ -551,11 +554,11 @@ export const CFG = {
     everyDays: 14, offset: 7,          // Festtage: Tag 7, 21, 35 …
     spot: { x: 86, z: -74 },
     lotTicket: 100,
-    strengthStake: 100, strengthPrize: 450
+    strengthStake: 100, strengthPrize: 900   // v16: Payout verdoppelt
   },
   mine: {
     spot: { x: 96, z: 128 },
-    coalPerHit: 2, gemChance: 0.18, gemValue: 800, injuryCost: 150
+    coalPerHit: 3, gemChance: 0.18, gemValue: 1600, injuryCost: 150   // v16: Payout verdoppelt
   },
   wedding: {
     minDay: 12,
@@ -601,7 +604,7 @@ export const CFG = {
       { x: 130, z: -90 }     // Supermarkt-Ecke
     ]
   },
-  arcade: { spot: { x: 116, z: -106 }, stake: 50, perPoint: 6, duelPrize: 250 },
+  arcade: { spot: { x: 116, z: -106 }, stake: 50, perPoint: 12, duelPrize: 500 },   // v16: Payout verdoppelt
   ada: {
     cx: -62, cz: -172, r: 21,
     zone: { x0: -76, x1: -48, z0: -186, z1: -158, h: 2.2 },
@@ -648,6 +651,28 @@ export const CFG = {
   home: { x: 16, z: -102, ry: -0.5 },        // Spielerhaus
   cableTop: { x: 4, z: -22 },                // Teleferik-Station am Feld
   interactDist: 4.2,
+
+  // ---- v16: EXP & Imperium ----
+  xp: {
+    // Schwellen für Level 0..8 (Index = Level)
+    levels: [0, 100, 300, 700, 1400, 2500, 4200, 6500, 9500],
+    pickPer: 2,                    // XP pro Pflückvorgang
+    tradePerPack: 1,               // XP pro verkauftem Paket
+    tradePerSale: 3,               // XP pro Verkaufsvorgang (Korb/Produkte)
+    fishPer: { hamsi: 4, lufer: 9, kalkan: 22, levrek: 12, kofana: 26, mersin: 60 },
+    // Lucky Pick: Chance je Pflück-Level, füllt den halben Korb
+    luckyPerLevel: 0.06, luckyMax: 0.5,
+    // Mega Lucky (Korb sofort voll) ab höherem Level
+    megaMinLevel: 5, megaPerLevel: 0.03, megaMax: 0.12,
+    // Seltene Fische, freigeschaltet nach Angel-Level
+    rareFish: {
+      levrek: { minLevel: 2, p: 0.12, sell: 160, icon: '🎏' },   // Levrek (Wolfsbarsch)
+      kofana: { minLevel: 4, p: 0.08, sell: 340, icon: '🐬' },   // Kofana (großer Lüfer)
+      mersin: { minLevel: 6, p: 0.045, sell: 950, icon: '🦈' }   // Mersin (Stör, Karadeniz-Legende)
+    },
+    // Arbeiter-Limit nach Handels-Level: Index = floor(Level/2)
+    workerCaps: [6, 8, 10, 14, 20]
+  },
 
   // Grafik-Qualität: [Gras-Instanzen, Gras-Radius, Schatten-Map, PixelRatio-Deckel]
   quality: {

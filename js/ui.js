@@ -7,6 +7,7 @@ const SEASON_ICONS = ['☀️', '🍂', '❄️', '🌸'];
 import { t, tUpgrade, setLang, getLang, applyDom } from './i18n.js';
 import { fmtKg, fmtMoney, clamp } from './util.js';
 import { COLLECT_DEFS } from './collectibles.js';
+import { xpLevel, maxLevel, nextLevelAt, workerMax, luckyChance, megaChance, rareFishPool } from './xp.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -296,7 +297,7 @@ export function createUI(ctx, hooks) {
         const APPS = [
           ['hava', '⛅'], ['piyasa', '📊'], ['banka', '💳'],
           ['borsa', '📈'], ['taksi', '🚕'], ['karar', '📜'],
-          ['lojistik', '🚚'], ['kurye', '🏍️'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
+          ['lojistik', '🚚'], ['kurye', '🏍️'], ['imperium', '👑'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
         ];
         body.innerHTML = `<div class="app-grid">${APPS.map(([id, ic]) =>
           `<button class="app-btn" data-app="${id}"><span>${ic}</span><em>${t('app_' + id)}</em></button>`).join('')}</div>`;
@@ -334,6 +335,36 @@ export function createUI(ctx, hooks) {
             <div class="u-body"><div class="u-name">${t('kuryeNone')}</div>
             <div class="u-desc">${t('kuryeStats', state.kuryeDone)}</div></div></div>`;
         }
+        body.innerHTML = html;
+      } else if (app === 'imperium') {
+        // v16: Imperium-Übersicht — Level, Perks, nächste Freischaltungen
+        const L2 = state.settings.lang;
+        const KINDS = [
+          ['pick', '🫲', () => {
+            const lu = Math.round(luckyChance() * 100), me = Math.round(megaChance() * 100);
+            return t('impPickPerk', lu) + (me > 0 ? ' · ' + t('impMegaPerk', me) : '');
+          }],
+          ['fish', '🎣', () => {
+            const pool = rareFishPool().map(([id]) => t('prod_' + id));
+            return pool.length ? t('impFishPerk', pool.join(', ')) : t('impFishLocked');
+          }],
+          ['trade', '📦', () => t('impTradePerk', workerMax())]
+        ];
+        let html = `<div class="section-info">${t('impInfo')}</div>`;
+        for (const [kind, icon, perk] of KINDS) {
+          const v = state.xp[kind];
+          const lvl = xpLevel(v);
+          const next = nextLevelAt(v);
+          const base = CFG.xp.levels[lvl];
+          const pct = next ? Math.round(((v - base) / (next - base)) * 100) : 100;
+          html += `<div class="upgrade-item"><div class="u-icon">${icon}</div>
+            <div class="u-body"><div class="u-name">${t('xp_' + kind)} · ${t('impLevel', lvl, maxLevel())}</div>
+            <div class="u-desc">${perk()}</div>
+            <div class="u-desc">${next ? `${v} / ${next} XP` : t('impMax')}
+              <span style="display:inline-block;width:70px;height:6px;background:#0003;border-radius:3px;vertical-align:middle;margin-left:6px">
+              <span style="display:block;width:${pct}%;height:100%;background:#7ac74f;border-radius:3px"></span></span></div></div></div>`;
+        }
+        html += `<div class="section-info">${t('impStats', fmtKg(state.totalKg, L2), state.fishCaught, state.packsSold)}</div>`;
         body.innerHTML = html;
       } else if (app === 'piyasa') {
         const tips = hooks.marketTips();
@@ -1810,12 +1841,15 @@ export function createUI(ctx, hooks) {
       const body = $('manage-body');
       if (api._manageTab === 'workers') {
         const W = CFG.workers;
+        const wMax = workerMax();   // v16: Limit wächst mit Handels-Level
         body.innerHTML = `
-          <div class="manage-count">👷 ${state.workers} / ${W.max}</div>
+          <div class="manage-count">👷 ${state.workers} / ${wMax}</div>
+          ${wMax < CFG.xp.workerCaps[CFG.xp.workerCaps.length - 1]
+            ? `<div class="section-info" style="text-align:center">${t('workerCapInfo', CFG.xp.workerCaps[Math.min(CFG.xp.workerCaps.length - 1, Math.floor(xpLevel(state.xp.trade) / 2) + 1)])}</div>` : ''}
           <div class="section-info" style="text-align:center">${t('workerInfo', W.hireCost, W.wage)}</div>
           <div class="section-info" style="text-align:center">${t('workerToday', Math.round(state.workerKg * 10) / 10)}</div>
           <div class="btn-row">
-            <button id="btn-hire" class="big-btn" ${state.workers >= W.max || state.money < W.hireCost ? 'disabled' : ''}>
+            <button id="btn-hire" class="big-btn" ${state.workers >= wMax || state.money < W.hireCost ? 'disabled' : ''}>
               ${t('hireWorker')} · ${fmtMoney(W.hireCost, L)}</button>
             <button id="btn-fire" class="big-btn ghost" ${state.workers <= 0 ? 'disabled' : ''}>${t('fireWorker')}</button>
           </div>

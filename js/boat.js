@@ -4,6 +4,7 @@ import { CFG } from './config.js';
 import { state, save } from './state.js';
 import { clamp, lerp } from './util.js';
 import { t } from './i18n.js';
+import { addXp, rareFishPool } from './xp.js';
 
 function buildBoatMesh() {
   const g = new THREE.Group();
@@ -134,9 +135,17 @@ export function createBoat(ctx, terrain, player, audio, ui) {
         acc += probs ? probs[id] : f.p;
         if (r <= acc) { caught = id; break; }
       }
+      // v16: Angel-Level schaltet seltene, teure Fische frei
+      let rare = false;
+      for (const [id, f] of rareFishPool()) {
+        if (Math.random() < f.p) { caught = id; rare = true; break; }
+      }
       state.inventory[caught] = (state.inventory[caught] || 0) + 1;
       state.fishCaught += 1;
-      ui.toast(t('fishCaught', CFG.fishing.fish[caught].icon + ' ' + t('prod_' + caught)), true);
+      const icon = rare ? CFG.xp.rareFish[caught].icon : CFG.fishing.fish[caught].icon;
+      ui.toast(t(rare ? 'rareCatch' : 'fishCaught', icon + ' ' + t('prod_' + caught)), true, rare ? 5000 : undefined);
+      const up = addXp('fish', CFG.xp.fishPer[caught] || 4);
+      if (up) { ui.toast(t('levelUp', t('xp_fish'), up), true, 5000); audio.tierUp(); }
       audio.cash();
       stopFishing();
       save();
@@ -334,6 +343,8 @@ export function createBoat(ctx, terrain, player, audio, ui) {
             if (api.netSeasonWinter) n = Math.round(n * N.winterMul);
             state.inventory.hamsi = (state.inventory.hamsi || 0) + n;
             state.fishCaught += n;
+            const upN = addXp('fish', n * (CFG.xp.fishPer.hamsi || 4));   // v16
+            if (upN) { ui.toast(t('levelUp', t('xp_fish'), upN), true, 5000); audio.tierUp(); }
             audio.cash();
             ui.toast(t('netCatch', n) + (api.netSeasonWinter ? ' ' + t('netWinter') : ''), true, 6500);
             save();
