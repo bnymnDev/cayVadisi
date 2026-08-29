@@ -5,6 +5,7 @@ import { CFG } from './config.js';
 import { state, save, basketCapacity, resetDay, netWorth, seasonOf, prestigeMul, addRep, resetProgress } from './state.js';
 import { t } from './i18n.js';
 import { clamp, fmtMoney } from './util.js';
+import { addXp, workerMax, luckyChance, megaChance } from './xp.js';
 
 export function createGame(ctx, mods) {
   const { terrain, tea, props, player, audio, ui, particles, sky, farm, vehicles, workers, extras, events, boat, radio, yayla } = mods;
@@ -682,6 +683,12 @@ export function createGame(ctx, mods) {
     return vehicles.cargoMul(player.pos.x, player.pos.z);
   }
 
+  // v16: EXP vergeben + Level-Up-Toast
+  function gainXp(kind, n) {
+    const up = addXp(kind, n);
+    if (up) { ui.toast(t('levelUp', t('xp_' + kind), up), true, 5000); audio.tierUp(); }
+  }
+
   function finishPick() {
     const cap = basketCapacity(CFG, cargoMulNow());
     if (state.basketKg >= cap) {
@@ -703,6 +710,22 @@ export function createGame(ctx, mods) {
     particles.burst(v3, state.upgrades.shears ? 18 : 11, camera.position);
     audio.pickDone();
     ui.pickPopup(v3, kg, res.late);
+
+    // v16: Pflück-EXP + Lucky Picks (Chance wächst mit dem Level)
+    gainXp('pick', CFG.xp.pickPer);
+    const mega = Math.random() < megaChance();
+    const lucky = !mega && Math.random() < luckyChance();
+    if (mega || lucky) {
+      const bonus = Math.min(cap - state.basketKg, mega ? cap : cap * 0.5);
+      if (bonus > 0.01) {
+        state.basketKg += bonus;
+        state.basketValueKg += bonus * quality;
+        state.dayKg += bonus;
+        state.totalKg += bonus;
+        ui.toast(t(mega ? 'megaPick' : 'luckyPick', Math.round(bonus * 10) / 10), true, 3500);
+        audio.cash();
+      }
+    }
     ui.refreshBasket();
 
     if (!firstPickDone) { firstPickDone = true; if (state.day === 1) ui.toast(t('tut2'), false, 6000); }
@@ -730,6 +753,7 @@ export function createGame(ctx, mods) {
   function trackPacks(n) {
     const before = playerShare();
     state.packsSold += n;
+    gainXp('trade', n * CFG.xp.tradePerPack);   // v16: Handels-EXP
     state._shareNow = playerShare();
     if (before < CFG.rival.winShare && state._shareNow >= CFG.rival.winShare) {
       ui.toast(t('rivalBeaten'), true, 9000);
@@ -744,6 +768,7 @@ export function createGame(ctx, mods) {
     state.dayEarned += sum;
     state.totalEarned += sum;
     state.orderDelivered += state.basketKg;
+    gainXp('trade', CFG.xp.tradePerSale);   // v16
     state.basketKg = 0;
     state.basketValueKg = 0;
     if (!state.orderRewarded && state.orderDelivered >= state.orderTarget) {
@@ -799,7 +824,7 @@ export function createGame(ctx, mods) {
   }
 
   function hireWorker() {
-    if (state.workers >= CFG.workers.max || state.money < CFG.workers.hireCost) { audio.deny(); return false; }
+    if (state.workers >= workerMax() || state.money < CFG.workers.hireCost) { audio.deny(); return false; }   // v16: Limit wächst mit Handels-Level
     state.money -= CFG.workers.hireCost;
     state.daySpent += CFG.workers.hireCost;
     state.workers += 1;
@@ -878,8 +903,9 @@ export function createGame(ctx, mods) {
     if (n <= 0) { audio.deny(); return 0; }
     let price = CFG.products[id].sell * (state.marketMul[id] || 1) * prestigeMul(CFG);
     // v14: Hamsi-Schwemme drückt alle Fischpreise
-    if (yearEventIs('hamsi') && (id === 'hamsi' || id === 'lufer' || id === 'kalkan')) price *= 0.5;
+    if (yearEventIs('hamsi') && ['hamsi', 'lufer', 'kalkan', 'levrek', 'kofana', 'mersin'].includes(id)) price *= 0.5;
     const sum = n * price;
+    gainXp('trade', CFG.xp.tradePerSale);   // v16
     state.inventory[id] -= n;
     state.money += sum;
     state.dayEarned += sum;

@@ -22,7 +22,7 @@ export const state = {
   inventory: {
     egg: 0, milk: 0, wool: 0, corn: 0, tomato: 0, cabbage: 0, hazel: 0,
     straw: 0, walnut: 0, coal: 0, tea_pack: 0,
-    hamsi: 0, lufer: 0, kalkan: 0,
+    hamsi: 0, lufer: 0, kalkan: 0, levrek: 0, kofana: 0, mersin: 0,
     tea_green: 0, tea_white: 0, honey: 0, cheese: 0, tea_harman: 0
   },
   vehicles: { tractor: false, pickup: false, sedan: false, lux: false, moto: false },
@@ -96,6 +96,9 @@ export const state = {
   kemalPressure: 0,         // Kemals Wirtschaftsdruck (drückt deinen Marktanteil)
   falcon: { feeds: 0, tame: false },
   bridge: false,
+
+  // v16: EXP (Pflücken / Angeln / Handel)
+  xp: { pick: 0, fish: 0, trade: 0 },
 
   // v11
   animalNames: {},          // Art -> [Namen]
@@ -241,7 +244,8 @@ export function save() {
     dedeHarman: s.dedeHarman, arcadeBest: s.arcadeBest, muhtarluk: s.muhtarluk,
     electionsWon: s.electionsWon, story3: s.story3, ada: s.ada,
     freighter: s.freighter, shipment: s.shipment, wedding: s.wedding,
-    kemalPressure: s.kemalPressure, falcon: s.falcon, bridge: s.bridge
+    kemalPressure: s.kemalPressure, falcon: s.falcon, bridge: s.bridge,
+    xp: s.xp
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -355,8 +359,12 @@ export function load() {
     state.kemalPressure = d.kemalPressure ?? 0;
     state.falcon = d.falcon ?? { feeds: 0, tame: false };
     state.bridge = d.bridge ?? false;
+    state.xp = { pick: 0, fish: 0, trade: 0, ...(d.xp || {}) };
     state.vehicles.moto = state.vehicles.moto ?? false;
     state.inventory.tea_harman = state.inventory.tea_harman ?? 0;
+    state.inventory.levrek = state.inventory.levrek ?? 0;
+    state.inventory.kofana = state.inventory.kofana ?? 0;
+    state.inventory.mersin = state.inventory.mersin ?? 0;
     return true;
   } catch (e) { return false; }
 }
@@ -428,6 +436,7 @@ export function resetProgress() {
   state.wedding = { stage: 0, catering: 0, day: 0 };
   state.kemalPressure = 0; state.falcon = { feeds: 0, tame: false };
   state.bridge = false;
+  state.xp = { pick: 0, fish: 0, trade: 0 };
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();

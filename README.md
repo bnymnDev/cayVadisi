@@ -399,6 +399,21 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   berechnet statt in jedem Frame; Grafikstufe „Hoch" fährt Grasmenge,
   Schattenauflösung und Renderskalierung auf vernünftige Werte zurück.
 
+### EXP & Imperium (v16)
+- **👑 Drei Erfahrungs-Zweige:** Pflücken, Angeln und Handel leveln getrennt
+  (9 Stufen). Die **Imperium-App** auf dem Smartphone zeigt Level,
+  XP-Fortschritt, aktive Perks und die nächste Freischaltung.
+- **🍀 Lucky Picks:** Mit steigendem Pflück-Level wächst die Chance, dass ein
+  Pflücken den halben Korb füllt (bis 50 %); ab Level 5 gibt es Mega Lucky
+  Picks, die den Korb sofort vollmachen.
+- **🎣 Seltene Fische:** Das Angel-Level schaltet neue, teure Fänge frei —
+  Levrek (ab Lv. 2), Kofana (Lv. 4) und den legendären Mersin-Stör (Lv. 6,
+  950 pro Fisch). Auch das Hamsi-Netz bringt Angel-EXP.
+- **👷 Gestaffeltes Arbeiter-Limit:** Statt hartem Cap bei 6 wächst das Limit
+  mit dem Handels-Level: 6 → 8 → 10 → 14 → **20 Arbeiter**.
+- **💰 Minispiele zahlen doppelt:** Arcade, Kraftmesser, Festival, Kayık-Rennen,
+  Derby, Angel-Turnier, Çay-Ustası-Duell, Meisterschaft und Bergwerk-Kristall.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,
