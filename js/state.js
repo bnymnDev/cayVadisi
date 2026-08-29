@@ -100,6 +100,17 @@ export const state = {
   // v16: EXP (Pflücken / Angeln / Handel)
   xp: { pick: 0, fish: 0, trade: 0 },
 
+  // v17: Imperium sichtbar
+  factoryLines: 0,                 // Produktionslinien in der Fabrik (0..3)
+  parcels: [],                     // Parzellen: null|'me'|'kemal'|'saban'|'nurten'
+  railway: false,                  // Teebahn gebaut
+  landslide: null,                 // { left } solange die Straße blockiert ist
+  stall: null,                     // { stock: {id:n}, factor, soldToday, earnedToday }
+  queen: false,                    // Anzer-Königin gekauft
+  beeCupWins: 0,
+  billboards: 0,                   // stehende Werbetafeln (0..3)
+  campaign: '',                    // '' | 'shoot' (Foto-Kampagne gebucht)
+
   // v11
   animalNames: {},          // Art -> [Namen]
   orchard: false,           // Haselnuss-Plantage
@@ -245,7 +256,10 @@ export function save() {
     electionsWon: s.electionsWon, story3: s.story3, ada: s.ada,
     freighter: s.freighter, shipment: s.shipment, wedding: s.wedding,
     kemalPressure: s.kemalPressure, falcon: s.falcon, bridge: s.bridge,
-    xp: s.xp
+    xp: s.xp,
+    factoryLines: s.factoryLines, parcels: s.parcels, railway: s.railway,
+    landslide: s.landslide, stall: s.stall, queen: s.queen,
+    beeCupWins: s.beeCupWins, billboards: s.billboards, campaign: s.campaign
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -360,6 +374,15 @@ export function load() {
     state.falcon = d.falcon ?? { feeds: 0, tame: false };
     state.bridge = d.bridge ?? false;
     state.xp = { pick: 0, fish: 0, trade: 0, ...(d.xp || {}) };
+    state.factoryLines = d.factoryLines ?? 0;
+    state.parcels = Array.isArray(d.parcels) ? d.parcels : [];
+    state.railway = d.railway ?? false;
+    state.landslide = d.landslide ?? null;
+    state.stall = d.stall ?? null;
+    state.queen = d.queen ?? false;
+    state.beeCupWins = d.beeCupWins ?? 0;
+    state.billboards = d.billboards ?? 0;
+    state.campaign = d.campaign ?? '';
     state.vehicles.moto = state.vehicles.moto ?? false;
     state.inventory.tea_harman = state.inventory.tea_harman ?? 0;
     state.inventory.levrek = state.inventory.levrek ?? 0;
@@ -437,6 +460,9 @@ export function resetProgress() {
   state.kemalPressure = 0; state.falcon = { feeds: 0, tame: false };
   state.bridge = false;
   state.xp = { pick: 0, fish: 0, trade: 0 };
+  state.factoryLines = 0; state.parcels = []; state.railway = false;
+  state.landslide = null; state.stall = null; state.queen = false;
+  state.beeCupWins = 0; state.billboards = 0; state.campaign = '';
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -464,6 +490,8 @@ export function resetDay() {
   state._kuryeJob = null; state._kuryeCount = 0; state._arcadeDone = false;
   state._adaFish = false; state._adaHoney = false;
   state._mineDone = false; state._kraftDone = false; state._weddingJoined = false;
+  state._beeCupDone = false; state._stormToday = false;
+  if (state.stall) { state.stall.soldToday = 0; state.stall.earnedToday = 0; }
   state._kemalDump = false; state._falconHint = 0;
   state._meisterDone = false;
 }

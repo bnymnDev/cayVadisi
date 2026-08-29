@@ -414,6 +414,35 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
 - **💰 Minispiele zahlen doppelt:** Arcade, Kraftmesser, Festival, Kayık-Rennen,
   Derby, Angel-Turnier, Çay-Ustası-Duell, Meisterschaft und Bergwerk-Kristall.
 
+### Imperium sichtbar (v17)
+- **🏭 Fabrik-Ausbau:** Bis zu drei Produktionslinien in einer echten
+  Anbauhalle — Förderbänder mit wandernden Teekisten, Rolltore,
+  Palettenstapel. Nachts kaufen die Linien Rohtee ein und pressen Pakete
+  (je 1 Kohle pro Linie).
+- **🗺️ Land-Grab:** Zehn Parzellen im Tal mit Eckpfosten, Absperrseil und
+  SATILIK-Schild. Kaufst du, weht deine grüne Fahne und es gibt tägliche
+  Pacht — aber Kemal Ağa, Şaban Bey und Nurten Hanım kaufen sichtbar mit.
+  Grundbuch in der neuen **Tapu-App**.
+- **🚂 Schmalspur-Teebahn:** Bauprojekt am Feldrand. Danach liegen echte
+  Gleise vom Teefeld zur Fabrik, eine grüne Lok pendelt mit zwei
+  Teekisten-Wagen und Dampfwölkchen. Effekt: Arbeiter-Tee zum vollen
+  Preis + täglich Kohle frei Haus.
+- **⛰️ Erdrutsch:** Nach Sturmtagen kann die Küstenstraße unter Schlamm
+  und Felsen verschwinden — physisch blockiert. Mit der Schaufel Stück
+  für Stück freiräumen (der Haufen schrumpft sichtbar, Staubwolken
+  inklusive); solange leiden die Marktpreise.
+- **🧿 Basar-Stand:** Eigener Stand in der Kasaba mit gestreifter Markise.
+  Ware liegt sichtbar auf dem Tresen, Preisfaktor frei wählbar — und
+  echte Kunden-NPCs schlendern heran, kaufen und ziehen weiter.
+- **🐝 Bal Şampiyonası:** Alle zwei Wochen steht auf der Yayla ein
+  Jury-Tisch mit Honiggläsern, Banner, Preisrichter und summendem
+  Bienenschwarm. Anzer-Königin kaufbar (+1 Honig je Stock), Siegerpokal
+  bleibt stehen.
+- **🎬 Foto-Kampagne:** Werbekampagne in der Fabrik buchen, Teefeld oder
+  Fabrik fotografieren — am nächsten Morgen steht eine große Plakatwand
+  mit deinem Label (Canvas-gemalt, mit Teeglas) an der Straße: +5 % auf
+  Tee-Verkäufe pro Plakat (max. 3).
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,
