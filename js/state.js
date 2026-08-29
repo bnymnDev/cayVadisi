@@ -167,7 +167,7 @@ export const state = {
   hist: { stocks: {}, earned: [] },
 
   // Einstellungen
-  settings: { lang: 'de', sound: true, quality: 'auto' }
+  settings: { lang: 'de', sound: true, quality: 'auto', eco: 'auto' }
 };
 
 // v7: New-Game+-Preisbonus (multipliziert alle Verkäufe)
@@ -260,6 +260,7 @@ export function load() {
     state.seasonOver = d.seasonOver ?? false;
     Object.assign(state.upgrades, d.upgrades || {});
     Object.assign(state.settings, d.settings || {});
+    state.settings.eco = state.settings.eco ?? 'auto';
     state.workers = d.workers ?? 0;
     Object.assign(state.animals, d.animals || {});
     state.plots = Array.isArray(d.plots) ? d.plots : [];

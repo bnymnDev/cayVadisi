@@ -1949,6 +1949,7 @@ export function createUI(ctx, hooks) {
     showPause() {
       $('btn-sound').textContent = state.settings.sound ? t('on') : t('off');
       $('btn-quality').textContent = t('q' + (state.settings.quality[0].toUpperCase() + state.settings.quality.slice(1)));
+      $('btn-eco').textContent = t('eco_' + (state.settings.eco || 'auto'));
       $('btn-lang').textContent = { de: 'Deutsch', tr: 'Türkçe', en: 'English' }[getLang()];
       show(els.pause);
     },
@@ -2197,6 +2198,13 @@ export function createUI(ctx, hooks) {
     state.settings.quality = next;
     hooks.setQuality(next);
     e.target.textContent = t('q' + next[0].toUpperCase() + next.slice(1));
+    save();
+  });
+  $('btn-eco').addEventListener('click', (e) => {
+    const order = ['auto', 'eco', 'perf'];
+    const next = order[(order.indexOf(state.settings.eco || 'auto') + 1) % order.length];
+    state.settings.eco = next;
+    e.target.textContent = t('eco_' + next);
     save();
   });
   $('btn-lang').addEventListener('click', (e) => {

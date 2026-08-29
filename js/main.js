@@ -75,12 +75,15 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({
-  canvas, antialias: false, powerPreference: 'high-performance'
+  canvas, antialias: false, powerPreference: 'default'   // v15.1: nicht zwanghaft die dGPU anwerfen
 });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.85;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;   // v10: weiche Schatten
+// v15.1: Schattenkarte nur periodisch neu rendern — die Sonne wandert langsam
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(69, innerWidth / innerHeight, 0.1, 1400);
@@ -660,11 +663,40 @@ let lastNow = performance.now();
 let elapsedTime = 0;
 let hudTimer = 0;
 
+// v15.1: Energie-Drossel — ohne FPS-Limit rannte das Spiel auf schnellen
+// Notebooks mit 100+ FPS ins GPU-Limit (Hitze, Akku leer in Minuten).
+let onBattery = false;
+if (navigator.getBattery) {
+  navigator.getBattery().then((b) => {
+    const upd = () => { onBattery = !b.charging; };
+    upd();
+    b.addEventListener('chargingchange', upd);
+  }).catch(() => {});
+}
+function currentFpsCap() {
+  // Menü, Pause und offene Fenster brauchen keine 60 FPS
+  if (!window.__started) return 30;
+  if (game && (!game.running || game.paused)) return 15;
+  if (ui.overlayOpen && ui.overlayOpen()) return 20;
+  const eco = state.settings.eco || 'auto';
+  if (eco === 'eco') return 30;
+  if (eco === 'auto' && onBattery) return 30;
+  return 60;
+}
+let shadowTimer = 0;
+
 function tick() {
   requestAnimationFrame(tick);
   const now = performance.now();
   const rawDt = Math.max(0, (now - lastNow) / 1000);
+  if (rawDt < 1 / currentFpsCap() - 0.0005) return;   // Frame auslassen — GPU ruht
   lastNow = now;
+  // Schatten höchstens 4× pro Sekunde aktualisieren
+  shadowTimer -= rawDt;
+  if (shadowTimer <= 0) {
+    shadowTimer = 0.25;
+    renderer.shadowMap.needsUpdate = true;
+  }
   step(rawDt, false);
 }
 
