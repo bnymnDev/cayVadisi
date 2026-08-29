@@ -483,3 +483,14 @@ body {
 .collect-cell span { font-size: 26px; }
 .collect-cell em { font-style: normal; font-size: 10px; opacity: 0.8; }
 .collect-cell.locked { opacity: 0.45; }
+
+/* ===== v18: Touch-Polish — größere Ziele auf Telefonen ===== */
+@media (pointer: coarse) {
+  .big-btn { min-height: 52px; font-size: 17px; }
+  .toggle-btn, .tab-btn { min-height: 44px; }
+  .hud-btn { width: 52px; height: 52px; font-size: 24px; }
+  .overlay-x { width: 46px; height: 46px; font-size: 24px; }
+  .upgrade-item button { min-height: 44px; min-width: 72px; }
+  .btn-mini-row button { min-width: 48px; min-height: 42px; }
+  #interact-prompt { font-size: 17px; padding: 12px 20px; }
+}

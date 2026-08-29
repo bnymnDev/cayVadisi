@@ -453,6 +453,18 @@ export function createUI(ctx, hooks) {
           });
           body.appendChild(row);
         }
+        // v18: Fahrt ins Fındık Vadisi (erst nach Freischaltung)
+        if (hooks.featureOn && hooks.featureOn('valley2')) {
+          const row = document.createElement('div');
+          row.className = 'upgrade-item';
+          row.innerHTML = `<div class="u-icon">🌰</div>
+            <div class="u-body"><div class="u-name">${t('taxi_valley2')}</div></div>
+            <button ${state.money < CFG.valley2.taxiCost ? 'disabled' : ''}>${fmtMoney(CFG.valley2.taxiCost, L)}</button>`;
+          row.querySelector('button').addEventListener('click', () => {
+            if (hooks.taxiValley2()) hooks.closeShop();
+          });
+          body.appendChild(row);
+        }
       } else if (app === 'karar') {
         const D = CFG.decrees;
         let html = `<div class="section-info">${t('decreeHint', fmtMoney(D.switchCost, L))}</div>`;
@@ -1183,6 +1195,48 @@ export function createUI(ctx, hooks) {
       show(els.eventS);
     },
 
+    // ---------- v18: Fındık-Filiale ----------
+    showBranch() {
+      const L = state.settings.lang;
+      const V = CFG.valley2;
+      $('event-icon').textContent = '🌰';
+      $('event-title').textContent = t('branchTitle');
+      const box = $('event-choices');
+      box.innerHTML = '';
+      if (!state.branch) {
+        $('event-text').innerHTML = t('branchPitch', fmtMoney(V.branchCost, L));
+        const b = document.createElement('button');
+        b.className = 'big-btn';
+        b.disabled = state.money < V.branchCost;
+        b.textContent = t('branchBuyBtn') + ' · ' + fmtMoney(V.branchCost, L);
+        b.addEventListener('click', () => { if (hooks.buyBranch()) api.showBranch(); });
+        box.appendChild(b);
+      } else {
+        const B2 = state.branch;
+        $('event-text').innerHTML = t('branchInfo', B2.workers, V.maxWorkers,
+          B2.workers * V.hazelPerWorker, fmtMoney(B2.workers * V.workerWage, L));
+        if (B2.workers < V.maxWorkers) {
+          const h = document.createElement('button');
+          h.className = 'big-btn';
+          h.disabled = state.money < V.workerCost;
+          h.textContent = t('branchHireBtn') + ' · ' + fmtMoney(V.workerCost, L);
+          h.addEventListener('click', () => { if (hooks.branchHire()) api.showBranch(); });
+          box.appendChild(h);
+        }
+        const m = document.createElement('button');
+        m.className = 'big-btn ghost';
+        m.textContent = t('branchMode_' + B2.mode);
+        m.addEventListener('click', () => { m.textContent = t('branchMode_' + hooks.branchMode()); });
+        box.appendChild(m);
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
     // ---------- v10: Elfmeter-Duell gegen die Karşıköy Gençlik ----------
     showMac() {
       api._timingGame({
@@ -1453,6 +1507,10 @@ export function createUI(ctx, hooks) {
       }
       const exp = $('export-list');
       exp.innerHTML = '';
+      if (hooks.featureOn && !hooks.featureOn('exports')) {
+        exp.innerHTML = `<div class="section-info">🔒 ${t('exportsLocked')}</div>`;
+        return;
+      }
       const flags = { DE: '🇩🇪', NL: '🇳🇱', AZ: '🇦🇿', JP: '🇯🇵', US: '🇺🇸' };
       state.exportOffers.forEach((o, i) => {
         const can = state.factory && Math.floor(state.inventory.tea_pack) >= o.qty;
@@ -2309,6 +2367,42 @@ export function createUI(ctx, hooks) {
     reader.readAsText(file);
   });
   $('btn-save-import').addEventListener('click', () => $('inp-save-import').click());
+  // v18: Cloud-Save via cloudsave.php auf nesbun.de (offline/lokal: sauberer Fehler)
+  function cloudCode() {
+    let code = localStorage.getItem('cayvadisi_cloud_code') || '';
+    const entered = window.prompt(t('cloudCodeAsk'), code);
+    if (entered === null) return null;
+    code = entered.trim();
+    if (code.length < 6) { api.toast(t('cloudCodeShort'), false, 5000); return null; }
+    localStorage.setItem('cayvadisi_cloud_code', code);
+    return code;
+  }
+  $('btn-cloud-up').addEventListener('click', async () => {
+    const code = cloudCode();
+    if (!code) return;
+    try {
+      save();
+      const data = JSON.parse(localStorage.getItem('cayvadisi_save_v2') || '{}');
+      const res = await fetch('cloudsave.php', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, data })
+      });
+      const j = await res.json();
+      api.toast(j.ok ? t('cloudUpOk') : t('cloudErr'), j.ok, 6000);
+    } catch (e) { api.toast(t('cloudErr'), false, 6000); }
+  });
+  $('btn-cloud-down').addEventListener('click', async () => {
+    const code = cloudCode();
+    if (!code) return;
+    try {
+      const res = await fetch('cloudsave.php?code=' + encodeURIComponent(code));
+      const j = await res.json();
+      if (!j.ok || !j.data) { api.toast(t('cloudNone'), false, 6000); return; }
+      if (!window.confirm(t('cloudDownConfirm'))) return;
+      localStorage.setItem('cayvadisi_save_v2', JSON.stringify(j.data));
+      location.reload();
+    } catch (e) { api.toast(t('cloudErr'), false, 6000); }
+  });
   $('btn-travel-close').addEventListener('click', () => hooks.closeShop());
   $('btn-workshop-close').addEventListener('click', () => hooks.closeShop());
   $('btn-phone-close').addEventListener('click', () => hooks.closeShop());

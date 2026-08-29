@@ -26,4 +26,12 @@ komplett offline, DE/TR). Start: `npm start` → `http://localhost:8137`.
   das PIN-Gate (js/gate.js, PIN cay1453) ist bereits auf `*.nesbun.de` scharf.
 - İstanbul-Viertel: eigene Höhen-Zone via `terrain.addHeightZone` — wird bewusst NACH
   Terrain-Mesh & Minimap registriert, sonst erscheint die Kai-Platte im Gelände.
+  Gleiches gilt für Ada (v14) und das Fındık Vadisi (v18, `js/world/valley2.js`).
+- Geführter Fortschritt (v18): `CFG.progress.features` + `state.featureUnlocks`;
+  Reveals laufen über `ctx.runReveal` in main.js (friert das Spiel via
+  `game.setFrozen` ein). Alte Saves bekommen `featureUnlocks._all = true`.
+- Cloud-Save: `cloudsave.php` (Mittwald-PHP auf nesbun.de, saves/-Ordner
+  entsteht automatisch); der Service Worker cached `.php` bewusst nie.
+- Eigene TRELLIS-/Custom-Modelle: `assets/models/extra/custom/index.json`
+  (nicht eingecheckt) → `js/custom.js`; Doku in `tools/TRELLIS.md`.
 - Ideen-Backlog: TRELLIS-2-Pipeline für eigene Bild→3D-Assets (lokal generieren, als glTF ablegen).

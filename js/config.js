@@ -652,6 +652,42 @@ export const CFG = {
   cableTop: { x: 4, z: -22 },                // Teleferik-Station am Feld
   interactDist: 4.2,
 
+  // ---- v18: Geführter Fortschritt (GTA-Style-Freischaltungen) ----
+  progress: {
+    // Bedingungen: day / kg (totalKg) / earned (totalEarned) / rep / xp:[zweig,level] / needs:[features]
+    features: {
+      market:    { kg: 40,                 at: 'cityMarket' },   // Kasaba-Pazar
+      dealer:    { earned: 2500,           at: 'cityDealer' },   // Galeri (Fahrzeuge)
+      factory:   { xp: ['trade', 1],       at: 'factory' },      // Fabrik & Label
+      exports:   { xp: ['trade', 2], needs: ['factory'], at: 'factory' },
+      tavla:     { rep: 3,                 at: 'cayevi' },
+      futbol:    { rep: 6,                 at: 'derby' },        // Derby + Karşıköy-Maç
+      arcade:    { day: 4,                 at: 'arcade' },
+      muhtarlik: { rep: 12,                at: 'city' },         // Dorfprojekte (Okul/Çayevi/Cami)
+      stall:     { xp: ['trade', 3],       at: 'stall' },
+      valley2:   { earned: 20000,          at: 'valley2' }       // Fındık Vadisi (Filiale)
+    }
+  },
+
+  // ---- v18: Fındık Vadisi — Nachbar-Tal mit Filiale ----
+  valley2: {
+    zone: { x0: 118, x1: 196, z0: 140, z1: 196, h: 3.2 },   // Hochplateau im Nordosten
+    spawn: { x: 132, z: 154 },
+    house: { x: 168, z: 176, ry: -0.7 },        // Filial-Haus mit Verwalter
+    branchCost: 12000,
+    workerCost: 400, workerWage: 100, maxWorkers: 5,
+    hazelPerWorker: 5,                          // Fındık pro Arbeiter und Tag
+    taxiCost: 120                               // Fahrt mit dem Taksi/Dolmuş
+  },
+
+  // ---- v18: NPC-Leben ----
+  npcLife: {
+    favorsPerDay: 2,
+    favorItems: { honey: 2, cheese: 1, hamsi: 3, egg: 4, tea_pack: 2 },
+    favorPay: 260, favorRep: 2,
+    cayevi: { x: 130, z: -104 }                 // Feierabend-Treffpunkt
+  },
+
   // ---- v17: Imperium sichtbar ----
   factory2: {                               // Produktionslinien in der Anbauhalle
     lineCosts: [8000, 15000, 26000],        // Linie 1..3
