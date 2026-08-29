@@ -65,6 +65,8 @@ import { createLandslide } from './world/landslide.js';
 import { createStall } from './world/stall.js';
 import { createBeeCup } from './world/beecup.js';
 import { createBillboards } from './world/billboards.js';
+import { createValley2 } from './world/valley2.js';
+import { loadCustomModels } from './custom.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -146,6 +148,7 @@ let gulet = null, cats = null, konak = null, village = null;
 let ada = null, memories = null;
 let wedding = null, freighter = null, panayir = null, mine = null, falcon = null, bridgeMod = null;
 let factoryext = null, parcels = null, railwayMod = null, landslideMod = null, stallMod = null, beecup = null, billboardsMod = null;
+let valley2 = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -286,6 +289,12 @@ createProps(ctx, terrain).then(async (p) => {
   allColliders.push(...ada.colliders);
   bridgeMod = createBridge(ctx, terrain);   // v15: Zone erst beim Bau — trotzdem nach Minimap
   gameMods.bridge = bridgeMod;
+  // v18: Fındık Vadisi — Höhen-Zone ebenfalls NACH der Minimap (siehe CLAUDE.md)
+  valley2 = createValley2(ctx, terrain, chars);
+  gameMods.valley2 = valley2;
+  allColliders.push(...valley2.colliders);
+  // v18: eigene TRELLIS-/Custom-Modelle einstreuen (no-op ohne index.json)
+  loadCustomModels(ctx, terrain);
   npcs = createNpcs(ctx, terrain, ui, player, () => game.playerShare(), chars);
   gameMods.npcs = npcs;
   ui.bindTouch(player, vehicles, boat);
@@ -527,6 +536,11 @@ function wireHooks() {
   hooks.stallCycleFactor = () => game.stallCycleFactor();
   hooks.enterBeeCup = () => game.enterBeeCup();
   hooks.buyQueen = () => game.buyQueen();
+  hooks.featureOn = (id) => game.featureOn(id);
+  hooks.buyBranch = () => game.buyBranch();
+  hooks.branchHire = () => game.branchHire();
+  hooks.branchMode = () => game.branchMode();
+  hooks.taxiValley2 = () => game.taxiValley2();
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -616,6 +630,54 @@ function updateCinematic(dt) {
     }, 350);
   }
   if (u >= 1) endCinematic();
+}
+
+// ---------- v18: Feature-Reveal (GTA-Style-Kameraschwenk) ----------
+let reveal = null;
+ctx.revealActive = () => !!reveal;
+ctx.runReveal = (opts) => {
+  if (reveal || cinema) return false;
+  const tx = opts.x, tz = opts.z;
+  const ty = terrain.heightAt(tx, tz);
+  const start = camera.position.clone();
+  const mid = new THREE.Vector3((start.x + tx) / 2, Math.max(start.y, ty) + 34, (start.z + tz) / 2);
+  const end = new THREE.Vector3(tx + 10, ty + 16, tz + 14);
+  reveal = {
+    t: 0, dur: 7,
+    camCurve: new THREE.CatmullRomCurve3([start, mid, end]),
+    look: new THREE.Vector3(tx, ty + 1.5, tz),
+    wasLocked: player.locked
+  };
+  player.setEnabled(false);
+  player.releaseLock();
+  if (game) game.setFrozen(true);
+  const el = document.getElementById('cinema');
+  el.classList.remove('hidden');
+  const te = document.getElementById('cinema-text');
+  te.innerHTML = `<b>${opts.title}</b><br>${opts.text}`;
+  te.style.opacity = 1;
+  const skip = document.getElementById('btn-skip-cinema');
+  skip.textContent = t('revealOk');
+  skip.onclick = () => endReveal();
+  audio.tierUp && audio.tierUp();
+  return true;
+};
+function endReveal() {
+  if (!reveal) return;
+  document.getElementById('cinema').classList.add('hidden');
+  reveal = null;
+  if (game) game.setFrozen(false);
+  player.setEnabled(true);
+  if (!ctx.isTouch) player.requestLock();
+}
+function updateReveal(dt) {
+  const r = reveal;
+  r.t += dt;
+  const u = Math.min(r.t / r.dur, 1);
+  const eased = u < 0.7 ? (u / 0.7) : 1;   // hinfliegen, dann stehen und wirken lassen
+  camera.position.copy(r.camCurve.getPointAt(Math.min(0.999, eased)));
+  camera.lookAt(r.look);
+  if (r.t >= r.dur + 2.5) endReveal();
 }
 
 // ---------- Auto-Qualität ----------
@@ -735,6 +797,7 @@ function step(rawDt, manual, skipRender = false) {
   const elapsed = elapsedTime;
 
   if (cinema) updateCinematic(dt);
+  if (reveal) updateReveal(dt);
 
   // Idle-Kamera hinter dem Startscreen (bis zum ersten Spielstart)
   if (!window.__started) {
@@ -764,6 +827,7 @@ function step(rawDt, manual, skipRender = false) {
   if (game && vehicles) pollGamepad(dt);
   player.update(dt, state.upgrades.boots, game ? game.speedMul() : 1);
   if (photoMode) updatePhoto(dt);
+  else if (reveal) { camera.position.copy(reveal.camCurve.getPointAt(Math.min(0.999, reveal.t / reveal.dur < 0.7 ? reveal.t / reveal.dur / 0.7 : 1))); camera.lookAt(reveal.look); }
   else if (thirdPerson && !vehicles?.driving && !boat?.driving && playing) applyThirdPerson(dt);
   if (avatar) {
     avatar.setVisible(thirdPerson && !vehicles?.driving);
@@ -799,7 +863,7 @@ function step(rawDt, manual, skipRender = false) {
     city.update(dt, elevN, sky.rainT, elapsed);
     vehicles.update(dt, elevN, sky.rainT);
     workers.update(dt, elapsed, playing && !game.winterRest());
-    npcs.update(dt, elapsed);
+    npcs.update(dt, elapsed, sky.hour);
     extras.update(dt, elevN, elapsed);
     airport.update(dt, elapsed);
     cc0.update(dt, player, vehicles.driving ? vehicles.speedKmh() / 3.6 : 0, elevN);
@@ -820,6 +884,7 @@ function step(rawDt, manual, skipRender = false) {
     if (panayir) panayir.update();
     if (falcon) falcon.update(dt, elapsed);
     if (bridgeMod) bridgeMod.update(dt, elapsed, player.pos);
+    if (valley2) valley2.update(dt, elapsed);
     if (factoryext) factoryext.update(dt);
     if (parcels) parcels.update(dt, elapsed);
     if (railwayMod) railwayMod.update(dt);

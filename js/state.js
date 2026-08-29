@@ -111,6 +111,12 @@ export const state = {
   billboards: 0,                   // stehende Werbetafeln (0..3)
   campaign: '',                    // '' | 'shoot' (Foto-Kampagne gebucht)
 
+  // v18: geführter Fortschritt + Nachbar-Tal + NPC-Leben
+  featureUnlocks: {},              // Feature-Id -> true (freigeschaltet)
+  branch: null,                    // { workers, mode: 'store'|'sell' } — Filiale im Fındık Vadisi
+  npcRel: {},                      // NPC-Index -> Beziehungslevel
+  favorsDone: 0,                   // erledigte Gefallen (kumulativ)
+
   // v11
   animalNames: {},          // Art -> [Namen]
   orchard: false,           // Haselnuss-Plantage
@@ -259,7 +265,8 @@ export function save() {
     xp: s.xp,
     factoryLines: s.factoryLines, parcels: s.parcels, railway: s.railway,
     landslide: s.landslide, stall: s.stall, queen: s.queen,
-    beeCupWins: s.beeCupWins, billboards: s.billboards, campaign: s.campaign
+    beeCupWins: s.beeCupWins, billboards: s.billboards, campaign: s.campaign,
+    featureUnlocks: s.featureUnlocks, branch: s.branch, npcRel: s.npcRel, favorsDone: s.favorsDone
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -383,6 +390,15 @@ export function load() {
     state.beeCupWins = d.beeCupWins ?? 0;
     state.billboards = d.billboards ?? 0;
     state.campaign = d.campaign ?? '';
+    // v18: alte Stände (vor dem geführten Spiel) behalten alles freigeschaltet
+    if (d.featureUnlocks === undefined && (d.day ?? 1) > 1) {
+      state.featureUnlocks = { _all: true };
+    } else {
+      state.featureUnlocks = d.featureUnlocks ?? {};
+    }
+    state.branch = d.branch ?? null;
+    state.npcRel = d.npcRel ?? {};
+    state.favorsDone = d.favorsDone ?? 0;
     state.vehicles.moto = state.vehicles.moto ?? false;
     state.inventory.tea_harman = state.inventory.tea_harman ?? 0;
     state.inventory.levrek = state.inventory.levrek ?? 0;
@@ -463,6 +479,7 @@ export function resetProgress() {
   state.factoryLines = 0; state.parcels = []; state.railway = false;
   state.landslide = null; state.stall = null; state.queen = false;
   state.beeCupWins = 0; state.billboards = 0; state.campaign = '';
+  state.featureUnlocks = {}; state.branch = null; state.npcRel = {}; state.favorsDone = 0;
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -491,6 +508,7 @@ export function resetDay() {
   state._adaFish = false; state._adaHoney = false;
   state._mineDone = false; state._kraftDone = false; state._weddingJoined = false;
   state._beeCupDone = false; state._stormToday = false;
+  state._favors = {};
   if (state.stall) { state.stall.soldToday = 0; state.stall.earnedToday = 0; }
   state._kemalDump = false; state._falconHint = 0;
   state._meisterDone = false;

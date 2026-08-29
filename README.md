@@ -443,6 +443,32 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   mit deinem Label (Canvas-gemalt, mit Teeglas) an der Straße: +5 % auf
   Tee-Verkäufe pro Plakat (max. 3).
 
+### Geführtes Spiel, lebendiges Dorf & Fındık Vadisi (v18)
+- **🔓 Geführter Fortschritt (GTA-Style):** Markt, Autohändler, Fabrik,
+  Exporte, Tavla, Fußball, Arcade, Dorfprojekte, Basar-Stand und das
+  Nachbar-Tal sind nicht mehr sofort offen — sie schalten sich durch
+  Spielfortschritt frei (kg, Geld, Ruf, EXP-Level). Bei jeder
+  Freischaltung pausiert das Spiel, die Kamera fliegt cinematisch von
+  oben zum neuen Ort und ein Erklärtext erscheint. Alte Spielstände
+  behalten alles freigeschaltet.
+- **🧠 Lebendige Dorfbewohner:** Jeder NPC hat jetzt einen Namen, ein
+  Zuhause und einen Tagesablauf — morgens daheim, tagsüber im Viertel,
+  abends versammeln sich alle im Çayevi. Täglich tragen zwei von ihnen
+  ein gelbes ❗ überm Kopf: Gefallen-Quests (bring Honig, Hamsi, Käse …)
+  mit Geld, Ruf und wachsender Beziehung.
+- **🌰 Fındık Vadisi (Nachbar-Tal):** Begehbares Hochplateau im Nordosten
+  mit Haselnuss-Hainen — per Taksi-App erreichbar. Dort steht die
+  **Fındık-Şube**: Filiale kaufen, Verwalter Niyazi stellt bis zu fünf
+  Arbeiter ein (laufen sichtbar durch die Haine), täglicher Warenstrom
+  ins Lager oder Direktverkauf. Anno lässt grüßen.
+- **☁️ Cloud-Save:** Im Pausenmenü hoch-/runterladen — funktioniert auf
+  cayvadisi.nesbun.de über die mitgelieferte `cloudsave.php` (Code merken,
+  kein Konto nötig). Lokal/offline meldet es sich sauber ab.
+- **📱 Touch-Polish:** Größere Buttons und Trefferflächen auf Telefonen.
+- **🎨 TRELLIS-Anschluss:** `assets/models/extra/custom/index.json` +
+  eigene glTF-Modelle werden beim Start automatisch platziert
+  (`js/custom.js`); Anleitung in `tools/TRELLIS.md`.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

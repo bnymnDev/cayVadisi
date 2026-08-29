@@ -5,7 +5,7 @@ import { CFG } from './config.js';
 import { state, save, basketCapacity, resetDay, netWorth, seasonOf, prestigeMul, addRep, resetProgress } from './state.js';
 import { t } from './i18n.js';
 import { clamp, fmtMoney } from './util.js';
-import { addXp, workerMax, luckyChance, megaChance } from './xp.js';
+import { addXp, xpLevel, workerMax, luckyChance, megaChance } from './xp.js';
 
 export function createGame(ctx, mods) {
   const { terrain, tea, props, player, audio, ui, particles, sky, farm, vehicles, workers, extras, events, boat, radio, yayla } = mods;
@@ -161,6 +161,7 @@ export function createGame(ctx, mods) {
     if (mods.beecup && mods.beecup.active) {
       setTimeout(() => ui.toast(t('beeToday'), false, 9000), 15000);
     }
+    planFavors();   // v18: heutige NPC-Gefallen
     initStocks();
     if (!state.exportOffers.length) regenExports();
     newOrder();
@@ -306,6 +307,22 @@ export function createGame(ctx, mods) {
     if (state.railway) {
       state.inventory.coal += CFG.railway.coalPerDay;
       lines.push({ k: 'sumRail', v: '+' + CFG.railway.coalPerDay + ' 🪨' });
+    }
+    // v18: Warenstrom aus dem Fındık Vadisi
+    if (state.branch && state.branch.workers > 0) {
+      const V = CFG.valley2;
+      const wages = state.branch.workers * V.workerWage;
+      state.money -= wages;
+      state.daySpent += wages;
+      const nuts = state.branch.workers * V.hazelPerWorker;
+      if (state.branch.mode === 'sell') {
+        const sum = Math.round(nuts * CFG.products.hazel.sell * 0.9 * prestigeMul(CFG));
+        state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+        lines.push({ k: 'sumBranch', v: '+' + fmtMoney(sum, L), sub: nuts + ' 🌰 · −' + fmtMoney(wages, L) });
+      } else {
+        state.inventory.hazel += nuts;
+        lines.push({ k: 'sumBranch', v: '+' + nuts + ' 🌰', sub: '−' + fmtMoney(wages, L) });
+      }
     }
     // v17: Tagesbilanz des Basar-Stands
     if (state.stall && state.stall.soldToday > 0) {
@@ -2812,6 +2829,150 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ==================== v18: Geführter Fortschritt ====================
+  const revealQueue = [];
+  let unlockTimer = 2;
+
+  function featureOn(id) {
+    if (!CFG.progress.features[id]) return true;
+    return !!(state.featureUnlocks._all || state.featureUnlocks[id]);
+  }
+
+  function unlockCondMet(def) {
+    if (def.day && state.day < def.day) return false;
+    if (def.kg && state.totalKg < def.kg) return false;
+    if (def.earned && state.totalEarned < def.earned) return false;
+    if (def.rep && state.rep < def.rep) return false;
+    if (def.xp && xpLevel(state.xp[def.xp[0]]) < def.xp[1]) return false;
+    if (def.needs && !def.needs.every((n) => featureOn(n))) return false;
+    return true;
+  }
+
+  function checkUnlocks() {
+    if (state.featureUnlocks._all) return;
+    for (const [id, def] of Object.entries(CFG.progress.features)) {
+      if (state.featureUnlocks[id]) continue;
+      if (unlockCondMet(def)) {
+        state.featureUnlocks[id] = true;
+        revealQueue.push(id);
+        save();
+      }
+    }
+  }
+
+  function revealSpot(at) {
+    switch (at) {
+      case 'cityMarket': return CFG.city.market;
+      case 'cityDealer': return CFG.city.dealer;
+      case 'factory': return { x: CFG.factory.x, z: CFG.factory.z };
+      case 'cayevi': return { x: CFG.city.x + 12, z: CFG.city.z - 4 };
+      case 'derby': return CFG.derby.goal;
+      case 'arcade': return CFG.arcade.spot;
+      case 'city': return { x: CFG.city.x, z: CFG.city.z };
+      case 'stall': return CFG.stall.spot;
+      case 'valley2': return { x: CFG.valley2.house.x, z: CFG.valley2.house.z };
+      default: return { x: CFG.city.x, z: CFG.city.z };
+    }
+  }
+
+  function tryPlayReveal() {
+    if (!revealQueue.length || !ctx.runReveal) return;
+    if (!running || paused || frozen || ui.overlayOpen() || vehicles.driving || boat.driving) return;
+    if (ctx.photoActive && ctx.photoActive()) return;
+    const id = revealQueue.shift();
+    const spot = revealSpot(CFG.progress.features[id].at);
+    ctx.runReveal({ x: spot.x, z: spot.z, title: t('feat_' + id), text: t('featText_' + id) });
+  }
+
+  // ==================== v18: NPC-Gefallen ====================
+  function planFavors() {
+    state._favors = {};
+    if (!mods.npcs) return;
+    const n = mods.npcs.count;
+    const items = Object.entries(CFG.npcLife.favorItems);
+    for (let k = 0; k < CFG.npcLife.favorsPerDay; k++) {
+      const idx = Math.floor(Math.random() * Math.max(1, n - 1));   // Kemal (letzter) nie
+      if (state._favors[idx] !== undefined) continue;
+      const [item, qty] = items[Math.floor(Math.random() * items.length)];
+      state._favors[idx] = { item, qty };
+    }
+    mods.npcs.setFavors && mods.npcs.setFavors(state._favors);
+  }
+
+  function favorTalk(idx) {
+    const f = state._favors && state._favors[idx];
+    if (!f) return false;
+    const name = mods.npcs.nameOf ? mods.npcs.nameOf(idx) : '?';
+    if (Math.floor(state.inventory[f.item] || 0) >= f.qty) {
+      state.inventory[f.item] -= f.qty;
+      const pay = CFG.npcLife.favorPay;
+      state.money += pay; state.dayEarned += pay; state.totalEarned += pay;
+      addRep(CFG.npcLife.favorRep);
+      state.npcRel[idx] = (state.npcRel[idx] || 0) + 1;
+      state.favorsDone += 1;
+      delete state._favors[idx];
+      mods.npcs.setFavors && mods.npcs.setFavors(state._favors);
+      audio.cash();
+      ui.toast(t('favorDone', name, fmtMoney(pay, state.settings.lang)), true, 8000);
+      ui.refreshMoney(); save();
+    } else {
+      audio.plant();
+      ui.toast(t('favorAsk', name, f.qty, CFG.products[f.item].icon + ' ' + t('prod_' + f.item)), false, 9000);
+    }
+    return true;
+  }
+
+  // ==================== v18: Fındık Vadisi — Filiale ====================
+  function buyBranch() {
+    const V = CFG.valley2;
+    if (state.branch || state.money < V.branchCost) { audio.deny(); return false; }
+    state.money -= V.branchCost;
+    state.daySpent += V.branchCost;
+    state.branch = { workers: 0, mode: 'store' };
+    if (mods.valley2) mods.valley2.sync();
+    addRep(3);
+    audio.tierUp();
+    ui.toast(t('branchBought'), true, 10000);
+    checkWealth(); ui.refreshMoney(); save();
+    return true;
+  }
+
+  function branchHire() {
+    const V = CFG.valley2;
+    if (!state.branch || state.branch.workers >= V.maxWorkers || state.money < V.workerCost) { audio.deny(); return false; }
+    state.money -= V.workerCost;
+    state.daySpent += V.workerCost;
+    state.branch.workers += 1;
+    if (mods.valley2) mods.valley2.sync();
+    audio.cash();
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  function branchMode() {
+    if (!state.branch) return 'store';
+    state.branch.mode = state.branch.mode === 'store' ? 'sell' : 'store';
+    save();
+    return state.branch.mode;
+  }
+
+  function taxiValley2() {
+    const V = CFG.valley2;
+    if (!featureOn('valley2') || state.money < V.taxiCost) { audio.deny(); return false; }
+    state.money -= V.taxiCost;
+    state.daySpent += V.taxiCost;
+    ui.hideOverlays();
+    player.teleport(V.spawn.x, V.spawn.z);
+    player.look(-2.4, 0);
+    audio.engineStart();
+    ui.toast(t('valleyWelcome'), true, 8000);
+    ui.refreshMoney(); save();
+    if (!ctx.isTouch) player.requestLock();
+    player.setEnabled(true);
+    pause(false);
+    return true;
+  }
+
   function doSelaleRest() {
     if (state._selaleDone) { ui.toast(t('selaleAgain'), false); audio.deny(); return false; }
     state._selaleDone = true;
@@ -3026,6 +3187,8 @@ export function createGame(ctx, mods) {
     else if (act.id === 'stallbuy') buyStall();
     else if (act.id === 'stallmanage') { player.releaseLock(); ui.showStall(); }
     else if (act.id === 'beecup') { player.releaseLock(); ui.showBeeCup(); }
+    else if (act.id === 'branch') { player.releaseLock(); ui.showBranch(); }
+    else if (act.id === 'favor') favorTalk(act.data);
   }
 
   window.addEventListener('keydown', (e) => {
@@ -3103,7 +3266,7 @@ export function createGame(ctx, mods) {
     if (state.hives > 0 && !state._hiveDone && CFG.yayla.honeySeasons.includes(season())
         && distTo(CFG.yayla.x + 6, CFG.yayla.z + 2) < CFG.interactDist + 2) return { id: 'hivegame' };
     if (distTo(CFG.karsikoy.market.x, CFG.karsikoy.market.z) < CFG.interactDist + 1.5) return { id: 'koymarket' };
-    if (distTo(CFG.karsikoy.pitch.x, CFG.karsikoy.pitch.z) < CFG.interactDist + 2) return { id: 'mac' };
+    if (featureOn('futbol') && distTo(CFG.karsikoy.pitch.x, CFG.karsikoy.pitch.z) < CFG.interactDist + 2) return { id: 'mac' };
     // v17
     if (mods.landslide && mods.landslide.near(player.pos.x, player.pos.z)) return { id: 'landslide' };
     if (mods.parcels) {
@@ -3112,9 +3275,16 @@ export function createGame(ctx, mods) {
     }
     if (mods.railway && mods.railway.nearSign(player.pos.x, player.pos.z)) return { id: 'railbuild' };
     if (mods.stall && mods.stall.near(player.pos.x, player.pos.z)) {
-      return { id: state.stall ? 'stallmanage' : 'stallbuy' };
+      if (state.stall) return { id: 'stallmanage' };
+      if (featureOn('stall')) return { id: 'stallbuy' };
     }
     if (mods.beecup && !state._beeCupDone && mods.beecup.near(player.pos.x, player.pos.z)) return { id: 'beecup' };
+    // v18
+    if (mods.valley2 && mods.valley2.nearHouse(player.pos.x, player.pos.z)) return { id: 'branch' };
+    if (mods.npcs) {
+      const fi = mods.npcs.nearFavor(player.pos.x, player.pos.z);
+      if (fi >= 0) return { id: 'favor', data: fi };
+    }
     // v15
     if (mods.wedding && mods.wedding.active && !state._weddingJoined
         && mods.wedding.near(player.pos.x, player.pos.z)) return { id: 'wedding' };
@@ -3133,7 +3303,7 @@ export function createGame(ctx, mods) {
       const mi = mods.memories.nearest(player.pos.x, player.pos.z);
       if (mi >= 0) return { id: 'memory', data: mi };
     }
-    if (distTo(CFG.arcade.spot.x, CFG.arcade.spot.z) < CFG.interactDist + 1.5) return { id: 'arcade' };
+    if (featureOn('arcade') && distTo(CFG.arcade.spot.x, CFG.arcade.spot.z) < CFG.interactDist + 1.5) return { id: 'arcade' };
     if (mods.ada && mods.ada.onIsland(player.pos.x, player.pos.z)) {
       if (state.ada.light < 2 && mods.ada.nearLight(player.pos.x, player.pos.z)) return { id: 'adalight' };
       if (!state.ada.cave && mods.ada.nearCave(player.pos.x, player.pos.z)) return { id: 'adacave' };
@@ -3141,7 +3311,7 @@ export function createGame(ctx, mods) {
       if (!state._adaHoney && mods.ada.nearHoney(player.pos.x, player.pos.z)) return { id: 'adahoney' };
     }
     // v13
-    if (mods.village && mods.village.nearMuhtar(player.pos.x, player.pos.z)) return { id: 'muhtarlik' };
+    if (featureOn('muhtarlik') && mods.village && mods.village.nearMuhtar(player.pos.x, player.pos.z)) return { id: 'muhtarlik' };
     // v12
     if (mods.gulet && mods.gulet.nearMooring(player.pos.x, player.pos.z)) return { id: 'gulet' };
     if (mods.konak && state.konak < 3 && mods.konak.near(player.pos.x, player.pos.z)) return { id: 'konak' };
@@ -3151,7 +3321,7 @@ export function createGame(ctx, mods) {
         && mods.cats.nearest(player.pos.x, player.pos.z)) return { id: 'cat' };
     // v9
     if (mods.heli && mods.heli.near(player.pos.x, player.pos.z)) return { id: 'heli' };
-    if (!derby && distTo(CFG.derby.goal.x, CFG.derby.goal.z) < CFG.interactDist + 2) return { id: 'derby' };
+    if (featureOn('futbol') && !derby && distTo(CFG.derby.goal.x, CFG.derby.goal.z) < CFG.interactDist + 2) return { id: 'derby' };
     if (isFestival() && !state._halayDone
         && distTo(CFG.city.x - 2, CFG.city.z + 4) < CFG.interactDist + 2) return { id: 'halay' };
     if (mods.selale && mods.selale.nearRest(player.pos.x, player.pos.z)) return { id: 'selale' };
@@ -3166,25 +3336,26 @@ export function createGame(ctx, mods) {
     const ready = farm.nearestReadyPlot(player.pos.x, player.pos.z);
     if (ready >= 0) return { id: 'harvest', data: ready };
     if (distTo(CFG.farm.sign.x, CFG.farm.sign.z) < CFG.interactDist + 1) return { id: 'farm' };
-    if (distTo(CFG.city.market.x, CFG.city.market.z) < CFG.interactDist + 1.5) return { id: 'market' };
-    if (distTo(CFG.city.dealer.x, CFG.city.dealer.z) < CFG.interactDist + 3.5) return { id: 'dealer' };
+    if (featureOn('market') && distTo(CFG.city.market.x, CFG.city.market.z) < CFG.interactDist + 1.5) return { id: 'market' };
+    if (featureOn('dealer') && distTo(CFG.city.dealer.x, CFG.city.dealer.z) < CFG.interactDist + 3.5) return { id: 'dealer' };
     if (distTo(CFG.workshop.x, CFG.workshop.z) < CFG.interactDist + 3) return { id: 'workshop' };
     if (distTo(CFG.travel.spot.x, CFG.travel.spot.z) < CFG.interactDist + 2.5) return { id: 'travel' };
-    if (distTo(CFG.factory.x, CFG.factory.z) < CFG.interactDist + 5) return { id: 'factory' };
+    if (featureOn('factory') && distTo(CFG.factory.x, CFG.factory.z) < CFG.interactDist + 5) return { id: 'factory' };
     if (distTo(CFG.supermarket.x, CFG.supermarket.z) < CFG.interactDist + 1.5) return { id: 'super' };
     if (sky.hour >= CFG.life.black.hourFrom && state.basketKg > 0.01
         && distTo(CFG.life.black.spot.x, CFG.life.black.spot.z) < CFG.interactDist) return { id: 'black' };
     if (distTo(CFG.airport.x, CFG.airport.z) < CFG.interactDist + 8) return { id: 'airport' };
     // v6: Tavla im Çayevi, Bienenstöcke auf der Yayla
-    if (distTo(CFG.city.x + 12, CFG.city.z - 4) < CFG.interactDist) return { id: 'tavla' };
+    if (featureOn('tavla') && distTo(CFG.city.x + 12, CFG.city.z - 4) < CFG.interactDist) return { id: 'tavla' };
     if (state.hives < CFG.yayla.maxHives
         && distTo(CFG.yayla.x + 6, CFG.yayla.z + 2) < CFG.interactDist + 2) return { id: 'hive' };
     return null;
   }
 
   // ---------- Haupt-Update ----------
+  let frozen = false;   // v18: Reveal-Cinematic friert das Spiel ein
   function update(dt, elapsed) {
-    if (!running || paused) return;
+    if (!running || paused || frozen) return;
 
     // Zeit (v7: nach endHour beginnt die freiwillige Nacht bis night.endHour)
     state.timeSec += dt;
@@ -3421,6 +3592,14 @@ export function createGame(ctx, mods) {
     ui.setPrompt(act ? t('prompt_' + act.id, act.id === 'vehicle' ? t('veh_' + act.data) : undefined) : null,
       act ? () => doInteract() : null);
 
+    // v18: Freischaltungen prüfen und Reveals abspielen
+    unlockTimer -= dt;
+    if (unlockTimer <= 0) {
+      unlockTimer = 2;
+      checkUnlocks();
+      tryPlayReveal();
+    }
+
     // Meldungs-Abklingzeit
     toastCooldown -= dt;
     if (player.hitWater && toastCooldown <= 0) { ui.toast(t('water'), false); toastCooldown = 8; }
@@ -3476,6 +3655,8 @@ export function createGame(ctx, mods) {
     planPhotoMission, photoTaken, buyGulet, startMeister, meisterResult,
     buyLine, buyParcel, buildRailway, shovelScoop, buyStall, stallStock,
     stallCycleFactor, stallCustomer, enterBeeCup, buyQueen, bookCampaign,
+    featureOn, checkUnlocks, favorTalk, buyBranch, branchHire, branchMode, taxiValley2,
+    setFrozen(v) { frozen = v; },
     restoreKonak, feedCat, buyJointVenture, buyVillage,
     arcadeStart, arcadeResult, story3Choose, foundMemory, yearEventIs,
     adaRestore, adaCave, adaFish, adaHoney, spawnKuryeJob, kuryePickup, kuryeDeliver,

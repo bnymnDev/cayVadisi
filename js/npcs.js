@@ -1,4 +1,5 @@
 // Dorfbewohner: spazieren durch Stadt, Hof und Annahmestelle, grüßen im Vorbeigehen
+import * as THREE from 'three';
 import { CFG } from './config.js';
 import { state } from './state.js';
 import { mulberry32 } from './util.js';
@@ -12,6 +13,8 @@ const ZONES = () => ([
 ]);
 
 const NPC_COLORS = [0x8a6d5f, 0x5f6d8a, 0x6d8a5f, 0x8a5f6d, 0x7d7d55, 0x557d7d, 0x9a8a6a, 0x6a7a9a];
+// v18: jeder Dorfbewohner hat einen Namen
+const NPC_NAMES = ['İdris', 'Havva', 'Cemal', 'Şükran', 'Recep', 'Melek', 'Yaşar', 'Gülizar', 'Osman', 'Saniye', 'Bekir'];
 
 export function createNpcs(ctx, terrain, ui, player, shareFn, chars) {
   const { scene } = ctx;
@@ -33,8 +36,16 @@ export function createNpcs(ctx, terrain, ui, player, shareFn, chars) {
       parts.group.position.set(x, terrain.heightAt(x, zz), zz);
       parts.group.scale.setScalar(0.94 + rng() * 0.12);
       scene.add(parts.group);
+      // v18: Zuhause am Zonenrand + ❗-Marker für Gefallen
+      const ha = rng() * Math.PI * 2;
+      const home = { x: z.cx + Math.cos(ha) * z.r * 1.1, z: z.cz + Math.sin(ha) * z.r * 1.1 };
+      const marker = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.5, 6),
+        new THREE.MeshBasicMaterial({ color: 0xf2c53a }));
+      marker.visible = false;
+      parts.group.add(marker);
       npcs.push({
-        ...parts, zone: z, x, z: zz, tx: x, tz: zz,
+        ...parts, zone: z, x, z: zz, tx: x, tz: zz, home, marker, mode: 'work',
+        name: NPC_NAMES[idx % NPC_NAMES.length],
         phase: rng() * 6.28, idle: rng() * 4, greeted: false
       });
       idx++;
@@ -58,9 +69,26 @@ export function createNpcs(ctx, terrain, ui, player, shareFn, chars) {
 
   let gatherTimer = 0;
 
+  let favors = {};   // v18: Index -> {item, qty}
+
   return {
     count: npcs.length,
     list: () => npcs,
+    // v18: NPC-Leben
+    nameOf(i) { return npcs[i] ? npcs[i].name || '?' : '?'; },
+    setFavors(map) {
+      favors = map || {};
+      for (let i = 0; i < npcs.length; i++) {
+        if (npcs[i].marker) npcs[i].marker.visible = favors[i] !== undefined;
+      }
+    },
+    nearFavor(px, pz) {
+      for (const i of Object.keys(favors)) {
+        const p = npcs[i];
+        if (p && Math.hypot(px - p.x, pz - p.z) < CFG.interactDist + 1.2) return +i;
+      }
+      return -1;
+    },
     // v11: Ezan — die Kasaba-Bewohner sammeln sich ruhig beim Çayevi
     gather(sec = 45) {
       gatherTimer = sec;
@@ -71,18 +99,44 @@ export function createNpcs(ctx, terrain, ui, player, shareFn, chars) {
         p.idle = sec;
       }
     },
-    update(dt, elapsed) {
+    update(dt, elapsed, hour = 12) {
       if (gatherTimer > 0) gatherTimer -= dt;
       greetCooldown -= dt;
       for (const p of npcs) {
         p.idle -= dt;
+        // v18: Tagesablauf — morgens daheim, tags Arbeit, abends Çayevi
+        if (!p.isKemal && gatherTimer <= 0) {
+          const mode = hour < 8.5 ? 'home' : hour < 17.5 ? 'work' : 'cayevi';
+          if (mode !== p.mode) {
+            p.mode = mode;
+            const C = CFG.npcLife.cayevi;
+            const anchor = mode === 'home' ? p.home
+              : mode === 'cayevi' ? { x: C.x + (Math.random() - 0.5) * 6, z: C.z + (Math.random() - 0.5) * 5 }
+              : { x: p.zone.cx, z: p.zone.cz };
+            p.tx = anchor.x; p.tz = anchor.z;
+            p.idle = 6 + Math.random() * 8;
+          }
+        }
+        if (p.marker) {
+          p.marker.position.y = 2.25 + Math.sin(elapsed * 3) * 0.09;
+          p.marker.rotation.y = elapsed * 1.8;
+        }
         const dx = p.tx - p.x, dz = p.tz - p.z;
         const d = Math.hypot(dx, dz);
         if (p.idle <= 0 && d < 0.4) {
           const a = Math.random() * Math.PI * 2;
-          const r = Math.random() * p.zone.r * 0.85;
-          p.tx = p.zone.cx + Math.cos(a) * r;
-          p.tz = p.zone.cz + Math.sin(a) * r;
+          if (p.isKemal || p.mode === 'work' || p.mode === undefined) {
+            const r = Math.random() * p.zone.r * 0.85;
+            p.tx = p.zone.cx + Math.cos(a) * r;
+            p.tz = p.zone.cz + Math.sin(a) * r;
+          } else {
+            // daheim / im Çayevi: nur kleine Schritte um den Anker
+            const C = CFG.npcLife.cayevi;
+            const ax = p.mode === 'home' ? p.home.x : C.x;
+            const az = p.mode === 'home' ? p.home.z : C.z;
+            p.tx = ax + Math.cos(a) * 2.2;
+            p.tz = az + Math.sin(a) * 2.2;
+          }
           p.idle = 3 + Math.random() * 9;
         }
         if (d > 0.4) {
@@ -134,7 +188,7 @@ export function createNpcs(ctx, terrain, ui, player, shareFn, chars) {
           greetCooldown = 14;
           p.group.rotation.y = Math.atan2(player.pos.x - p.x, player.pos.z - p.z);
           if (p.armR) p.armR.rotation.x = -2.6;   // winken (Prozedural-Fallback)
-          ui.toast(t('npcGreet' + (1 + Math.floor(Math.random() * 4))), false, 2600);
+          ui.toast((p.name ? p.name + ': ' : '') + t('npcGreet' + (1 + Math.floor(Math.random() * 4))), false, 2600);
         }
         if (pd > 8) p.greeted = false;
       }

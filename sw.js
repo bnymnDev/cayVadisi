@@ -1,6 +1,6 @@
 // Service Worker: Cache-first für alles Eigene → komplett offline spielbar.
 // Bei jedem Deploy die Version hochzählen, damit Clients frische Dateien holen.
-const CACHE = 'cayvadisi-v17';
+const CACHE = 'cayvadisi-v18';
 
 const CORE = [
   './',
@@ -24,6 +24,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (url.origin !== location.origin) return;   // nur eigene Dateien
+  if (url.pathname.endsWith('.php')) return;    // v18: Cloud-Save nie cachen
   e.respondWith(
     caches.match(e.request).then((hit) => {
       if (hit) return hit;
