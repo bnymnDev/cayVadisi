@@ -1,6 +1,6 @@
 // Service Worker: Cache-first für alles Eigene → komplett offline spielbar.
 // Bei jedem Deploy die Version hochzählen, damit Clients frische Dateien holen.
-const CACHE = 'cayvadisi-v16';
+const CACHE = 'cayvadisi-v17';
 
 const CORE = [
   './',

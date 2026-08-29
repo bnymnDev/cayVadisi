@@ -652,6 +652,56 @@ export const CFG = {
   cableTop: { x: 4, z: -22 },                // Teleferik-Station am Feld
   interactDist: 4.2,
 
+  // ---- v17: Imperium sichtbar ----
+  factory2: {                               // Produktionslinien in der Anbauhalle
+    lineCosts: [8000, 15000, 26000],        // Linie 1..3
+    packsPerLine: 6,                        // Pakete pro Linie und Nacht
+    rawPerPack: 30,                         // Einkauf Rohtee je Paket (Geld)
+    coalPerLine: 1                          // Kohle je Linie und Nacht
+  },
+  parcels: {                                // Land-Grab: Parzellen im Tal
+    spots: [
+      { x: -20, z: -132 }, { x: 44, z: -122 }, { x: 72, z: -62 }, { x: -62, z: -58 },
+      { x: -18, z: 28 }, { x: 52, z: 22 }, { x: -58, z: 24 }, { x: 62, z: 62 },
+      { x: -28, z: 112 }, { x: 72, z: 112 }
+    ],
+    price: 2600, rentPerDay: 70,
+    rivalEveryDays: 2,                      // alle N Tage schnappt sich ein Rivale eine
+    rivals: { kemal: 0xc0392b, saban: 0xd68a2e, nurten: 0x7d3fa8 },
+    meColor: 0x2f9e44
+  },
+  railway: {                                // Schmalspur-Teebahn Feld -> Fabrik
+    cost: 14000,
+    sign: { x: 8, z: -30 },
+    path: [
+      { x: 6, z: -28 }, { x: -8, z: -52 }, { x: -30, z: -76 },
+      { x: -52, z: -98 }, { x: -66, z: -110 }
+    ],
+    speed: 4.5,
+    coalPerDay: 2                           // Bahn bringt täglich Kohle aus Zonguldak
+  },
+  landslide: {                              // Erdrutsch nach Sturmtagen
+    chance: 0.55, spot: { x: 52, z: -106 },
+    scoops: 6, imeceCost: 800, marketMalus: 0.85, rep: 3
+  },
+  stall: {                                  // eigener Basar-Stand in der Kasaba
+    cost: 3000, spot: { x: 98, z: -84, ry: -1.2 },
+    maxStock: 12,
+    factors: [0.8, 1.0, 1.2, 1.5],          // wählbarer Preisfaktor
+    buyerEvery: 26                          // ~Sekunden zwischen Kunden (Basis)
+  },
+  beeCup: {                                 // Imker-Meisterschaft auf der Yayla
+    everyDays: 14, offset: 10, spot: { x: 34, z: 88 },
+    entryHoney: 3, prize: 1500, rep: 3,
+    queenCost: 1200, queenBonus: 1          // Anzer-Königin: +1 Honig je Stock
+  },
+  billboards: {                             // Foto-Kampagne -> Plakatwände
+    cost: 1000, bonusPer: 0.05, max: 3,
+    spots: [
+      { x: 60, z: -108, ry: 0.15 }, { x: -42, z: -100, ry: -0.3 }, { x: 20, z: 58, ry: 0.5 }
+    ]
+  },
+
   // ---- v16: EXP & Imperium ----
   xp: {
     // Schwellen für Level 0..8 (Index = Level)

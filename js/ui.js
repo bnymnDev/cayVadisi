@@ -297,7 +297,7 @@ export function createUI(ctx, hooks) {
         const APPS = [
           ['hava', '⛅'], ['piyasa', '📊'], ['banka', '💳'],
           ['borsa', '📈'], ['taksi', '🚕'], ['karar', '📜'],
-          ['lojistik', '🚚'], ['kurye', '🏍️'], ['imperium', '👑'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
+          ['lojistik', '🚚'], ['kurye', '🏍️'], ['imperium', '👑'], ['tapu', '🗺️'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
         ];
         body.innerHTML = `<div class="app-grid">${APPS.map(([id, ic]) =>
           `<button class="app-btn" data-app="${id}"><span>${ic}</span><em>${t('app_' + id)}</em></button>`).join('')}</div>`;
@@ -335,6 +335,30 @@ export function createUI(ctx, hooks) {
             <div class="u-body"><div class="u-name">${t('kuryeNone')}</div>
             <div class="u-desc">${t('kuryeStats', state.kuryeDone)}</div></div></div>`;
         }
+        body.innerHTML = html;
+      } else if (app === 'tapu') {
+        // v17: Grundbuch — wem gehört das Tal?
+        const L2 = state.settings.lang;
+        const P = CFG.parcels;
+        const counts = { me: 0, kemal: 0, saban: 0, nurten: 0, free: 0 };
+        for (let i = 0; i < P.spots.length; i++) {
+          const o = state.parcels[i];
+          if (!o) counts.free++; else counts[o] = (counts[o] || 0) + 1;
+        }
+        let html = `<div class="section-info">${t('tapuInfo', fmtMoney(P.price, L2), fmtMoney(P.rentPerDay, L2))}</div>`;
+        const rows = [
+          ['me', '🟩', t('tapuMine'), counts.me],
+          ['kemal', '🟥', t('rival_kemal'), counts.kemal],
+          ['saban', '🟧', t('rival_saban'), counts.saban],
+          ['nurten', '🟪', t('rival_nurten'), counts.nurten],
+          ['free', '⬜', t('tapuFree'), counts.free]
+        ];
+        for (const [, ic, name, n] of rows) {
+          html += `<div class="upgrade-item"><div class="u-icon">${ic}</div>
+            <div class="u-body"><div class="u-name">${name}</div>
+            <div class="u-desc">${n} ${t('tapuParcels')}</div></div></div>`;
+        }
+        if (counts.me > 0) html += `<div class="section-info">${t('tapuRent', fmtMoney(counts.me * P.rentPerDay, L2))}</div>`;
         body.innerHTML = html;
       } else if (app === 'imperium') {
         // v16: Imperium-Übersicht — Level, Perks, nächste Freischaltungen
@@ -1074,6 +1098,91 @@ export function createUI(ctx, hooks) {
       show(els.eventS);
     },
 
+    // ---------- v17: Basar-Stand verwalten ----------
+    showStall() {
+      const L = state.settings.lang;
+      const st = state.stall;
+      if (!st) return;
+      $('event-icon').textContent = '🧿';
+      $('event-title').textContent = t('stallTitle');
+      const total = Object.values(st.stock).reduce((a, b) => a + b, 0);
+      $('event-text').innerHTML = t('stallIntro', total, CFG.stall.maxStock)
+        + `<br>${t('stallToday', st.soldToday, fmtMoney(st.earnedToday, L))}`;
+      const box = $('event-choices');
+      box.innerHTML = '';
+      // Preisfaktor
+      const fBtn = document.createElement('button');
+      fBtn.className = 'big-btn';
+      fBtn.textContent = t('stallFactor', '×' + st.factor);
+      fBtn.addEventListener('click', () => {
+        fBtn.textContent = t('stallFactor', '×' + hooks.stallCycleFactor());
+      });
+      box.appendChild(fBtn);
+      // Ware rein/raus
+      const ids = Object.keys(CFG.products).filter((id) =>
+        Math.floor(state.inventory[id] || 0) > 0 || (st.stock[id] || 0) > 0);
+      for (const id of ids.slice(0, 8)) {
+        const row = document.createElement('div');
+        row.className = 'upgrade-item';
+        const render = () => {
+          row.innerHTML = `
+            <div class="u-icon">${CFG.products[id].icon}</div>
+            <div class="u-body"><div class="u-name">${t('prod_' + id)}</div>
+            <div class="u-desc">🎒 ${Math.floor(state.inventory[id] || 0)} · 🧺 ${st.stock[id] || 0}</div></div>
+            <div class="btn-mini-row"><button data-n="-1">−</button><button data-n="1">+</button></div>`;
+          row.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+            if (hooks.stallStock(id, parseInt(b.dataset.n, 10))) { render(); api.showStall(); }
+          }));
+        };
+        render();
+        box.appendChild(row);
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
+    // ---------- v17: Imker-Meisterschaft ----------
+    showBeeCup() {
+      const L = state.settings.lang;
+      const B = CFG.beeCup;
+      $('event-icon').textContent = '🐝';
+      $('event-title').textContent = t('beeTitle');
+      $('event-text').innerHTML = t('beeIntro', B.entryHoney, fmtMoney(B.prize, L))
+        + (state.beeCupWins > 0 ? `<br>🏆 ${t('beeWins', state.beeCupWins)}` : '');
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const b = document.createElement('button');
+      b.className = 'big-btn';
+      b.disabled = Math.floor(state.inventory.honey) < B.entryHoney;
+      b.textContent = t('beeEnter', B.entryHoney);
+      b.addEventListener('click', () => {
+        const res = hooks.enterBeeCup();
+        if (!res) return;
+        $('event-text').innerHTML = (res.win ? '🏆 ' + t('beeWin', fmtMoney(res.prize, L)) : t('beeLose'))
+          + `<br><b>${res.my}</b> : ${res.opp}`;
+        b.disabled = true;
+      });
+      box.appendChild(b);
+      if (!state.queen) {
+        const q = document.createElement('button');
+        q.className = 'big-btn ghost';
+        q.disabled = state.money < B.queenCost;
+        q.textContent = t('beeQueen') + ' · ' + fmtMoney(B.queenCost, L);
+        q.addEventListener('click', () => { if (hooks.buyQueen()) q.remove(); });
+        box.appendChild(q);
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
     // ---------- v10: Elfmeter-Duell gegen die Karşıköy Gençlik ----------
     showMac() {
       api._timingGame({
@@ -1318,7 +1427,17 @@ export function createUI(ctx, hooks) {
           ${state.kemalPeace && !state.jointVenture ? `<button id="btn-jv" class="big-btn ghost"
               ${state.money < CFG.jointVenture.cost ? 'disabled' : ''}>🤝 ${t('jvName')} · ${fmtMoney(CFG.jointVenture.cost, L)}</button>
             <div class="section-info">${t('jvDesc')}</div>` : ''}
-          ${state.jointVenture ? `<div class="section-info">🤝 ${t('jvActive')}</div>` : ''}`;
+          ${state.jointVenture ? `<div class="section-info">🤝 ${t('jvActive')}</div>` : ''}
+          <h3>${t('linesTitle')}</h3>
+          <div class="section-info">${t('linesInfo', state.factoryLines, CFG.factory2.packsPerLine)}</div>
+          ${state.factoryLines < CFG.factory2.lineCosts.length ? `<button id="btn-line" class="big-btn"
+              ${state.money < CFG.factory2.lineCosts[state.factoryLines] ? 'disabled' : ''}>
+              🏭 ${t('lineBtn', state.factoryLines + 1)} · ${fmtMoney(CFG.factory2.lineCosts[state.factoryLines], L)}</button>` : ''}
+          ${state.billboards < CFG.billboards.max && !state.campaign ? `<button id="btn-campaign" class="big-btn ghost"
+              ${state.money < CFG.billboards.cost ? 'disabled' : ''}>
+              🎬 ${t('campaignBtn')} · ${fmtMoney(CFG.billboards.cost, L)}</button>` : ''}
+          ${state.campaign ? `<div class="section-info">🎬 ${t('campaignPendingInfo')}</div>` : ''}
+          ${state.billboards > 0 ? `<div class="section-info">🪧 ${t('billboardInfo', state.billboards, Math.round(state.billboards * CFG.billboards.bonusPer * 100))}</div>` : ''}`;
         $('btn-pack').addEventListener('click', () => { if (hooks.packBasket()) api.renderFactory(); });
         body.querySelectorAll('.style-btn').forEach(b => b.addEventListener('click', () => {
           if (hooks.setTeaStyle(b.dataset.s)) api.renderFactory();
@@ -1327,6 +1446,10 @@ export function createUI(ctx, hooks) {
         if (gl) gl.addEventListener('click', () => { if (hooks.buyGreenLine()) api.renderFactory(); });
         const jv = $('btn-jv');
         if (jv) jv.addEventListener('click', () => { if (hooks.buyJointVenture()) api.renderFactory(); });
+        const ln = $('btn-line');
+        if (ln) ln.addEventListener('click', () => { if (hooks.buyLine()) api.renderFactory(); });
+        const cp = $('btn-campaign');
+        if (cp) cp.addEventListener('click', () => { if (hooks.bookCampaign()) api.renderFactory(); });
       }
       const exp = $('export-list');
       exp.innerHTML = '';

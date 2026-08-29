@@ -136,6 +136,31 @@ export function createGame(ctx, mods) {
         player.releaseLock();
       }, 5000);
     }
+    // v17: Weltmodule auf den neuen Tag syncen
+    if (mods.beecup) mods.beecup.sync();
+    if (mods.parcels) mods.parcels.sync();
+    if (mods.landslide) mods.landslide.sync();
+    if (mods.billboards) mods.billboards.sync();
+    if (mods.factoryext) mods.factoryext.sync();
+    if (mods.stall) mods.stall.sync();
+    if (mods.railway) mods.railway.sync();
+    // v17: fertiges Kampagnen-Plakat wird morgens aufgestellt
+    if (state.campaign === 'pending') {
+      state.campaign = '';
+      state.billboards = Math.min(CFG.billboards.max, state.billboards + 1);
+      if (mods.billboards) mods.billboards.sync();
+      setTimeout(() => { audio.tierUp(); ui.toast(t('campaignBillboard'), true, 10000); }, 4000);
+    }
+    // v17: Erdrutsch blockiert die Straße
+    if (state.landslide) {
+      setTimeout(() => ui.toast(t('landslideMorning'), false, 10000), 7000);
+    }
+    // v17: alle zwei Tage schnappt sich ein Rivale freies Land
+    if (state.day % CFG.parcels.rivalEveryDays === 0 && state.day > 2) rivalClaimParcel();
+    // v17: Imker-Meisterschaft heute
+    if (mods.beecup && mods.beecup.active) {
+      setTimeout(() => ui.toast(t('beeToday'), false, 9000), 15000);
+    }
     initStocks();
     if (!state.exportOffers.length) regenExports();
     newOrder();
@@ -188,13 +213,13 @@ export function createGame(ctx, mods) {
             lines.push({ k: 'sumFactory', v: '+' + packs + ' 📦', sub: '⚡ −' + fmtMoney(CFG.factory.energyCost, L) });
           }
         }
-        if (rest > 0.01) {
-          const sum = rest * CFG.eco.pricePerKg * (state.sofor ? 1 : CFG.workers.sellFactor);
+          if (rest > 0.01) {
+          const sum = rest * CFG.eco.pricePerKg * ((state.sofor || state.railway) ? 1 : CFG.workers.sellFactor);
           state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
         }
       } else {
         // Şoför liefert frisch: voller Preis statt 90 %
-        const sellF = state.sofor ? 1 : CFG.workers.sellFactor;
+        const sellF = (state.sofor || state.railway) ? 1 : CFG.workers.sellFactor;   // v17: Bahn liefert frisch
         const sum = state.workerKg * CFG.eco.pricePerKg * sellF * famBonus();
         state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
         lines.push({ k: 'sumWorkerTea', v: '+' + fmtMoney(sum, L), sub: Math.round(state.workerKg * 10) / 10 + ' kg' + (state.sofor ? ' 🚚' : '') });
@@ -239,6 +264,52 @@ export function createGame(ctx, mods) {
         if (dec.repPerDay) addRep(-dec.repPerDay);
         if (dec.packsPerDay && state.factory) trackPacks(dec.packsPerDay);
       }
+    }
+    // v17: Produktionslinien pressen über Nacht zugekauften Rohtee
+    if (state.factory && state.factoryLines > 0) {
+      const F2 = CFG.factory2;
+      let activeLines = state.factoryLines;
+      const coalNeed = activeLines * F2.coalPerLine;
+      let energyCost = 0;
+      if (Math.floor(state.inventory.coal) >= coalNeed) {
+        state.inventory.coal -= coalNeed;
+      } else if (yearEventIs('blackout')) {
+        activeLines = 0;   // Stromausfall ohne Kohle: Linien stehen still
+      } else {
+        energyCost = CFG.factory.energyCost * activeLines;
+      }
+      if (activeLines > 0) {
+        const packs = activeLines * F2.packsPerLine;
+        const rawCost = packs * F2.rawPerPack + energyCost;
+        if (state.money >= rawCost) {
+          state.money -= rawCost;
+          state.daySpent += rawCost;
+          state.inventory.tea_pack += packs;
+          lines.push({ k: 'sumLines', v: '+' + packs + ' 📦', sub: '−' + fmtMoney(rawCost, L) });
+        } else {
+          lines.push({ k: 'sumLinesOff', v: '0 📦' });
+        }
+      } else {
+        lines.push({ k: 'sumLinesOff', v: '0 📦' });
+      }
+    }
+    // v17: Pacht von eigenen Parzellen
+    {
+      const myParcels = state.parcels.filter((o) => o === 'me').length;
+      if (myParcels > 0) {
+        const rent = myParcels * CFG.parcels.rentPerDay;
+        state.money += rent; state.dayEarned += rent; state.totalEarned += rent;
+        lines.push({ k: 'sumRent', v: '+' + fmtMoney(rent, L), sub: myParcels + ' 🚩' });
+      }
+    }
+    // v17: die Teebahn bringt abends Kohle aus Zonguldak
+    if (state.railway) {
+      state.inventory.coal += CFG.railway.coalPerDay;
+      lines.push({ k: 'sumRail', v: '+' + CFG.railway.coalPerDay + ' 🪨' });
+    }
+    // v17: Tagesbilanz des Basar-Stands
+    if (state.stall && state.stall.soldToday > 0) {
+      lines.push({ k: 'sumStall', v: '+' + fmtMoney(state.stall.earnedToday, L), sub: state.stall.soldToday + ' 🧺' });
     }
     // v9: Mandıra macht abends aus Milch Peynir
     if (state.mandira) {
@@ -496,6 +567,11 @@ export function createGame(ctx, mods) {
   }
 
   function nextDay() {
+    // v17: nach einem Sturmtag kann die Küstenstraße verschüttet werden
+    if (state._stormToday && !state.landslide && Math.random() < CFG.landslide.chance) {
+      state.landslide = { left: CFG.landslide.scoops };
+    }
+    state._stormToday = false;
     const prevSeason = season();
     state.day += 1;
     if (season() !== prevSeason) {
@@ -902,6 +978,8 @@ export function createGame(ctx, mods) {
     const n = Math.min(have, count);
     if (n <= 0) { audio.deny(); return 0; }
     let price = CFG.products[id].sell * (state.marketMul[id] || 1) * prestigeMul(CFG);
+    if (state.landslide) price *= CFG.landslide.marketMalus;         // v17: Straße blockiert
+    if (id.startsWith('tea') && state.billboards > 0) price *= 1 + state.billboards * CFG.billboards.bonusPer;   // v17: Werbung
     // v14: Hamsi-Schwemme drückt alle Fischpreise
     if (yearEventIs('hamsi') && ['hamsi', 'lufer', 'kalkan', 'levrek', 'kofana', 'mersin'].includes(id)) price *= 0.5;
     const sum = n * price;
@@ -1035,7 +1113,8 @@ export function createGame(ctx, mods) {
     if (n <= 0) { audio.deny(); return 0; }
     const price = CFG.products.tea_pack.sell * CFG.supermarket.retailFactor * (state.marketMul.tea_pack || 1)
       * (state.jointVenture ? CFG.jointVenture.priceMul : 1)    // v12: JV-Markenaufschlag
-      * (state._kemalDump ? CFG.kemalAI.dumpMul : 1);           // v15: Kemals Dumping-Tag
+      * (state._kemalDump ? CFG.kemalAI.dumpMul : 1)            // v15: Kemals Dumping-Tag
+      * (1 + state.billboards * CFG.billboards.bonusPer);       // v17: Plakat-Kampagne
     const sum = n * price * famBonus();
     state.inventory.tea_pack -= n;
     trackPacks(n);
@@ -2031,6 +2110,19 @@ export function createGame(ctx, mods) {
 
   // Wird von main bei jedem Foto (C im Fotomodus) aufgerufen
   function photoTaken(camPos, camDir) {
+    // v17: gebuchte Werbekampagne — Foto vom Teefeld oder der Fabrik
+    if (state.campaign === 'shoot') {
+      const F = CFG.field;
+      const nearField = Math.hypot(camPos.x - F.cx, camPos.z - F.cz) < 55;
+      const nearFactory = Math.hypot(camPos.x - CFG.factory.x, camPos.z - CFG.factory.z) < 25;
+      if (nearField || nearFactory) {
+        state.campaign = 'pending';
+        audio.tierUp();
+        ui.toast(t('campaignShot'), true, 9000);
+        save();
+        return true;
+      }
+    }
     if (!photoMission) return false;
     const S = CFG.selale;
     let hit = false;
@@ -2529,6 +2621,197 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ==================== v17: Imperium sichtbar ====================
+  // --- Fabrik-Produktionslinien ---
+  function buyLine() {
+    const F2 = CFG.factory2;
+    const n = state.factoryLines;
+    if (!state.factory || n >= F2.lineCosts.length || state.money < F2.lineCosts[n]) { audio.deny(); return false; }
+    state.money -= F2.lineCosts[n];
+    state.daySpent += F2.lineCosts[n];
+    state.factoryLines = n + 1;
+    if (mods.factoryext) mods.factoryext.sync();
+    audio.tierUp();
+    ui.toast(t('lineBought', state.factoryLines), true, 8000);
+    checkWealth(); ui.refreshMoney(); save();
+    return true;
+  }
+
+  // --- Land-Grab: Parzellen ---
+  function buyParcel(i) {
+    const P = CFG.parcels;
+    if (state.parcels[i]) { audio.deny(); return false; }
+    if (state.money < P.price) { audio.deny(); return false; }
+    state.money -= P.price;
+    state.daySpent += P.price;
+    state.parcels[i] = 'me';
+    if (mods.parcels) mods.parcels.sync();
+    addRep(1);
+    audio.cash();
+    ui.toast(t('parcelBought'), true, 6000);
+    checkWealth(); ui.refreshMoney(); save();
+    return true;
+  }
+
+  function rivalClaimParcel() {
+    const P = CFG.parcels;
+    const free = [];
+    for (let i = 0; i < P.spots.length; i++) if (!state.parcels[i]) free.push(i);
+    if (!free.length) return;
+    const idx = free[Math.floor(Math.random() * free.length)];
+    const names = Object.keys(P.rivals);
+    const rival = names[Math.floor(Math.random() * names.length)];
+    state.parcels[idx] = rival;
+    if (mods.parcels) mods.parcels.sync();
+    setTimeout(() => ui.toast(t('parcelTaken', t('rival_' + rival)), false, 9000), 12000);
+  }
+
+  // --- Teebahn ---
+  function buildRailway() {
+    if (state.railway || state.money < CFG.railway.cost) { audio.deny(); return false; }
+    state.money -= CFG.railway.cost;
+    state.daySpent += CFG.railway.cost;
+    state.railway = true;
+    if (mods.railway) mods.railway.sync();
+    addRep(4);
+    audio.tierUp();
+    ui.toast(t('railBuilt'), true, 10000);
+    checkWealth(); ui.refreshMoney(); save();
+    return true;
+  }
+
+  // --- Erdrutsch wegräumen ---
+  function shovelScoop() {
+    if (!state.landslide) return false;
+    const power = 1 + (state.workers >= 4 ? 1 : 0);   // İmece: Arbeiter packen mit an
+    state.landslide.left = Math.max(0, state.landslide.left - power);
+    if (mods.landslide) {
+      mods.landslide.dustPos(v3);
+      particles.burst(v3, 14, camera.position);
+      mods.landslide.sync();
+    }
+    audio.harvest();
+    if (state.landslide.left <= 0) {
+      state.landslide = null;
+      if (mods.landslide) mods.landslide.sync();
+      addRep(CFG.landslide.rep);
+      audio.tierUp();
+      ui.toast(t('landslideCleared'), true, 9000);
+    }
+    save();
+    return true;
+  }
+
+  // --- Basar-Stand ---
+  function buyStall() {
+    if (state.stall || state.money < CFG.stall.cost) { audio.deny(); return false; }
+    state.money -= CFG.stall.cost;
+    state.daySpent += CFG.stall.cost;
+    state.stall = { stock: {}, factor: 1, soldToday: 0, earnedToday: 0 };
+    if (mods.stall) mods.stall.sync();
+    audio.tierUp();
+    ui.toast(t('stallBought'), true, 8000);
+    checkWealth(); ui.refreshMoney(); save();
+    return true;
+  }
+
+  function stallTotalStock() {
+    return Object.values(state.stall ? state.stall.stock : {}).reduce((a, b) => a + b, 0);
+  }
+
+  function stallStock(id, n) {
+    if (!state.stall) return false;
+    const st = state.stall.stock;
+    if (n > 0) {
+      if (stallTotalStock() >= CFG.stall.maxStock || Math.floor(state.inventory[id] || 0) < n) { audio.deny(); return false; }
+      state.inventory[id] -= n;
+      st[id] = (st[id] || 0) + n;
+    } else {
+      if ((st[id] || 0) < -n) { audio.deny(); return false; }
+      st[id] += n;
+      state.inventory[id] -= n;
+      if (st[id] <= 0) delete st[id];
+    }
+    if (mods.stall) mods.stall.sync();
+    save();
+    return true;
+  }
+
+  function stallCycleFactor() {
+    if (!state.stall) return 1;
+    const F = CFG.stall.factors;
+    const i = F.indexOf(state.stall.factor);
+    state.stall.factor = F[(i + 1) % F.length];
+    save();
+    return state.stall.factor;
+  }
+
+  // Ein Kunde steht am Tresen — kauft er?
+  function stallCustomer() {
+    if (!state.stall) return;
+    const ids = Object.keys(state.stall.stock).filter((id) => state.stall.stock[id] > 0);
+    if (!ids.length) return;
+    const f = state.stall.factor;
+    const chance = clamp(1.18 - f * 0.62 + state.rep * 0.002 + state.billboards * 0.03, 0.1, 0.95);
+    if (Math.random() > chance) return;   // zu teuer — Kunde zieht weiter
+    const id = ids[Math.floor(Math.random() * ids.length)];
+    state.stall.stock[id] -= 1;
+    if (state.stall.stock[id] <= 0) delete state.stall.stock[id];
+    const sum = Math.round(CFG.products[id].sell * f * prestigeMul(CFG));
+    state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+    state.stall.soldToday += 1;
+    state.stall.earnedToday += sum;
+    gainXp('trade', 1);
+    if (mods.stall) mods.stall.sync();
+    audio.cash();
+    ui.refreshMoney();
+  }
+
+  // --- Imker-Meisterschaft ---
+  function enterBeeCup() {
+    const B = CFG.beeCup;
+    if (state._beeCupDone) { audio.deny(); return null; }
+    if (Math.floor(state.inventory.honey) < B.entryHoney) { ui.toast(t('beeNoHoney', B.entryHoney), false, 5000); audio.deny(); return null; }
+    state.inventory.honey -= B.entryHoney;
+    state._beeCupDone = true;
+    const my = Math.round(40 + state.hives * 8 + (state.queen ? 16 : 0) + state.rep * 0.3 + Math.random() * 26);
+    const opp = Math.round(56 + Math.random() * 24);
+    const win = my > opp;
+    if (win) {
+      state.money += B.prize; state.dayEarned += B.prize; state.totalEarned += B.prize;
+      state.beeCupWins += 1;
+      addRep(B.rep);
+      if (mods.beecup) mods.beecup.sync();
+      audio.tierUp();
+    } else audio.deny();
+    ui.refreshMoney(); save();
+    return { win, my, opp, prize: B.prize };
+  }
+
+  function buyQueen() {
+    if (state.queen || state.money < CFG.beeCup.queenCost) { audio.deny(); return false; }
+    state.money -= CFG.beeCup.queenCost;
+    state.daySpent += CFG.beeCup.queenCost;
+    state.queen = true;
+    audio.cash();
+    ui.toast(t('queenBought'), true, 8000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  // --- Foto-Kampagne -> Plakatwände ---
+  function bookCampaign() {
+    const B = CFG.billboards;
+    if (!state.factory || state.campaign || state.billboards >= B.max || state.money < B.cost) { audio.deny(); return false; }
+    state.money -= B.cost;
+    state.daySpent += B.cost;
+    state.campaign = 'shoot';
+    audio.cash();
+    ui.toast(t('campaignBooked'), true, 12000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
   function doSelaleRest() {
     if (state._selaleDone) { ui.toast(t('selaleAgain'), false); audio.deny(); return false; }
     state._selaleDone = true;
@@ -2737,6 +3020,12 @@ export function createGame(ctx, mods) {
     else if (act.id === 'mine') { if (mineStart()) { player.releaseLock(); ui.showMine(); } }
     else if (act.id === 'falcon') falconFeed();
     else if (act.id === 'bridgebuild') buildBridge();
+    else if (act.id === 'landslide') shovelScoop();
+    else if (act.id === 'parcel') buyParcel(act.data);
+    else if (act.id === 'railbuild') buildRailway();
+    else if (act.id === 'stallbuy') buyStall();
+    else if (act.id === 'stallmanage') { player.releaseLock(); ui.showStall(); }
+    else if (act.id === 'beecup') { player.releaseLock(); ui.showBeeCup(); }
   }
 
   window.addEventListener('keydown', (e) => {
@@ -2815,6 +3104,17 @@ export function createGame(ctx, mods) {
         && distTo(CFG.yayla.x + 6, CFG.yayla.z + 2) < CFG.interactDist + 2) return { id: 'hivegame' };
     if (distTo(CFG.karsikoy.market.x, CFG.karsikoy.market.z) < CFG.interactDist + 1.5) return { id: 'koymarket' };
     if (distTo(CFG.karsikoy.pitch.x, CFG.karsikoy.pitch.z) < CFG.interactDist + 2) return { id: 'mac' };
+    // v17
+    if (mods.landslide && mods.landslide.near(player.pos.x, player.pos.z)) return { id: 'landslide' };
+    if (mods.parcels) {
+      const pi = mods.parcels.near(player.pos.x, player.pos.z);
+      if (pi >= 0 && !state.parcels[pi]) return { id: 'parcel', data: pi };
+    }
+    if (mods.railway && mods.railway.nearSign(player.pos.x, player.pos.z)) return { id: 'railbuild' };
+    if (mods.stall && mods.stall.near(player.pos.x, player.pos.z)) {
+      return { id: state.stall ? 'stallmanage' : 'stallbuy' };
+    }
+    if (mods.beecup && !state._beeCupDone && mods.beecup.near(player.pos.x, player.pos.z)) return { id: 'beecup' };
     // v15
     if (mods.wedding && mods.wedding.active && !state._weddingJoined
         && mods.wedding.near(player.pos.x, player.pos.z)) return { id: 'wedding' };
@@ -3033,6 +3333,7 @@ export function createGame(ctx, mods) {
     // v5: Sturm — einmalig Triebe beschädigen (v6: Versicherung schützt)
     if (stormActive() && !stormDone) {
       stormDone = true;
+      state._stormToday = true;   // v17: kann über Nacht die Straße verschütten
       if (state.insured) {
         ui.toast(t('insuranceSaved'), true, 7000);
         audio.thunderish();
@@ -3173,6 +3474,8 @@ export function createGame(ctx, mods) {
     karsikoyPrice, sellKarsikoy, macResult, floodHit,
     buyOrchard, setLogi, spawnHeliJob,
     planPhotoMission, photoTaken, buyGulet, startMeister, meisterResult,
+    buyLine, buyParcel, buildRailway, shovelScoop, buyStall, stallStock,
+    stallCycleFactor, stallCustomer, enterBeeCup, buyQueen, bookCampaign,
     restoreKonak, feedCat, buyJointVenture, buyVillage,
     arcadeStart, arcadeResult, story3Choose, foundMemory, yearEventIs,
     adaRestore, adaCave, adaFish, adaHoney, spawnKuryeJob, kuryePickup, kuryeDeliver,

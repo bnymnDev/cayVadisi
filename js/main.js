@@ -58,6 +58,13 @@ import { createPanayir } from './world/panayir.js';
 import { createMine } from './world/mine.js';
 import { createFalcon } from './falcon.js';
 import { createBridge } from './world/bridge.js';
+import { createFactoryExt } from './world/factoryext.js';
+import { createParcels } from './world/parcels.js';
+import { createRailway } from './world/railway.js';
+import { createLandslide } from './world/landslide.js';
+import { createStall } from './world/stall.js';
+import { createBeeCup } from './world/beecup.js';
+import { createBillboards } from './world/billboards.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
 import { createRadio } from './radio.js';
@@ -138,6 +145,7 @@ let fireworks = null, orchard = null;
 let gulet = null, cats = null, konak = null, village = null;
 let ada = null, memories = null;
 let wedding = null, freighter = null, panayir = null, mine = null, falcon = null, bridgeMod = null;
+let factoryext = null, parcels = null, railwayMod = null, landslideMod = null, stallMod = null, beecup = null, billboardsMod = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -227,6 +235,15 @@ createProps(ctx, terrain).then(async (p) => {
   panayir = createPanayir(ctx, terrain);
   mine = createMine(ctx, terrain);
   falcon = createFalcon(ctx, terrain, player);
+  // v17: Imperium-Weltmodule
+  factoryext = createFactoryExt(ctx, terrain);
+  parcels = createParcels(ctx, terrain);
+  railwayMod = createRailway(ctx, terrain);
+  landslideMod = createLandslide(ctx, terrain);
+  stallMod = createStall(ctx, terrain, chars);
+  beecup = createBeeCup(ctx, terrain, chars);
+  billboardsMod = createBillboards(ctx, terrain);
+  allColliders.push(...stallMod.colliders, landslideMod.collider);
   allColliders.push(...mine.colliders);
   allColliders.push(...selale.colliders, ...karsikoy.colliders, ...konak.colliders, ...village.colliders);
   // v14: Arcade-Automat vorm Çayevi
@@ -253,6 +270,8 @@ createProps(ctx, terrain).then(async (p) => {
     farm, city, vehicles, workers, extras, events, boat, radio, yayla: yaylaApi, dog,
     race, sled, heli, selale, cc0, dolmus, collectibles, orchard,
     gulet, cats, konak, village, memories, wedding, freighter, panayir, mine, falcon,
+    factoryext, parcels, railway: railwayMod, landslide: landslideMod,
+    stall: stallMod, beecup, billboards: billboardsMod,
     istanbul: null, npcs: null, ada: null, bridge: null
   };
   game = createGame(ctx, gameMods);
@@ -502,6 +521,12 @@ function wireHooks() {
   hooks.mineReward = (s2) => game.mineReward(s2);
   hooks.weddingContribute = (id) => game.weddingContribute(id);
   hooks.weddingPlan = () => game.weddingPlan();
+  hooks.buyLine = () => game.buyLine();
+  hooks.bookCampaign = () => game.bookCampaign();
+  hooks.stallStock = (id, n) => game.stallStock(id, n);
+  hooks.stallCycleFactor = () => game.stallCycleFactor();
+  hooks.enterBeeCup = () => game.enterBeeCup();
+  hooks.buyQueen = () => game.buyQueen();
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -795,6 +820,13 @@ function step(rawDt, manual, skipRender = false) {
     if (panayir) panayir.update();
     if (falcon) falcon.update(dt, elapsed);
     if (bridgeMod) bridgeMod.update(dt, elapsed, player.pos);
+    if (factoryext) factoryext.update(dt);
+    if (parcels) parcels.update(dt, elapsed);
+    if (railwayMod) railwayMod.update(dt);
+    if (beecup) beecup.update(dt, elapsed);
+    if (stallMod) stallMod.update(dt, elapsed,
+      window.__started && game && game.running && !game.paused && !game.isNight(),
+      () => game.stallCustomer());
     fireworks.setActive(window.__started && game.isFestival() && game.isNight());
     fireworks.update(dt);
     orchard.setAutumn(seasonAutumn > 0.5);
