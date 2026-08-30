@@ -494,3 +494,10 @@ body {
   .btn-mini-row button { min-width: 48px; min-height: 42px; }
   #interact-prompt { font-size: 17px; padding: 12px 20px; }
 }
+
+/* ===== v23: Farbenblind-Modus — kritische Grün/Rot-Signale auf Blau/Orange ===== */
+body.cb-mode #basket-fill { background: #2f7fc1 !important; }
+body.cb-mode #ch-ring { stroke: #4fa3e3 !important; }
+body.cb-mode .toast.good { border-color: #2f7fc1 !important; }
+body.cb-mode .toast.bad { border-color: #d98a2b !important; }
+body.cb-mode .big-btn:not(.ghost):not(.danger) { background: #2b5f8a; }

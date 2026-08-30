@@ -144,6 +144,14 @@ export const state = {
   treeStage: 0,                    // Baumhaus 0..2
   treeChest: false,                // Geheimkiste gefunden
 
+  // v23
+  kemence: false,                  // Kemençe gekauft
+  arcade2Best: 0,
+  wildPhotos: {},                  // hedgehog/fox/deer -> true
+  story5: { ch: 0, done: false },  // Geisterhaus-Legende
+  snowman: 0,                      // Schneebälle des aktuellen Schneemanns (0..3)
+  childDay: 0,                     // Tag, an dem das Kind zuerst gesehen wurde
+
   // v11
   animalNames: {},          // Art -> [Namen]
   orchard: false,           // Haselnuss-Plantage
@@ -214,7 +222,7 @@ export const state = {
   hist: { stocks: {}, earned: [] },
 
   // Einstellungen
-  settings: { lang: 'de', sound: true, quality: 'auto', eco: 'auto' }
+  settings: { lang: 'de', sound: true, quality: 'auto', eco: 'auto', speed: 1, cb: false }
 };
 
 // v7: New-Game+-Preisbonus (multipliziert alle Verkäufe)
@@ -300,7 +308,9 @@ export function save() {
     petrol: s.petrol,
     mask: s.mask, amphoras: s.amphoras, dogTricks: s.dogTricks, wish: s.wish,
     postcardsSent: s.postcardsSent, motoBest: s.motoBest,
-    treeStage: s.treeStage, treeChest: s.treeChest
+    treeStage: s.treeStage, treeChest: s.treeChest,
+    kemence: s.kemence, arcade2Best: s.arcade2Best, wildPhotos: s.wildPhotos,
+    story5: s.story5, snowman: s.snowman, childDay: s.childDay
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -320,6 +330,8 @@ export function load() {
     Object.assign(state.upgrades, d.upgrades || {});
     Object.assign(state.settings, d.settings || {});
     state.settings.eco = state.settings.eco ?? 'auto';
+    state.settings.speed = state.settings.speed ?? 1;
+    state.settings.cb = state.settings.cb ?? false;
     state.workers = d.workers ?? 0;
     Object.assign(state.animals, d.animals || {});
     state.plots = Array.isArray(d.plots) ? d.plots : [];
@@ -455,6 +467,12 @@ export function load() {
     state.motoBest = d.motoBest ?? 0;
     state.treeStage = d.treeStage ?? 0;
     state.treeChest = d.treeChest ?? false;
+    state.kemence = d.kemence ?? false;
+    state.arcade2Best = d.arcade2Best ?? 0;
+    state.wildPhotos = d.wildPhotos ?? {};
+    state.story5 = d.story5 ?? { ch: 0, done: false };
+    state.snowman = d.snowman ?? 0;
+    state.childDay = d.childDay ?? 0;
     state.vehicles.moto = state.vehicles.moto ?? false;
     state.inventory.tea_harman = state.inventory.tea_harman ?? 0;
     state.inventory.levrek = state.inventory.levrek ?? 0;
@@ -543,6 +561,8 @@ export function resetProgress() {
   state.petrol = null;
   state.mask = false; state.amphoras = 0; state.dogTricks = {}; state.wish = null;
   state.postcardsSent = 0; state.motoBest = 0; state.treeStage = 0; state.treeChest = false;
+  state.kemence = false; state.arcade2Best = 0; state.wildPhotos = {};
+  state.story5 = { ch: 0, done: false }; state.snowman = 0; state.childDay = 0;
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -575,6 +595,7 @@ export function resetDay() {
   state._petrolToday = 0;
   state._iftarDone = false; state._sekerLeft = 0; state._picnicDone = false; state._wishUsed = false;
   state._wishLuck = false; state._hugged = {};
+  state._buskDone = false; state._festDone = false;
   if (state.stall) { state.stall.soldToday = 0; state.stall.earnedToday = 0; }
   state._kemalDump = false; state._falconHint = 0;
   state._meisterDone = false;

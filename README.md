@@ -542,6 +542,29 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   Aufstieg**, Baumhaus in zwei Ausbaustufen (Hütte → Fahne + Fernrohr) und
   Familien-Picknick.
 
+### Feste, Legenden & Komfort (v23)
+- **🌦️ Jahreszeiten-Feste:** Jede Saison feiert am 3. Tag am Festplatz —
+  Herbst-**Erntedank** (Altar mit Kürbissen, Marktpreise +20 %), Winter-
+  **Schneefest** (Schneemann in drei sichtbaren Etappen bauen, +Ruf),
+  Frühlings-**Hıdırellez** (übers Feuer springen, +Moral). Der Sommer hat
+  das Çay-Festivali.
+- **🎻 Kemençe-Straßenmusik:** Kemençe kaufen (600) und auf drei Plätzen im
+  Tal aufspielen (Rhythmus-Minispiel) — die Münzen wachsen mit deinem Ruf.
+- **🕹️ Arcade Nr. 2 — Kayık Rallisi:** Der Automat hat jetzt ein Spielmenü:
+  Bojen-Slalom mit steigendem Tempo und **Dorf-Bestenliste** (Temel,
+  Dursun, Yusuf, Kemal A. — und du).
+- **🦔 Vahşi Vadi:** Nachts streifen Igel und Fuchs durchs Tal, im
+  Morgengrauen äst ein Reh — sie fliehen vor dir. Fotografiere alle drei
+  (je +150), die komplette Sammlung bringt +Ruf.
+- **🏚️ Das Geisterhaus (Story 5):** Windschiefe Hütte am Waldrand, nachts
+  flackert das Licht. Schlüssel finden, nachts hinein, die Legende um
+  Dedes Freund Deniz aufklären — Belohnung 2.000 + Ruf.
+- **♿ Komfort:** **Minimap-Klick = Schnellreise** (6 Ziele, 30 pro Fahrt),
+  Lauftempo-Option (×1 / ×1,15 / ×1,3) und **Farbenblind-Modus** im
+  Pausenmenü.
+- **🧒 Das Kind wächst:** Läuft sichtbar im Hof herum, wird über 30 Tage
+  größer — und hilft dann beim Eiersammeln (+2 Eier/Tag).
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,
