@@ -294,11 +294,12 @@ export function createUI(ctx, hooks) {
       $('btn-phone-back').classList.toggle('hidden', !app);
       if (!app) {
         title.textContent = t('phoneTitle');
-        const APPS = [
+        let APPS = [
           ['hava', '⛅'], ['piyasa', '📊'], ['banka', '💳'],
           ['borsa', '📈'], ['taksi', '🚕'], ['karar', '📜'],
           ['lojistik', '🚚'], ['kurye', '🏍️'], ['imperium', '👑'], ['tapu', '🗺️'], ['ajanda', '📜'], ['kart', '💌'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
         ];
+        if (!CFG.photoEnabled) APPS = APPS.filter(([id2]) => id2 !== 'kamera');   // v24
         body.innerHTML = `<div class="app-grid">${APPS.map(([id, ic]) =>
           `<button class="app-btn" data-app="${id}"><span>${ic}</span><em>${t('app_' + id)}</em></button>`).join('')}</div>`;
         body.querySelectorAll('.app-btn').forEach(b => b.addEventListener('click', () => {
@@ -339,7 +340,24 @@ export function createUI(ctx, hooks) {
       } else if (app === 'kart') {
         // v22: Vadi-Postkarten — letztes Album-Foto verschicken
         const album = api._albumLoad();
-        const last = album.length ? album[album.length - 1] : null;
+        let last = album.length ? album[album.length - 1] : null;
+        if (!last) {
+          // v24: ohne Fotomodus — gemaltes Tal-Motiv als Karte
+          const mc = document.createElement('canvas');
+          mc.width = 640; mc.height = 360;
+          const mg = mc.getContext('2d');
+          const grad = mg.createLinearGradient(0, 0, 0, 360);
+          grad.addColorStop(0, '#8ec7e8'); grad.addColorStop(0.55, '#d9e8c8'); grad.addColorStop(1, '#3f7d4a');
+          mg.fillStyle = grad; mg.fillRect(0, 0, 640, 360);
+          mg.fillStyle = '#f2d05e'; mg.beginPath(); mg.arc(520, 70, 36, 0, Math.PI * 2); mg.fill();
+          mg.fillStyle = '#2e6b3a';
+          for (let i2 = 0; i2 < 8; i2++) {
+            mg.beginPath(); mg.ellipse(60 + i2 * 78, 300 + (i2 % 2) * 16, 46, 15, 0, 0, Math.PI * 2); mg.fill();
+          }
+          mg.fillStyle = '#355e8a';
+          mg.beginPath(); mg.moveTo(0, 200); mg.quadraticCurveTo(180, 150, 320, 190); mg.lineTo(320, 230); mg.lineTo(0, 240); mg.fill();
+          last = { d: state.day, img: mc.toDataURL('image/jpeg', 0.85) };
+        }
         let html = `<div class="section-info">${t('kartInfo', state.postcardsSent)}</div>`;
         if (last) html += `<img src="${last.img}" style="width:100%;border-radius:10px;margin:8px 0">`;
         body.innerHTML = html;
@@ -1337,6 +1355,42 @@ export function createUI(ctx, hooks) {
         m.textContent = t('branchMode_' + B2.mode);
         m.addEventListener('click', () => { m.textContent = t('branchMode_' + hooks.branchMode()); });
         box.appendChild(m);
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
+    // ---------- v24: Dede-Kochbuch ----------
+    showCook() {
+      $('event-icon').textContent = '📖';
+      $('event-title').textContent = t('cookTitle');
+      $('event-text').innerHTML = t('cookIntro');
+      const box = $('event-choices');
+      box.innerHTML = '';
+      for (const [rid, R] of Object.entries(CFG.recipes)) {
+        const unlocked = state.recipes[rid];
+        const ingredients = Object.entries(R.needs)
+          .map(([ing, n]) => `${n}× ${CFG.products[ing].icon}`).join(' + ');
+        const can = unlocked && !state._cooked
+          && Object.entries(R.needs).every(([ing, n]) => Math.floor(state.inventory[ing] || 0) >= n);
+        const b = document.createElement('button');
+        b.className = 'big-btn' + (unlocked ? '' : ' ghost');
+        b.disabled = !can;
+        b.textContent = unlocked
+          ? `${R.icon} ${t('dish_' + rid)} · ${ingredients}`
+          : `🔒 ${t('dish_' + rid)} (${t('cookNeedRep', R.rep)})`;
+        if (unlocked) b.addEventListener('click', () => { if (hooks.cookDish(rid)) hooks.closeShop(); });
+        box.appendChild(b);
+      }
+      if (state._cooked) {
+        const info = document.createElement('div');
+        info.className = 'section-info';
+        info.textContent = t('cookDoneToday');
+        box.appendChild(info);
       }
       const leave = document.createElement('button');
       leave.className = 'big-btn ghost';

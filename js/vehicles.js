@@ -321,6 +321,14 @@ export function createVehicles(ctx, terrain, player, getColliders) {
 
   const api = {
     get driving() { return driving; },
+    // v24: Moto-Wheelie — hebt das Vorderrad für ~1 s
+    wheelie() {
+      if (driving !== 'moto') return false;
+      const f = fleet[driving];
+      if (!f || Math.abs(f.v) * 3.6 < 10) return false;
+      f.wheelieT = 1;
+      return true;
+    },
     get fleet() { return fleet; },
     syncOwned,
 
@@ -482,7 +490,9 @@ export function createVehicles(ctx, terrain, player, getColliders) {
       f.prevV = f.v;
       f.pitch = lerp(f.pitch, clamp(-dv * 0.012, -0.09, 0.09), Math.min(1, dt * 6));
       f.roll = lerp(f.roll, clamp(f.steer * f.v * 0.006, -0.07, 0.07), Math.min(1, dt * 6));
-      _susQ.setFromEuler(_susE.set(f.pitch, 0, f.roll));
+      if (f.wheelieT > 0) f.wheelieT = Math.max(0, f.wheelieT - dt / 0.9);   // v24: Wheelie klingt ab
+      const wheeliePitch = (f.wheelieT || 0) * 0.55 * Math.sin(Math.min(1, 1 - f.wheelieT + 0.001) * Math.PI);
+      _susQ.setFromEuler(_susE.set(f.pitch - wheeliePitch, 0, f.roll));
       f.group.quaternion.multiply(_susQ);
 
       // Anhänger folgt der Kupplung

@@ -3,7 +3,7 @@
 // JS-Dateien (der Cache füllt sich „on demand") — das Spiel hing dann bei 0 %.
 // Jetzt kommt Code (js/html/css) immer frisch vom Server, solange man online
 // ist; nur offline greift der Cache. Modelle/Texturen bleiben Cache-zuerst.
-const CACHE = 'cayvadisi-v23';
+const CACHE = 'cayvadisi-v24';
 
 const CORE = [
   './',

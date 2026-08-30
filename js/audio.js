@@ -328,6 +328,12 @@ export function createAudio() {
     },
     buy() { blip(520, 0.1, 'triangle', 0.14); blip(780, 0.16, 'triangle', 0.14, 0.08); },
     deny() { blip(210, 0.2, 'square', 0.06); },
+    // v24: Donnergrollen — tiefer Noise-Schlag mit Nachhall
+    thunder() {
+      noiseBurst(90, 0.4, 1.4, 0.32);
+      noiseBurst(60, 0.3, 2.2, 0.18, 0.25);
+      blip(46, 0.9, 'sine', 0.16, 0.05);
+    },
     orderDone() { blip(587, 0.12, 'sine', 0.15); blip(740, 0.12, 'sine', 0.15, 0.1); blip(988, 0.24, 'sine', 0.16, 0.2); },
     thunderish() { noiseBurst(180, 0.5, 1.2, 0.2); },
     gondola() { blip(120, 2.0, 'sawtooth', 0.03); },

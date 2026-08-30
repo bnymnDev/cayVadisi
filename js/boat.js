@@ -144,7 +144,7 @@ export function createBoat(ctx, terrain, player, audio, ui) {
       state.fishCaught += 1;
       const icon = rare ? CFG.xp.rareFish[caught].icon : CFG.fishing.fish[caught].icon;
       ui.toast(t(rare ? 'rareCatch' : 'fishCaught', icon + ' ' + t('prod_' + caught)), true, rare ? 5000 : undefined);
-      const up = addXp('fish', CFG.xp.fishPer[caught] || 4);
+      const up = addXp('fish', (CFG.xp.fishPer[caught] || 4) * (state._dishBuff === 'hamsitava' ? 2 : 1));   // v24: Kochbuff
       if (up) { ui.toast(t('levelUp', t('xp_fish'), up), true, 5000); audio.tierUp(); }
       audio.cash();
       stopFishing();
@@ -343,7 +343,7 @@ export function createBoat(ctx, terrain, player, audio, ui) {
             if (api.netSeasonWinter) n = Math.round(n * N.winterMul);
             state.inventory.hamsi = (state.inventory.hamsi || 0) + n;
             state.fishCaught += n;
-            const upN = addXp('fish', n * (CFG.xp.fishPer.hamsi || 4));   // v16
+            const upN = addXp('fish', n * (CFG.xp.fishPer.hamsi || 4) * (state._dishBuff === 'hamsitava' ? 2 : 1));   // v16/v24
             if (upN) { ui.toast(t('levelUp', t('xp_fish'), upN), true, 5000); audio.tierUp(); }
             audio.cash();
             ui.toast(t('netCatch', n) + (api.netSeasonWinter ? ' ' + t('netWinter') : ''), true, 6500);

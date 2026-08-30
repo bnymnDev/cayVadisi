@@ -189,6 +189,13 @@ export function createGame(ctx, mods) {
     if ((state.day % CFG.parcels.rivalEveryDays === 0 && state.day > 2) || nurtenActive) rivalClaimParcel();
     // v19: Story 4 fortschreiben
     story4Tick();
+    // v24: Rezeptseiten aus Dedes Kochbuch (nach Ruf)
+    for (const [rid, R] of Object.entries(CFG.recipes)) {
+      if (!state.recipes[rid] && state.rep >= R.rep) {
+        state.recipes[rid] = true;
+        setTimeout(() => ui.toast(t('recipeFound', R.icon + ' ' + t('dish_' + rid)), true, 9000), 9000);
+      }
+    }
     // v23: das Gerücht vom Geisterhaus
     if (state.story5.ch === 0 && state.day >= CFG.ghost.startDay) {
       state.story5.ch = 1;
@@ -950,7 +957,8 @@ export function createGame(ctx, mods) {
     // v16: Pflück-EXP + Lucky Picks (Chance wächst mit dem Level)
     gainXp('pick', CFG.xp.pickPer);
     const mega = Math.random() < megaChance();
-    const lucky = !mega && Math.random() < luckyChance() + (state._wishLuck ? 0.15 : 0);   // v22: Wunsch
+    const lucky = !mega && Math.random() < luckyChance() + (state._wishLuck ? 0.15 : 0)
+      + (state._dishBuff === 'lazboregi' ? 0.10 : 0);   // v22/v24
     if (mega || lucky) {
       const bonus = Math.min(cap - state.basketKg, mega ? cap : cap * 0.5);
       if (bonus > 0.01) {
@@ -2297,6 +2305,7 @@ export function createGame(ctx, mods) {
 
   function planPhotoMission() {
     photoMission = null;
+    if (!CFG.photoEnabled) return;   // v24: Fotomodus deaktiviert
     if (Math.random() < CFG.photoMissions.chance) {
       const T2 = CFG.photoMissions.targets;
       photoMission = T2[Math.floor(Math.random() * T2.length)];
@@ -3036,11 +3045,103 @@ export function createGame(ctx, mods) {
     if (!state.factory || state.campaign || state.billboards >= B.max || state.money < B.cost) { audio.deny(); return false; }
     state.money -= B.cost;
     state.daySpent += B.cost;
-    state.campaign = 'shoot';
+    state.campaign = CFG.photoEnabled ? 'shoot' : 'pending';   // v24: ohne Fotomodus direkt
     audio.cash();
-    ui.toast(t('campaignBooked'), true, 12000);
+    ui.toast(t(CFG.photoEnabled ? 'campaignBooked' : 'campaignBookedNoPhoto'), true, 12000);
     ui.refreshMoney(); save();
     return true;
+  }
+
+  // ==================== v24: Kochbuch, Tricks, Rätsel, Gipfel, Gewitter ====================
+  // --- Dede-Kochbuch ---
+  function cookDish(id) {
+    const R = CFG.recipes[id];
+    if (!R || !state.recipes[id] || state._cooked) { audio.deny(); return false; }
+    for (const [ing, n] of Object.entries(R.needs)) {
+      if (Math.floor(state.inventory[ing] || 0) < n) { audio.deny(); ui.toast(t('cookMissing'), false, 4000); return false; }
+    }
+    for (const [ing, n] of Object.entries(R.needs)) state.inventory[ing] -= n;
+    state._cooked = true;
+    state._dishBuff = id;
+    if (id === 'muhlama') state.moralDays += 1;
+    audio.harvest();
+    ui.toast(t('cooked_' + id), true, 9000);
+    save();
+    return true;
+  }
+
+  // --- Moto-Wheelie ---
+  function doTrick() {
+    if (!vehicles.wheelie || !vehicles.wheelie()) { return false; }
+    state.styleToday = (state.styleToday || 0) + 1;
+    audio.pickDone();
+    if (state.styleToday % CFG.tricks.repEvery === 0) {
+      addRep(1);
+      ui.toast(t('trickRep', state.styleToday), true, 5000);
+    } else {
+      ui.toast(t('trickWheelie', state.styleToday), true, 2000);
+    }
+    return true;
+  }
+
+  // --- Rätselsteine ---
+  function touchStone(i) {
+    if (state.riddle.done) { audio.deny(); return false; }
+    if (i === state.riddle.progress) {
+      state.riddle.progress += 1;
+      audio.pickDone();
+      if (state.riddle.progress >= CFG.riddle.stones.length) {
+        state.riddle.done = true;
+        audio.tierUp();
+        ui.toast(t('riddleSolved'), true, 11000);
+      } else {
+        ui.toast(t('riddleStep', state.riddle.progress, CFG.riddle.stones.length), true, 4000);
+      }
+    } else {
+      state.riddle.progress = 0;
+      audio.deny();
+      ui.toast(t('riddleWrong'), false, 5000);
+    }
+    if (mods.riddle) mods.riddle.sync();
+    save();
+    return true;
+  }
+
+  function claimRiddle() {
+    if (!state.riddle.done || state.riddle.claimed) { audio.deny(); return false; }
+    state.riddle.claimed = true;
+    const R = CFG.riddle;
+    state.money += R.reward; state.dayEarned += R.reward; state.totalEarned += R.reward;
+    addRep(R.rep);
+    audio.tierUp();
+    ui.toast(t('riddleTreasure', fmtMoney(R.reward, state.settings.lang)), true, 9000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  // --- Gewitter-Inszenierung ---
+  let lightningTimer = 3;
+  const flashEl = document.createElement('div');
+  flashEl.style.cssText = 'position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:35;transition:opacity .09s';
+  document.body.appendChild(flashEl);
+  let stormAnimalsToast = false;
+
+  function updateStormFx(dt) {
+    if (!stormActive()) { stormAnimalsToast = false; return; }
+    if (!stormAnimalsToast) {
+      stormAnimalsToast = true;
+      const total = Object.values(state.animals).reduce((a, b) => a + b, 0);
+      if (total > 0) setTimeout(() => ui.toast(t('stormAnimals'), false, 7000), 1500);
+    }
+    lightningTimer -= dt;
+    if (lightningTimer <= 0) {
+      lightningTimer = 4 + Math.random() * 9;
+      flashEl.style.opacity = 0.5;
+      setTimeout(() => { flashEl.style.opacity = 0; }, 110);
+      setTimeout(() => { flashEl.style.opacity = 0.28; }, 190);
+      setTimeout(() => { flashEl.style.opacity = 0; }, 300);
+      setTimeout(() => audio.thunder && audio.thunder(), 400 + Math.random() * 1100);
+    }
   }
 
   // ==================== v23: Feste, Musik, Wildnis & Komfort ====================
@@ -3966,6 +4067,9 @@ export function createGame(ctx, mods) {
     else if (act.id === 'busk') { player.releaseLock(); ui.showBusking(); }
     else if (act.id === 'ghostkey') ghostKey();
     else if (act.id === 'ghostdoor') ghostVisit();
+    else if (act.id === 'stone') touchStone(act.data);
+    else if (act.id === 'rcave') claimRiddle();
+    else if (act.id === 'cook') { player.releaseLock(); ui.showCook(); }
     else if (act.id === 'dive') startDive();
     else if (act.id === 'divebuy') { player.releaseLock(); ui.showDiveBuy(); }
     else if (act.id === 'campfire') campfireSit();
@@ -3998,6 +4102,7 @@ export function createGame(ctx, mods) {
     }
     if (e.code === 'KeyE' && running && !paused && !ui.overlayOpen()) doInteract();
     if (e.code === 'KeyH' && vehicles.driving) audio.horn(vehicles.driving);
+    if (e.code === 'KeyT' && vehicles.driving === 'moto' && running && !paused) doTrick();   // v24
     if (e.code === 'KeyR' && (vehicles.driving || boat.driving) && radio && audio.ctx) {
       radio.next(audio.ctx, audio.masterNode);
       const name = radio.stationName();
@@ -4100,6 +4205,14 @@ export function createGame(ctx, mods) {
       return { id: 'fest', data: mods.seasonfest.festToday() };
     }
     if (!state._buskDone && nearBusk()) return { id: state.kemence ? 'busk' : 'buskbuy' };
+    // v24
+    if (mods.riddle) {
+      const si = mods.riddle.nearStone(player.pos.x, player.pos.z);
+      if (si >= 0 && !state.riddle.done) return { id: 'stone', data: si };
+      if (mods.riddle.nearChest(player.pos.x, player.pos.z) && !state.riddle.claimed) return { id: 'rcave' };
+    }
+    if (Object.keys(state.recipes).length > 0 && !state._cooked && sky.hour < 18
+        && distTo(CFG.home.x, CFG.home.z) < CFG.interactDist) return { id: 'cook' };
     if (mods.ghost) {
       if (mods.ghost.nearKey(player.pos.x, player.pos.z)) return { id: 'ghostkey' };
       if ((state.story5.ch === 2 || state.story5.ch === 3) && isNight()
@@ -4460,6 +4573,36 @@ export function createGame(ctx, mods) {
     ui.setPrompt(act ? t('prompt_' + act.id, act.id === 'vehicle' ? t('veh_' + act.data) : undefined) : null,
       act ? () => doInteract() : null);
 
+    // v24: Gewitter-Blitze & Donner
+    updateStormFx(dt);
+    // v24: Gipfel-Panorama (einmalig)
+    if (!state.summitDone && mods.goatpath && mods.goatpath.onSummit(player.pos.x, player.pos.z)) {
+      state.summitDone = true;
+      addRep(CFG.goatPath.rep);
+      state.moralDays += 1;
+      audio.tierUp();
+      ui.toast(t('summitDone'), true, 11000);
+      save();
+    }
+    // v24: Wildtiere aus der Nähe beobachten (Ersatz für die Foto-Sammlung)
+    if (!CFG.photoEnabled && mods.wildanimals) {
+      for (const a of mods.wildanimals.visibleAnimals()) {
+        if (state.wildPhotos[a.id]) continue;
+        if (Math.hypot(player.pos.x - a.x, player.pos.z - a.z) < 7) {
+          state.wildPhotos[a.id] = true;
+          const pay2 = CFG.wildlife2.photoPay;
+          state.money += pay2; state.dayEarned += pay2; state.totalEarned += pay2;
+          audio.cash();
+          ui.toast(t('wildSeen', t('wild_' + a.id)), true, 8000);
+          if (Object.keys(state.wildPhotos).length >= 3) {
+            addRep(CFG.wildlife2.allRep);
+            setTimeout(() => ui.toast(t('wildComplete'), true, 10000), 1500);
+          }
+          ui.refreshMoney(); save();
+        }
+      }
+    }
+
     // v18: Freischaltungen prüfen und Reveals abspielen
     unlockTimer -= dt;
     if (unlockTimer <= 0) {
@@ -4530,6 +4673,7 @@ export function createGame(ctx, mods) {
     buyPetrol, buyWerkstatt, petrolPay,
     buyMask, startDive, trainDog, treeBuild, treeClimb, postcardReward, startMotoRace,
     doSeasonFest, buyKemence, buskResult, arcade2Result, ghostKey, ghostVisit,
+    cookDish, doTrick, touchStone, claimRiddle,
     get motoRaceTime() { return motoRace ? motoRace.t : -1; },
     setFrozen(v) { frozen = v; },
     restoreKonak, feedCat, buyJointVenture, buyVillage,
