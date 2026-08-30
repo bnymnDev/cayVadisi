@@ -1,4 +1,4 @@
-# Manuelles Deployment nach cayvadisi.nesbun.de (Mittwald Static-Files-App).
+# Manuelles Deployment nach cayvadisi.nesbun.de (Mittwald PHP-App).
 # Der SSH-Key kommt als workflow_dispatch-Input und gehört zu einem temporären,
 # ablaufenden Mittwald-SSH-User — nach dem Deploy wird der User gelöscht.
 name: Deploy nesbun
@@ -8,6 +8,13 @@ on:
       ssh_key:
         description: 'Temporärer Deploy-Key (OpenSSH private key)'
         required: true
+      ssh_user:
+        description: 'Mittwald-SSH-Username (z. B. ssh-xxxxxx)'
+        required: true
+      target:
+        description: 'Zielverzeichnis auf dem Webspace'
+        required: false
+        default: '/home/p-ng6rad/html/cayvadisi-php-k0qxx'
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -16,14 +23,16 @@ jobs:
       - name: Rsync zum Webspace
         env:
           KEY: ${{ inputs.ssh_key }}
+          SSHUSER: ${{ inputs.ssh_user }}
+          TARGET: ${{ inputs.target }}
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          SSH="ssh -i $HOME/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -l ssh-kvaxyx@p-ng6rad"
-          TARGET=$($SSH ssh.lashorst.project.host "find /home/p-ng6rad/html -maxdepth 3 -name sw.js | head -1 | xargs -r dirname")
+          SSH="ssh -i $HOME/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -l $SSHUSER@p-ng6rad"
           echo "Zielverzeichnis: $TARGET"
           test -n "$TARGET"
+          $SSH ssh.lashorst.project.host "mkdir -p $TARGET"
           rsync -rz --checksum --stats -e "$SSH" \
             --exclude '.git*' --exclude '.github' --exclude '.claude' \
             --exclude 'tools' --exclude 'tests' --exclude 'node_modules' \
