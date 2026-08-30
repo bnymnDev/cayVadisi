@@ -297,7 +297,7 @@ export function createUI(ctx, hooks) {
         const APPS = [
           ['hava', '⛅'], ['piyasa', '📊'], ['banka', '💳'],
           ['borsa', '📈'], ['taksi', '🚕'], ['karar', '📜'],
-          ['lojistik', '🚚'], ['kurye', '🏍️'], ['imperium', '👑'], ['tapu', '🗺️'], ['ajanda', '📜'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
+          ['lojistik', '🚚'], ['kurye', '🏍️'], ['imperium', '👑'], ['tapu', '🗺️'], ['ajanda', '📜'], ['kart', '💌'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
         ];
         body.innerHTML = `<div class="app-grid">${APPS.map(([id, ic]) =>
           `<button class="app-btn" data-app="${id}"><span>${ic}</span><em>${t('app_' + id)}</em></button>`).join('')}</div>`;
@@ -336,6 +336,29 @@ export function createUI(ctx, hooks) {
             <div class="u-desc">${t('kuryeStats', state.kuryeDone)}</div></div></div>`;
         }
         body.innerHTML = html;
+      } else if (app === 'kart') {
+        // v22: Vadi-Postkarten — letztes Album-Foto verschicken
+        const album = api._albumLoad();
+        const last = album.length ? album[album.length - 1] : null;
+        let html = `<div class="section-info">${t('kartInfo', state.postcardsSent)}</div>`;
+        if (last) html += `<img src="${last.img}" style="width:100%;border-radius:10px;margin:8px 0">`;
+        body.innerHTML = html;
+        const b = document.createElement('button');
+        b.className = 'big-btn';
+        b.disabled = !last || hooks.npcCount() === 0;
+        b.textContent = t('kartSendBtn');
+        b.addEventListener('click', async () => {
+          const idx = Math.floor(Math.random() * Math.max(1, hooks.npcCount() - 1));
+          const name = hooks.npcName ? hooks.npcName(idx) : '?';
+          const { composePostcard, saveCard } = await import('./world/postcards.js');
+          composePostcard(last.img, name, state.day, (dataUrl) => {
+            saveCard(idx, dataUrl);
+            hooks.postcardReward(idx);
+            hooks.postcardsSync && hooks.postcardsSync();
+            api.renderPhone();
+          });
+        });
+        body.appendChild(b);
       } else if (app === 'ajanda') {
         // v19: Questlog — Haupt- und Nebenaufgaben aus dem Spielstand abgeleitet
         const rows = [];
@@ -1323,6 +1346,81 @@ export function createUI(ctx, hooks) {
       show(els.eventS);
     },
 
+    // ---------- v22: Tauchmaske ----------
+    showDiveBuy() {
+      const L = state.settings.lang;
+      $('event-icon').textContent = '🤿';
+      $('event-title').textContent = t('diveTitle');
+      $('event-text').innerHTML = t('divePitch', fmtMoney(CFG.diving.maskCost, L));
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const b = document.createElement('button');
+      b.className = 'big-btn';
+      b.disabled = state.money < CFG.diving.maskCost;
+      b.textContent = t('diveBuyBtn') + ' · ' + fmtMoney(CFG.diving.maskCost, L);
+      b.addEventListener('click', () => { if (hooks.buyMask()) hooks.closeShop(); });
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.append(b, leave);
+      show(els.eventS);
+    },
+
+    // ---------- v22: Kangal-Ausbildung ----------
+    showDog() {
+      $('event-icon').textContent = '🐕';
+      $('event-title').textContent = t('dogTitle');
+      $('event-text').innerHTML = t('dogIntro', Math.floor(state.inventory.cheese));
+      const box = $('event-choices');
+      box.innerHTML = '';
+      for (const [trick, need] of Object.entries(CFG.dogTricks)) {
+        const learned = state.dogTricks[trick];
+        const b = document.createElement('button');
+        b.className = 'big-btn' + (learned ? ' ghost' : '');
+        b.disabled = learned || Math.floor(state.inventory.cheese) < need.cheese;
+        b.textContent = (learned ? '✅ ' : '') + t('dogTrick_' + trick) + (learned ? '' : ` · ${need.cheese} 🧀`);
+        if (!learned) b.addEventListener('click', () => { if (hooks.trainDog(trick)) api.showDog(); });
+        box.appendChild(b);
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
+    // ---------- v22: Platanenbaum ----------
+    showTree() {
+      const L = state.settings.lang;
+      const T = CFG.planeTree;
+      $('event-icon').textContent = '🌳';
+      $('event-title').textContent = t('treeTitle');
+      $('event-text').innerHTML = t('treeIntro', state.treeStage);
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const climb = document.createElement('button');
+      climb.className = 'big-btn';
+      climb.textContent = t('treeClimbBtn');
+      climb.addEventListener('click', () => { hooks.closeShop(); hooks.treeClimb(); });
+      box.appendChild(climb);
+      if (state.treeStage < T.stages.length) {
+        const b = document.createElement('button');
+        b.className = 'big-btn ghost';
+        b.disabled = state.money < T.stages[state.treeStage];
+        b.textContent = t('treeBuildBtn', state.treeStage + 1) + ' · ' + fmtMoney(T.stages[state.treeStage], L);
+        b.addEventListener('click', () => { if (hooks.treeBuild()) api.showTree(); });
+        box.appendChild(b);
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
     // ---------- v21: Tankstelle & Werkstatt ----------
     showPetrol() {
       const L = state.settings.lang;
@@ -1459,7 +1557,8 @@ export function createUI(ctx, hooks) {
         ['🐟', 'exCanavar', state.canavar && state.canavar.wins > 0],
         ['🏆', 'exCups', state.sampiyon || state.beeCupWins > 0 || state.electionsWon > 0],
         ['🃏', 'exCards', Object.keys(state.collect || {}).length >= 3],
-        ['📸', 'exPhotos', (state.memories || []).length >= 5]
+        ['📸', 'exPhotos', (state.memories || []).length >= 5],
+        ['🏺', 'exAmphora', (state.amphoras || 0) > 0]
       ];
       const n = rows.filter((r) => r[2]).length;
       let html = t('museumIntro', n, fmtMoney(n * CFG.museum2.perExhibit, L)) + '<br><br>';

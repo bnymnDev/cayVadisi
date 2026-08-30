@@ -82,6 +82,14 @@ export function createNpcs(ctx, terrain, ui, player, shareFn, chars) {
         if (npcs[i].marker) npcs[i].marker.visible = favors[i] !== undefined;
       }
     },
+    // v22: irgendein Dorfbewohner in Reichweite (für Bayram-Umarmungen)
+    nearestAny(px, pz) {
+      for (let i = 0; i < npcs.length; i++) {
+        if (npcs[i].isKemal) continue;
+        if (Math.hypot(px - npcs[i].x, pz - npcs[i].z) < CFG.interactDist + 1) return i;
+      }
+      return -1;
+    },
     nearFavor(px, pz) {
       for (const i of Object.keys(favors)) {
         const p = npcs[i];

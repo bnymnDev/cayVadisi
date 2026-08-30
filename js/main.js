@@ -70,6 +70,12 @@ import { createCirak } from './cirak.js';
 import { createMuseum } from './world/museum.js';
 import { createFlips } from './world/flips.js';
 import { createPetrol } from './world/petrol.js';
+import { createDiving } from './diving.js';
+import { createCampfire } from './world/campfire.js';
+import { createFestival2 } from './world/festival2.js';
+import { createMotoRace } from './world/motorace.js';
+import { createPlaneTree } from './world/planetree.js';
+import { createPostcards } from './world/postcards.js';
 import { loadCustomModels } from './custom.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
@@ -154,6 +160,7 @@ let wedding = null, freighter = null, panayir = null, mine = null, falcon = null
 let factoryext = null, parcels = null, railwayMod = null, landslideMod = null, stallMod = null, beecup = null, billboardsMod = null;
 let valley2 = null, cirakMod = null, museumMod = null;
 let flipsMod = null, petrolMod = null;
+let divingMod = null, campfireMod = null, festival2Mod = null, motoraceMod = null, planetreeMod = null, postcardsMod = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -255,6 +262,11 @@ createProps(ctx, terrain).then(async (p) => {
   museumMod = createMuseum(ctx, terrain);           // v19
   flipsMod = createFlips(ctx, terrain);             // v20
   petrolMod = createPetrol(ctx, terrain);           // v21
+  divingMod = createDiving(ctx, terrain);           // v22
+  campfireMod = createCampfire(ctx, terrain);
+  festival2Mod = createFestival2(ctx, terrain, chars);
+  motoraceMod = createMotoRace(ctx, terrain);
+  postcardsMod = createPostcards(ctx, terrain);
   allColliders.push(...flipsMod.colliders, ...petrolMod.colliders);
   allColliders.push(...stallMod.colliders, landslideMod.collider);
   allColliders.push(...mine.colliders);
@@ -286,6 +298,8 @@ createProps(ctx, terrain).then(async (p) => {
     factoryext, parcels, railway: railwayMod, landslide: landslideMod,
     stall: stallMod, beecup, billboards: billboardsMod,
     cirak: cirakMod, museum: museumMod, flips: flipsMod, petrol: petrolMod,
+    diving: divingMod, campfire: campfireMod, festival2: festival2Mod,
+    motorace: motoraceMod, planetree: null,
     istanbul: null, npcs: null, ada: null, bridge: null
   };
   game = createGame(ctx, gameMods);
@@ -300,6 +314,10 @@ createProps(ctx, terrain).then(async (p) => {
   allColliders.push(...ada.colliders);
   bridgeMod = createBridge(ctx, terrain);   // v15: Zone erst beim Bau — trotzdem nach Minimap
   gameMods.bridge = bridgeMod;
+  // v22: Platanenbaum — Plattform-Zone ebenfalls NACH der Minimap
+  planetreeMod = createPlaneTree(ctx, terrain);
+  gameMods.planetree = planetreeMod;
+  allColliders.push(...planetreeMod.colliders);
   // v18: Fındık Vadisi — Höhen-Zone ebenfalls NACH der Minimap (siehe CLAUDE.md)
   valley2 = createValley2(ctx, terrain, chars);
   gameMods.valley2 = valley2;
@@ -307,6 +325,7 @@ createProps(ctx, terrain).then(async (p) => {
   // v18: eigene TRELLIS-/Custom-Modelle einstreuen (no-op ohne index.json)
   loadCustomModels(ctx, terrain);
   npcs = createNpcs(ctx, terrain, ui, player, () => game.playerShare(), chars);
+  postcardsMod.sync(npcs);   // v22: hängende Postkarten wiederherstellen
   gameMods.npcs = npcs;
   ui.bindTouch(player, vehicles, boat);
   wireHooks();
@@ -567,6 +586,14 @@ function wireHooks() {
   hooks.rentFlip = (i2) => game.rentFlip(i2);
   hooks.buyPetrol = () => game.buyPetrol();
   hooks.buyWerkstatt = () => game.buyWerkstatt();
+  hooks.buyMask = () => game.buyMask();
+  hooks.startDive = () => game.startDive();
+  hooks.trainDog = (tr2) => game.trainDog(tr2);
+  hooks.treeBuild = () => game.treeBuild();
+  hooks.treeClimb = () => game.treeClimb();
+  hooks.postcardReward = (i2) => game.postcardReward(i2);
+  hooks.npcCount = () => npcs ? npcs.count : 0;
+  hooks.postcardsSync = () => postcardsMod && postcardsMod.sync(npcs);
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -765,6 +792,10 @@ function updateDrone(dt) {
     droneHud.innerHTML = `<b>🚁 ${t('droneTitle')}</b><br>${line2}<br><span style="opacity:.7">${t('droneHint')}</span>`;
   }
 }
+
+// v22: Tasten unter Wasser an die Tauchsteuerung leiten
+window.addEventListener('keydown', (e) => { if (divingMod && divingMod.active) divingMod.keyDown(e.code); });
+window.addEventListener('keyup', (e) => { if (divingMod) divingMod.keyUp(e.code); });
 
 let mHoldTimer = null;
 window.addEventListener('keydown', (e) => {
@@ -999,6 +1030,11 @@ function step(rawDt, manual, skipRender = false) {
     if (petrolMod) petrolMod.update(dt,
       window.__started && game && game.running && !game.paused && !game.isNight(),
       () => game.petrolPay());
+    if (divingMod) divingMod.update(dt, elapsed);
+    if (campfireMod) campfireMod.update(dt, elapsed, window.__started && game && game.isNight());
+    if (festival2Mod) festival2Mod.update(dt, elapsed, sky.hour);
+    if (motoraceMod) motoraceMod.update(dt, elapsed, game ? game.motoRaceTime : -1);
+    if (planetreeMod) planetreeMod.update(dt, elapsed);
     if (factoryext) factoryext.update(dt);
     if (parcels) parcels.update(dt, elapsed);
     if (railwayMod) railwayMod.update(dt);

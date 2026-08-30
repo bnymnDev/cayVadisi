@@ -189,6 +189,30 @@ export function createGame(ctx, mods) {
     if ((state.day % CFG.parcels.rivalEveryDays === 0 && state.day > 2) || nurtenActive) rivalClaimParcel();
     // v19: Story 4 fortschreiben
     story4Tick();
+    // v22: Sternschnuppen-Wunsch geht in Erfüllung
+    if (state.wish) {
+      const w = state.wish;
+      state.wish = null;
+      if (w === 'rep') addRep(2);
+      if (w === 'price') state.teaMul = Math.min(CFG.teaMarket.max, (state.teaMul || 1) + 0.15);
+      if (w === 'luck') state._wishLuck = true;
+      setTimeout(() => ui.toast(t('wish_' + w), true, 9000), 6000);
+    }
+    // v22: Bayram — die Kinder kommen
+    if (mods.festival2 && mods.festival2.phase() === 'bayram') {
+      state._sekerLeft = CFG.holidays.kids;
+      state._hugged = {};
+      setTimeout(() => ui.toast(t('bayramToday'), true, 9000), 3000);
+    } else if (mods.festival2 && mods.festival2.phase() === 'ramazan') {
+      setTimeout(() => ui.toast(t('ramazanToday'), false, 8000), 3000);
+    }
+    // v22: Apport — der Kangal bringt morgens eine Kleinigkeit
+    if (state.dog && state.dogTricks.fetch) {
+      const finds = ['egg', 'hamsi', 'coal'];
+      const item = finds[Math.floor(Math.random() * finds.length)];
+      state.inventory[item] += 1;
+      setTimeout(() => ui.toast(t('dogFetch', CFG.products[item].icon), true, 6000), 8000);
+    }
     // v21: eigene Werkstatt — Fahrzeuge stehen morgens frisch repariert da
     if (state.petrol && state.petrol.werkstatt) {
       let fixed = false;
@@ -733,7 +757,8 @@ export function createGame(ctx, mods) {
     farm.refreshPlots();
 
     // Tiere produzieren über Nacht (v6: Sommer-Milchbonus dank Yayla-Weide)
-    const cirakMul = state.cirak && state.cirak.level >= 1 ? CFG.cirak.animalBonus : 1;   // v19
+    const cirakMul = (state.cirak && state.cirak.level >= 1 ? CFG.cirak.animalBonus : 1)
+      * (state.dog && state.dogTricks.herd ? 1.1 : 1);   // v19/v22
     for (const [id, spec] of Object.entries(CFG.animals)) {
       const n = state.animals[id] || 0;
       if (n > 0) state.inventory[spec.product] += n * spec.perDay * cirakMul;
@@ -909,7 +934,7 @@ export function createGame(ctx, mods) {
     // v16: Pflück-EXP + Lucky Picks (Chance wächst mit dem Level)
     gainXp('pick', CFG.xp.pickPer);
     const mega = Math.random() < megaChance();
-    const lucky = !mega && Math.random() < luckyChance();
+    const lucky = !mega && Math.random() < luckyChance() + (state._wishLuck ? 0.15 : 0);   // v22: Wunsch
     if (mega || lucky) {
       const bonus = Math.min(cap - state.basketKg, mega ? cap : cap * 0.5);
       if (bonus > 0.01) {
@@ -2296,6 +2321,8 @@ export function createGame(ctx, mods) {
     const P = CFG.photoMissions;
     photoMission = null;
     state.photoMissionsDone += 1;
+    const photoPay = Math.round(P.pay * (state.dog && state.dogTricks.sit ? 1.5 : 1));   // v22: Kangal posiert
+    state.money += photoPay - P.pay;   // Differenz zusätzlich zum Standard unten
     state.money += P.pay;
     state.dayEarned += P.pay;
     state.totalEarned += P.pay;
@@ -2981,6 +3008,208 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ==================== v22: Atmosphäre-Paket ====================
+  // --- Tauchen ---
+  function buyMask() {
+    if (state.mask || state.money < CFG.diving.maskCost) { audio.deny(); return false; }
+    state.money -= CFG.diving.maskCost;
+    state.daySpent += CFG.diving.maskCost;
+    state.mask = true;
+    audio.cash();
+    ui.toast(t('maskBought'), true, 7000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  function startDive() {
+    if (!mods.diving || mods.diving.active) return false;
+    ui.hideOverlays();
+    mods.diving.start(player, ui, audio, t);
+    return true;
+  }
+
+  function amphoraFound() {
+    const D = CFG.diving;
+    state.amphoras = Math.min(D.amphoras, state.amphoras + 1);
+    state.money += D.amphoraValue; state.dayEarned += D.amphoraValue; state.totalEarned += D.amphoraValue;
+    if (mods.museum) mods.museum.sync();
+    audio.tierUp();
+    ui.toast(t('amphoraFound', state.amphoras, D.amphoras), true, 7000);
+    ui.refreshMoney(); save();
+  }
+
+  // --- Ramazan & Bayram ---
+  function doIftar() {
+    if (state._iftarDone) { audio.deny(); return false; }
+    state._iftarDone = true;
+    addRep(CFG.holidays.iftarRep);
+    state.moralDays = Math.max(state.moralDays, 1);
+    audio.gondola();
+    ui.toast(t('iftarDone'), true, 9000);
+    save();
+    return true;
+  }
+
+  function giveSeker() {
+    if ((state._sekerLeft || 0) <= 0) { audio.deny(); return false; }
+    if (Math.floor(state.inventory.honey) >= 1) state.inventory.honey -= 1;
+    else if (state.money >= CFG.holidays.sekerCost) { state.money -= CFG.holidays.sekerCost; state.daySpent += CFG.holidays.sekerCost; }
+    else { audio.deny(); return false; }
+    state._sekerLeft -= 1;
+    addRep(CFG.holidays.sekerRep);
+    audio.cash();
+    ui.toast(t('sekerGiven'), true, 6000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  function bayramHug(idx) {
+    state._hugged = state._hugged || {};
+    if (state._hugged[idx]) { audio.deny(); return false; }
+    state._hugged[idx] = true;
+    state.npcRel[idx] = (state.npcRel[idx] || 0) + 1;
+    const name = mods.npcs && mods.npcs.nameOf ? mods.npcs.nameOf(idx) : '';
+    audio.pickDone();
+    ui.toast(t('bayramHug', name), true, 5000);
+    save();
+    return true;
+  }
+
+  // --- Kangal-Ausbildung ---
+  function trainDog(trick) {
+    const need = CFG.dogTricks[trick];
+    if (!state.dog || !need || state.dogTricks[trick]) { audio.deny(); return false; }
+    if (Math.floor(state.inventory.cheese) < need.cheese) { audio.deny(); ui.toast(t('dogNeedCheese', need.cheese), false, 5000); return false; }
+    state.inventory.cheese -= need.cheese;
+    state.dogTricks[trick] = true;
+    audio.tierUp();
+    ui.toast(t('dogTrick_' + trick + 'Done'), true, 8000);
+    save();
+    return true;
+  }
+
+  // --- Lagerfeuer & Wunsch ---
+  function campfireSit() {
+    if (!mods.campfire || mods.campfire.sitting) return false;
+    mods.campfire.sit(player);
+    ui.toast(t('campSit'), false, 8000);
+    return true;
+  }
+
+  function makeWish() {
+    if (!mods.campfire || !mods.campfire.sitting) return false;
+    if (state._wishUsed) { audio.deny(); return false; }
+    if (!mods.campfire.starActive) return false;
+    state._wishUsed = true;
+    const kinds = ['luck', 'price', 'rep'];
+    state.wish = kinds[Math.floor(Math.random() * kinds.length)];
+    audio.tierUp();
+    ui.toast(t('wishMade'), true, 8000);
+    save();
+    return true;
+  }
+
+  // --- Moto-Kurier-Rennen ---
+  let motoRace = null;   // { next, t }
+  function startMotoRace() {
+    if (motoRace || !state.vehicles.moto) { audio.deny(); return false; }
+    if (vehicles.driving !== 'moto') { ui.toast(t('raceNeedMoto'), false, 5000); audio.deny(); return false; }
+    motoRace = { next: 0, t: 0 };
+    if (mods.motorace) { mods.motorace.setActive(true, 0); mods.motorace.markNext(0); }
+    audio.engineStart();
+    ui.toast(t('motoraceGo'), true, 5000);
+    return true;
+  }
+
+  function updateMotoRace(dt) {
+    if (!motoRace) return;
+    motoRace.t += dt;
+    if (vehicles.driving !== 'moto') {
+      motoRace = null;
+      if (mods.motorace) mods.motorace.setActive(false);
+      ui.toast(t('motoraceAbort'), false, 4000);
+      return;
+    }
+    const R = CFG.motorace;
+    const gpos = R.gates[motoRace.next];
+    const px = camera.position.x, pz = camera.position.z;
+    if (Math.hypot(px - gpos.x, pz - gpos.z) < R.radius) {
+      motoRace.next += 1;
+      audio.pickDone();
+      if (motoRace.next >= R.gates.length) {
+        const t2 = Math.round(motoRace.t * 10) / 10;
+        const won = t2 <= R.targetSec;
+        const newBest = state.motoBest === 0 || t2 < state.motoBest;
+        if (newBest) state.motoBest = t2;
+        if (won) {
+          state.money += R.prize; state.dayEarned += R.prize; state.totalEarned += R.prize;
+          addRep(R.rep);
+          audio.tierUp();
+        }
+        ui.toast(t(won ? 'motoraceWin' : 'motoraceSlow', t2, R.targetSec) + (newBest ? ' 🏁 ' + t('motoraceBest') : ''), won, 9000);
+        motoRace = null;
+        if (mods.motorace) mods.motorace.setActive(false);
+        ui.refreshMoney(); save();
+      } else {
+        mods.motorace.markNext(motoRace.next);
+        ui.toast(t('raceGate', motoRace.next, R.gates.length), true, 1500);
+      }
+    }
+  }
+
+  // --- Platanenbaum ---
+  function treeClimb() {
+    const top = mods.planetree.topSpot;
+    player.teleport(top.x, top.z);
+    audio.plant();
+    if (!state.treeChest) {
+      state.treeChest = true;
+      const c = CFG.planeTree.chest;
+      state.money += c; state.dayEarned += c; state.totalEarned += c;
+      if (mods.planetree) mods.planetree.sync();
+      audio.tierUp();
+      setTimeout(() => ui.toast(t('treeChest', fmtMoney(c, state.settings.lang)), true, 9000), 800);
+      ui.refreshMoney();
+    } else {
+      ui.toast(t('treeView'), false, 6000);
+    }
+    save();
+    return true;
+  }
+
+  function treeBuild() {
+    const T = CFG.planeTree;
+    if (state.treeStage >= T.stages.length || state.money < T.stages[state.treeStage]) { audio.deny(); return false; }
+    state.money -= T.stages[state.treeStage];
+    state.daySpent += T.stages[state.treeStage];
+    state.treeStage += 1;
+    if (mods.planetree) mods.planetree.sync();
+    audio.tierUp();
+    ui.toast(t('treeBuilt', state.treeStage), true, 7000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  function treePicnic() {
+    if (state._picnicDone || !state.married) { audio.deny(); return false; }
+    state._picnicDone = true;
+    state.moralDays += 1;
+    audio.pickDone();
+    ui.toast(t('treePicnic'), true, 9000);
+    save();
+    return true;
+  }
+
+  // --- Postkarten-Belohnung (Compose passiert in der UI) ---
+  function postcardReward(npcIdx) {
+    state.postcardsSent += 1;
+    state.npcRel[npcIdx] = (state.npcRel[npcIdx] || 0) + 1;
+    addRep(CFG.postcards.rep);
+    audio.cash();
+    ui.toast(t('postcardSent', mods.npcs && mods.npcs.nameOf ? mods.npcs.nameOf(npcIdx) : ''), true, 8000);
+    save();
+  }
+
   // ==================== v21: Tankstelle & Werkstatt ====================
   function buyPetrol() {
     if (state.petrol || state.money < CFG.petrol.cost) { audio.deny(); return false; }
@@ -3573,11 +3802,36 @@ export function createGame(ctx, mods) {
     else if (act.id === 'canavar') { player.releaseLock(); ui.showCanavar(); }
     else if (act.id === 'flip') { player.releaseLock(); ui.showFlip(act.data); }
     else if (act.id === 'petrol') { player.releaseLock(); ui.showPetrol(); }
+    else if (act.id === 'dive') startDive();
+    else if (act.id === 'divebuy') { player.releaseLock(); ui.showDiveBuy(); }
+    else if (act.id === 'campfire') campfireSit();
+    else if (act.id === 'iftar') doIftar();
+    else if (act.id === 'seker') giveSeker();
+    else if (act.id === 'hug') bayramHug(act.data);
+    else if (act.id === 'dogtrain') { player.releaseLock(); ui.showDog(); }
+    else if (act.id === 'motorace') startMotoRace();
+    else if (act.id === 'tree') { player.releaseLock(); ui.showTree(); }
+    else if (act.id === 'treedown') { player.teleport(mods.planetree.baseSpot.x, mods.planetree.baseSpot.z); audio.plant(); }
+    else if (act.id === 'picnic') treePicnic();
   }
 
   window.addEventListener('keydown', (e) => {
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     if (ctx.photoActive && ctx.photoActive()) return;
+    // v22: Sondermodi zuerst
+    if (mods.diving && mods.diving.active) {
+      if (e.code === 'KeyE') mods.diving.tryCollect(() => amphoraFound());
+      if (e.code === 'Escape') { e.stopImmediatePropagation(); mods.diving.end(); }
+      return;
+    }
+    if (mods.campfire && mods.campfire.sitting) {
+      if (e.code === 'Space') makeWish();
+      if (e.code === 'KeyE' || e.code === 'Escape') {
+        if (e.code === 'Escape') e.stopImmediatePropagation();
+        mods.campfire.stand(player);
+      }
+      return;
+    }
     if (e.code === 'KeyE' && running && !paused && !ui.overlayOpen()) doInteract();
     if (e.code === 'KeyH' && vehicles.driving) audio.horn(vehicles.driving);
     if (e.code === 'KeyR' && (vehicles.driving || boat.driving) && radio && audio.ctx) {
@@ -3676,6 +3930,32 @@ export function createGame(ctx, mods) {
       if (fli >= 0) return { id: 'flip', data: fli };
     }
     if (mods.petrol && mods.petrol.near(player.pos.x, player.pos.z)) return { id: 'petrol' };
+    // v22
+    if (mods.diving && Math.hypot(player.pos.x - CFG.diving.entry.x, player.pos.z - CFG.diving.entry.z) < CFG.interactDist + 2.5) {
+      return { id: state.mask ? 'dive' : 'divebuy' };
+    }
+    if (mods.campfire && isNight() && mods.campfire.near(player.pos.x, player.pos.z)) return { id: 'campfire' };
+    if (mods.festival2) {
+      const ph = mods.festival2.phase();
+      if (ph === 'ramazan' && sky.hour >= CFG.holidays.iftarHour && !state._iftarDone
+          && mods.festival2.nearTable(player.pos.x, player.pos.z)) return { id: 'iftar' };
+      if (ph === 'bayram' && (state._sekerLeft || 0) > 0
+          && mods.festival2.nearKids(player.pos.x, player.pos.z)) return { id: 'seker' };
+      if (ph === 'bayram' && mods.npcs && mods.npcs.nearestAny) {
+        const hi = mods.npcs.nearestAny(player.pos.x, player.pos.z);
+        if (hi >= 0 && !(state._hugged || {})[hi] && !(state._favors || {})[hi]) return { id: 'hug', data: hi };
+      }
+    }
+    if (state.dog && mods.dog && Math.hypot(player.pos.x - mods.dog.pos.x, player.pos.z - mods.dog.pos.z) < CFG.interactDist + 1
+        && Object.keys(state.dogTricks).length < 3) return { id: 'dogtrain' };
+    if (!motoRace && mods.motorace && mods.motorace.nearStart(player.pos.x, player.pos.z)) return { id: 'motorace' };
+    if (mods.planetree) {
+      if (mods.planetree.onPlatform(player.pos.x, player.pos.z)) {
+        if (state.married && !state._picnicDone && state.treeStage >= 1) return { id: 'picnic' };
+        return { id: 'treedown' };
+      }
+      if (mods.planetree.nearBase(player.pos.x, player.pos.z)) return { id: 'tree' };
+    }
     if (mods.museum && mods.museum.near(player.pos.x, player.pos.z)) return { id: 'museum' };
     // v15
     if (mods.wedding && mods.wedding.active && !state._weddingJoined
@@ -3787,6 +4067,26 @@ export function createGame(ctx, mods) {
         if (mods.npcs) mods.npcs.gather(CFG.ezan.gatherSec);
       }
     });
+
+    // v22: Moto-Rennen mitlaufen lassen
+    updateMotoRace(dt);
+
+    // v22: Tauchen — eigene Steuerung, nur Luft-Anzeige im HUD
+    if (mods.diving && mods.diving.active) {
+      ui.setSpeed(null);
+      ui.setCrosshairActive(false);
+      ui.setPickProgress(0);
+      ui.setPrompt(t('prompt_dive', mods.diving.lastAir || 0), null);
+      return;
+    }
+    // v22: am Lagerfeuer sitzen
+    if (mods.campfire && mods.campfire.sitting) {
+      ui.setSpeed(null);
+      ui.setCrosshairActive(false);
+      ui.setPickProgress(0);
+      ui.setPrompt(t(mods.campfire.starActive ? 'prompt_wishNow' : 'prompt_campSit'), null);
+      return;
+    }
 
     // v12: Gulet-Tour — Autopilot mit Panoramakamera
     if (mods.gulet && mods.gulet.touring) {
@@ -4053,6 +4353,8 @@ export function createGame(ctx, mods) {
     canavarReady, canavarResult, droneInfo,
     storeBasket, sellStore, buyFlip, renoFlip, sellFlip, rentFlip,
     buyPetrol, buyWerkstatt, petrolPay,
+    buyMask, startDive, trainDog, treeBuild, treeClimb, postcardReward, startMotoRace,
+    get motoRaceTime() { return motoRace ? motoRace.t : -1; },
     setFrozen(v) { frozen = v; },
     restoreKonak, feedCat, buyJointVenture, buyVillage,
     arcadeStart, arcadeResult, story3Choose, foundMemory, yearEventIs,
