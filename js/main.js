@@ -80,6 +80,8 @@ import { createSeasonFest } from './world/seasonfest.js';
 import { createWildAnimals } from './world/wildanimals.js';
 import { createGhostHouse } from './world/ghosthouse.js';
 import { createChild } from './world/child.js';
+import { createGoatPath } from './world/goatpath.js';
+import { createRiddle } from './world/riddle.js';
 import { loadCustomModels } from './custom.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
@@ -166,6 +168,7 @@ let valley2 = null, cirakMod = null, museumMod = null;
 let flipsMod = null, petrolMod = null;
 let divingMod = null, campfireMod = null, festival2Mod = null, motoraceMod = null, planetreeMod = null, postcardsMod = null;
 let seasonfestMod = null, wildMod = null, ghostMod = null, childMod = null;
+let goatpathMod = null, riddleMod = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -276,7 +279,8 @@ createProps(ctx, terrain).then(async (p) => {
   wildMod = createWildAnimals(ctx, terrain);
   ghostMod = createGhostHouse(ctx, terrain);
   childMod = createChild(ctx, terrain, chars);
-  allColliders.push(...ghostMod.colliders);
+  riddleMod = createRiddle(ctx, terrain);          // v24
+  allColliders.push(...ghostMod.colliders, ...riddleMod.colliders);
   allColliders.push(...flipsMod.colliders, ...petrolMod.colliders);
   allColliders.push(...stallMod.colliders, landslideMod.collider);
   allColliders.push(...mine.colliders);
@@ -311,6 +315,7 @@ createProps(ctx, terrain).then(async (p) => {
     diving: divingMod, campfire: campfireMod, festival2: festival2Mod,
     motorace: motoraceMod, planetree: null,
     seasonfest: seasonfestMod, wildanimals: wildMod, ghost: ghostMod, child: childMod,
+    goatpath: null, riddle: riddleMod,
     istanbul: null, npcs: null, ada: null, bridge: null
   };
   game = createGame(ctx, gameMods);
@@ -325,6 +330,9 @@ createProps(ctx, terrain).then(async (p) => {
   allColliders.push(...ada.colliders);
   bridgeMod = createBridge(ctx, terrain);   // v15: Zone erst beim Bau — trotzdem nach Minimap
   gameMods.bridge = bridgeMod;
+  // v24: Ziegen-Bergpfad — Zonen ebenfalls NACH der Minimap
+  goatpathMod = createGoatPath(ctx, terrain);
+  gameMods.goatpath = goatpathMod;
   // v22: Platanenbaum — Plattform-Zone ebenfalls NACH der Minimap
   planetreeMod = createPlaneTree(ctx, terrain);
   gameMods.planetree = planetreeMod;
@@ -364,7 +372,7 @@ function setPhotoMode(v) {
 }
 window.addEventListener('keydown', (e) => {
   if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
-  if (e.code === 'KeyF' && game && game.running && !ui.overlayOpen()) setPhotoMode(!photoMode);
+  if (e.code === 'KeyF' && CFG.photoEnabled && game && game.running && !ui.overlayOpen()) setPhotoMode(!photoMode);   // v24: abschaltbar
   if (e.code === 'KeyC' && photoMode) {
     composer.render();
     const a = document.createElement('a');
@@ -608,7 +616,8 @@ function wireHooks() {
   hooks.buyKemence = () => game.buyKemence();
   hooks.buskResult = (s2) => game.buskResult(s2);
   hooks.arcade2Result = (s2) => game.arcade2Result(s2);
-  hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
+  hooks.cookDish = (id2) => game.cookDish(id2);
+  hooks.enterPhoto = () => { if (!CFG.photoEnabled) return; ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
     if (audio.ctx) radio.next(audio.ctx, audio.masterNode);
@@ -1053,6 +1062,7 @@ function step(rawDt, manual, skipRender = false) {
     if (wildMod) wildMod.update(dt, elapsed, sky.hour, player.pos);
     if (ghostMod) ghostMod.update(dt, elapsed, window.__started && game && game.isNight());
     if (childMod) childMod.update(dt);
+    if (goatpathMod) goatpathMod.update(dt, elapsed);
     if (factoryext) factoryext.update(dt);
     if (parcels) parcels.update(dt, elapsed);
     if (railwayMod) railwayMod.update(dt);

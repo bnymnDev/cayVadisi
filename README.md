@@ -44,7 +44,7 @@ alles liegt im Repo (offline lauffähig, direkt hostbar auf jedem Webspace).
 | `V` | First-/Third-Person-Ansicht |
 | `H` | Hupe (im Fahrzeug) |
 | `Leertaste` | Handbremse / Drift (im Fahrzeug) |
-| `F` | Foto-Modus (`C` = Foto speichern) |
+| `T` | Wheelie (auf der Moto) |
 | `R` | Radio (im Fahrzeug/Boot) |
 | 🎮 | Gamepad: Sticks bewegen/umsehen, Trigger Gas/Bremse, A benutzen, Y Ansicht |
 | `Shift` | Rennen |
@@ -564,6 +564,26 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   Pausenmenü.
 - **🧒 Das Kind wächst:** Läuft sichtbar im Hof herum, wird über 30 Tage
   größer — und hilft dann beim Eiersammeln (+2 Eier/Tag).
+
+### Kochbuch, Gipfel & Rätsel (v24)
+- **📷 Fotomodus vorerst deaktiviert** (Schalter `CFG.photoEnabled` in
+  js/config.js — auf `true` setzen bringt alles zurück). Abhängige Systeme
+  laufen ohne Kamera weiter: Werbekampagnen stellen das Plakat direkt über
+  Nacht auf, Wildtiere zählen per **Nah-Beobachtung** (auf 7 m anschleichen),
+  Postkarten nutzen ein gemaltes Tal-Motiv.
+- **🐐 Ziegen-Bergpfad:** Trittsteine und eine schmale Balance-Planke führen
+  neben der Şelale hinauf zur Gipfel-Plattform mit Fahne und wartender
+  Ziege — der erste Aufstieg gibt Ruf + Moral.
+- **📖 Dede-Kochbuch:** Rezeptseiten schalten sich per Ruf frei (Muhlama,
+  Hamsi Tava, Laz Böreği). Tagsüber am Haus kochen — jedes Gericht gibt
+  einen Tages-Buff (+Moral / Angel-EXP ×2 / +10 % Lucky Pick).
+- **⛈️ Gewitter-Upgrade:** Blitze mit Doppel-Flash überm Tal, prozeduraler
+  Donner mit Verzögerung, die Tiere drängen sich hörbar am Stall.
+- **🏍️ Moto-Tricks:** Taste **T** auf der Moto (ab 10 km/h) — Wheelie mit
+  sichtbarem Aufbäumen; alle 5 Wheelies jubelt die Dorfjugend (+Ruf).
+- **🗿 Rätselsteine:** Fünf alte Steine mit 1–5 Punkten im Tal. In der
+  richtigen Reihenfolge berühren (falsch = alles erlischt) — dann öffnet
+  sich der Fels am Nordhang: Truhe mit 1.500 + Ruf.
 
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.

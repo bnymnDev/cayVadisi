@@ -657,6 +657,41 @@ export const CFG = {
   cableTop: { x: 4, z: -22 },                // Teleferik-Station am Feld
   interactDist: 4.2,
 
+  // ---- v24: Fotomodus-Schalter (auf Wunsch erstmal aus; true = wieder an) ----
+  photoEnabled: false,
+
+  // ---- v24: Ziegen-Bergpfad zur Şelale-Spitze ----
+  goatPath: {
+    base: { x: -70, z: 152 },           // Einstieg unterhalb des Wasserfalls
+    summit: { x0: -78, x1: -70, z0: 158, z1: 164, h: 26 },   // Gipfel-Plattform
+    steps: [                             // Trittsteine als eigene Mini-Zonen
+      { x0: -66, x1: -62, z0: 152, z1: 155, h: 8 },
+      { x0: -70, x1: -66, z0: 154, z1: 157, h: 14 },
+      { x0: -74, x1: -70, z0: 156, z1: 159, h: 20 }
+    ],
+    rep: 2
+  },
+
+  // ---- v24: Dede-Kochbuch ----
+  recipes: {
+    muhlama:   { rep: 5,  needs: { cheese: 2, corn: 1 },  icon: '🫕' },   // Buff: +1 Moral-Tag
+    hamsitava: { rep: 15, needs: { hamsi: 3, egg: 1 },    icon: '🍳' },   // Buff: Angel-EXP ×2 heute
+    lazboregi: { rep: 25, needs: { egg: 2, honey: 1 },    icon: '🥧' }    // Buff: +10 % Lucky Pick heute
+  },
+
+  // ---- v24: Moto-Tricks ----
+  tricks: { minSpeed: 10, repEvery: 5 },   // Wheelies pro Tag für +Ruf
+
+  // ---- v24: Rätselsteine ----
+  riddle: {
+    stones: [
+      { x: -20, z: -20 }, { x: 60, z: -40 }, { x: -50, z: 90 },
+      { x: 90, z: 40 }, { x: 10, z: 120 }
+    ],
+    cave: { x: 44, z: 132 },              // Fels am Nordhang öffnet sich
+    reward: 1500, rep: 2
+  },
+
   // ---- v23: Jahreszeiten-Feste (Tag 3 jeder Saison, Sommer hat das Festival) ----
   seasonFest: {
     dayInSeason: 3,

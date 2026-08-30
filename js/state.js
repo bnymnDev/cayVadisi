@@ -152,6 +152,12 @@ export const state = {
   snowman: 0,                      // Schneebälle des aktuellen Schneemanns (0..3)
   childDay: 0,                     // Tag, an dem das Kind zuerst gesehen wurde
 
+  // v24
+  summitDone: false,               // Şelale-Gipfel erreicht
+  recipes: {},                     // Rezept-Id -> true (freigeschaltet)
+  styleToday: 0,                   // Wheelies heute
+  riddle: { progress: 0, done: false },
+
   // v11
   animalNames: {},          // Art -> [Namen]
   orchard: false,           // Haselnuss-Plantage
@@ -310,7 +316,8 @@ export function save() {
     postcardsSent: s.postcardsSent, motoBest: s.motoBest,
     treeStage: s.treeStage, treeChest: s.treeChest,
     kemence: s.kemence, arcade2Best: s.arcade2Best, wildPhotos: s.wildPhotos,
-    story5: s.story5, snowman: s.snowman, childDay: s.childDay
+    story5: s.story5, snowman: s.snowman, childDay: s.childDay,
+    summitDone: s.summitDone, recipes: s.recipes, riddle: s.riddle
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -473,6 +480,9 @@ export function load() {
     state.story5 = d.story5 ?? { ch: 0, done: false };
     state.snowman = d.snowman ?? 0;
     state.childDay = d.childDay ?? 0;
+    state.summitDone = d.summitDone ?? false;
+    state.recipes = d.recipes ?? {};
+    state.riddle = d.riddle ?? { progress: 0, done: false };
     state.vehicles.moto = state.vehicles.moto ?? false;
     state.inventory.tea_harman = state.inventory.tea_harman ?? 0;
     state.inventory.levrek = state.inventory.levrek ?? 0;
@@ -563,6 +573,7 @@ export function resetProgress() {
   state.postcardsSent = 0; state.motoBest = 0; state.treeStage = 0; state.treeChest = false;
   state.kemence = false; state.arcade2Best = 0; state.wildPhotos = {};
   state.story5 = { ch: 0, done: false }; state.snowman = 0; state.childDay = 0;
+  state.summitDone = false; state.recipes = {}; state.riddle = { progress: 0, done: false };
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -596,6 +607,7 @@ export function resetDay() {
   state._iftarDone = false; state._sekerLeft = 0; state._picnicDone = false; state._wishUsed = false;
   state._wishLuck = false; state._hugged = {};
   state._buskDone = false; state._festDone = false;
+  state.styleToday = 0; state._cooked = false; state._dishBuff = null;
   if (state.stall) { state.stall.soldToday = 0; state.stall.earnedToday = 0; }
   state._kemalDump = false; state._falconHint = 0;
   state._meisterDone = false;
