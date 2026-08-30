@@ -465,6 +465,31 @@ export function createUI(ctx, hooks) {
         $('ph-insure').addEventListener('click', () => { hooks.toggleInsurance(); api.renderPhone(); });
       } else if (app === 'borsa') {
         body.innerHTML = '';
+        // v20: Çay-Börse — Kurs + Verlauf
+        {
+          const mul = state.teaMul || 1;
+          const hist = state.teaHist.length ? state.teaHist : [1];
+          const prev = hist.length > 1 ? hist[hist.length - 2] : mul;
+          const arrow = mul > prev ? '📈' : mul < prev ? '📉' : '➡️';
+          const teaDiv = document.createElement('div');
+          teaDiv.className = 'upgrade-item';
+          teaDiv.innerHTML = `<div class="u-icon">🫖</div>
+            <div class="u-body"><div class="u-name">${t('teaMarketName')} ${arrow}</div>
+            <div class="u-desc">${t('teaPriceNow', Math.round(CFG.eco.pricePerKg * mul * 10) / 10)}
+              ${state.teaEvent ? ' · ' + t(state.teaEvent.kind === 'spike' ? 'teaEventSpike' : 'teaEventDip') : ''}</div>
+            <canvas id="tea-chart" width="140" height="34"></canvas></div>`;
+          body.appendChild(teaDiv);
+          const cv = teaDiv.querySelector('#tea-chart');
+          const g2 = cv.getContext('2d');
+          g2.strokeStyle = '#7ac74f'; g2.lineWidth = 2; g2.beginPath();
+          const M = CFG.teaMarket;
+          hist.forEach((v2, i2) => {
+            const x2 = (i2 / Math.max(1, hist.length - 1)) * 134 + 3;
+            const y2 = 31 - ((v2 - M.min) / (M.max - M.min)) * 28;
+            i2 ? g2.lineTo(x2, y2) : g2.moveTo(x2, y2);
+          });
+          g2.stroke();
+        }
         for (const [id, s] of Object.entries(CFG.life.stocks)) {
           const price = state.stockPrices[id] || s.p0;
           const row = document.createElement('div');
@@ -912,18 +937,38 @@ export function createUI(ctx, hooks) {
       const L = state.settings.lang;
       const F = CFG.freighter;
       const have = Math.min(F.maxPacks, Math.floor(state.inventory.tea_pack));
+      const free = (state.fleet || 0) - (state.shipments || []).length;
       $('event-icon').textContent = '⚓';
       $('event-title').textContent = t('freightTitle');
-      $('event-text').innerHTML = t('freightIntro', have, F.maxPacks);
+      $('event-text').innerHTML = t('freightIntro', have, F.maxPacks)
+        + `<br>${t('fleetStatus', state.fleet || 0, free)}`;
       const box = $('event-choices');
       box.innerHTML = '';
+      // v20: Versicherung umschaltbar
+      api._freightInsured = api._freightInsured ?? false;
+      const ins = document.createElement('button');
+      ins.className = 'big-btn ghost';
+      const insLabel = () => `🛡️ ${t('freightInsBtn', Math.round(F.insuranceRate * 100))}: ${api._freightInsured ? t('on') : t('off')}`;
+      ins.textContent = insLabel();
+      ins.addEventListener('click', () => { api._freightInsured = !api._freightInsured; ins.textContent = insLabel(); });
+      box.appendChild(ins);
       for (const [route, r] of Object.entries(F.routes)) {
         const b = document.createElement('button');
         b.className = 'big-btn';
-        b.disabled = have < 1;
+        b.disabled = have < 1 || free < 1;
         b.textContent = `${t('route_' + route)} · ×${r.mul} · ${t('freightRisk', Math.round(r.risk * 100))}`;
-        b.addEventListener('click', () => { if (hooks.shipFreight(route)) hooks.closeShop(); });
+        b.addEventListener('click', () => { if (hooks.shipFreight(route, api._freightInsured)) hooks.closeShop(); });
         box.appendChild(b);
+      }
+      // v20: nächstes Schiff kaufen
+      if ((state.fleet || 0) > 0 && (state.fleet || 0) < F.costs.length) {
+        const cost = F.costs[state.fleet];
+        const buy = document.createElement('button');
+        buy.className = 'big-btn ghost';
+        buy.disabled = state.money < cost;
+        buy.textContent = `🚢 ${t('fleetBuyBtn', state.fleet + 1)} · ${fmtMoney(cost, L)}`;
+        buy.addEventListener('click', () => { if (hooks.buyFreighter()) api.showFreighter(); });
+        box.appendChild(buy);
       }
       const leave = document.createElement('button');
       leave.className = 'big-btn ghost';
@@ -1269,6 +1314,56 @@ export function createUI(ctx, hooks) {
         m.textContent = t('branchMode_' + B2.mode);
         m.addEventListener('click', () => { m.textContent = t('branchMode_' + hooks.branchMode()); });
         box.appendChild(m);
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
+    // ---------- v20: Immobilien-Flipping ----------
+    showFlip(i) {
+      const L = state.settings.lang;
+      const FL = CFG.flip;
+      const st = state.flips[i];
+      $('event-icon').textContent = '🏗️';
+      $('event-title').textContent = t('flipTitle');
+      const box = $('event-choices');
+      box.innerHTML = '';
+      if (!st) {
+        $('event-text').innerHTML = t('flipPitch', fmtMoney(FL.buyCost, L), fmtMoney(FL.sellPrice, L));
+        const b = document.createElement('button');
+        b.className = 'big-btn';
+        b.disabled = state.money < FL.buyCost;
+        b.textContent = t('flipBuyBtn') + ' · ' + fmtMoney(FL.buyCost, L);
+        b.addEventListener('click', () => { if (hooks.buyFlip(i)) api.showFlip(i); });
+        box.appendChild(b);
+      } else if (st.stage !== undefined) {
+        const rent = Math.round(FL.rentBase + state.rep * FL.rentPerRep);
+        $('event-text').innerHTML = t('flipStatus', st.stage)
+          + (st.stage === 3 ? `<br>${t('flipReadyInfo', fmtMoney(FL.sellPrice, L), fmtMoney(rent, L))}` : '');
+        if (st.stage < 3) {
+          const cost = FL.renoCosts[st.stage];
+          const b = document.createElement('button');
+          b.className = 'big-btn';
+          b.disabled = state.money < cost;
+          b.textContent = t('flipRenoBtn', st.stage + 1) + ' · ' + fmtMoney(cost, L);
+          b.addEventListener('click', () => { if (hooks.renoFlip(i)) api.showFlip(i); });
+          box.appendChild(b);
+        } else {
+          const sell = document.createElement('button');
+          sell.className = 'big-btn';
+          sell.textContent = t('flipSellBtn') + ' · ' + fmtMoney(FL.sellPrice, L);
+          sell.addEventListener('click', () => { if (hooks.sellFlip(i)) hooks.closeShop(); });
+          box.appendChild(sell);
+          const rentBtn = document.createElement('button');
+          rentBtn.className = 'big-btn ghost';
+          rentBtn.textContent = st.rent ? t('flipRentOffBtn') : t('flipRentBtn', fmtMoney(rent, L));
+          rentBtn.addEventListener('click', () => { if (hooks.rentFlip(i)) api.showFlip(i); });
+          box.appendChild(rentBtn);
+        }
       }
       const leave = document.createElement('button');
       leave.className = 'big-btn ghost';
@@ -2314,6 +2409,22 @@ export function createUI(ctx, hooks) {
         : t('nothingToSell');
       els.btnSell.textContent = t('sellFor') + (state.basketKg > 0.01 ? ' · ' + fmtMoney(sum, L) : '');
       els.btnSell.disabled = state.basketKg <= 0.01;
+
+      // v20: Çay-Börse — einlagern statt verkaufen (braucht das Silo)
+      const sb = $('store-box');
+      if (state.upgrades.silo) {
+        const mul = state.teaMul || 1;
+        const arrow = mul >= 1.25 ? '📈' : mul <= 0.8 ? '📉' : '➡️';
+        sb.innerHTML = `
+          <div class="section-info">${arrow} ${t('teaPriceNow', Math.round(CFG.eco.pricePerKg * mul * 10) / 10)}
+            · ${t('teaStoreKg', Math.round(state.teaStore.kg * 10) / 10)}</div>
+          <div class="btn-row">
+            <button id="btn-store" class="big-btn ghost" ${state.basketKg > 0.01 ? '' : 'disabled'}>${t('teaStoreBtn')}</button>
+            <button id="btn-sell-store" class="big-btn ghost" ${state.teaStore.kg > 0.01 ? '' : 'disabled'}>${t('teaSellStoreBtn')}</button>
+          </div>`;
+        $('btn-store').addEventListener('click', () => { if (hooks.storeBasket()) api.renderShop(); });
+        $('btn-sell-store').addEventListener('click', () => { if (hooks.sellStore()) api.renderShop(); });
+      } else sb.innerHTML = '';
 
       els.upgradeList.innerHTML = '';
       for (const [id, u] of Object.entries(CFG.upgrades)) {

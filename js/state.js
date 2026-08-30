@@ -122,6 +122,15 @@ export const state = {
   story4: { ch: 0, path: null, done: false, at: 0 },
   canavar: { wins: 0, next: 0 },   // next = frühester Tag für den nächsten Kampf
 
+  // v20: Flipping, Çay-Börse, Reederei
+  flips: [],                       // je Haus: null | {stage,rent} | {sold: TagWiederFrei}
+  teaMul: 1,                       // aktueller Teepreis-Faktor (Börse)
+  teaHist: [],                     // letzte Kurse fürs Chart
+  teaEvent: null,                  // { kind: 'spike'|'dip', daysLeft }
+  teaStore: { kg: 0, valueKg: 0 }, // eingelagerter Rohtee (Silo)
+  fleet: 0,                        // Anzahl Frachter (0..3)
+  shipments: [],                   // [{route, packs, insured}] — Schiffe auf See
+
   // v11
   animalNames: {},          // Art -> [Namen]
   orchard: false,           // Haselnuss-Plantage
@@ -272,7 +281,9 @@ export function save() {
     landslide: s.landslide, stall: s.stall, queen: s.queen,
     beeCupWins: s.beeCupWins, billboards: s.billboards, campaign: s.campaign,
     featureUnlocks: s.featureUnlocks, branch: s.branch, npcRel: s.npcRel, favorsDone: s.favorsDone,
-    cirak: s.cirak, story4: s.story4, canavar: s.canavar
+    cirak: s.cirak, story4: s.story4, canavar: s.canavar,
+    flips: s.flips, teaMul: s.teaMul, teaHist: s.teaHist, teaEvent: s.teaEvent,
+    teaStore: s.teaStore, fleet: s.fleet, shipments: s.shipments
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -408,6 +419,16 @@ export function load() {
     state.cirak = d.cirak ?? null;
     state.story4 = d.story4 ?? { ch: 0, path: null, done: false, at: 0 };
     state.canavar = d.canavar ?? { wins: 0, next: 0 };
+    state.flips = Array.isArray(d.flips) ? d.flips : [];
+    state.teaMul = d.teaMul ?? 1;
+    state.teaHist = Array.isArray(d.teaHist) ? d.teaHist : [];
+    state.teaEvent = d.teaEvent ?? null;
+    state.teaStore = d.teaStore ?? { kg: 0, valueKg: 0 };
+    // v20: Flotte — alter Einzel-Frachter wird migriert
+    state.fleet = d.fleet ?? (d.freighter ? 1 : 0);
+    state.shipments = Array.isArray(d.shipments) ? d.shipments : (d.shipment ? [d.shipment] : []);
+    state.freighter = state.fleet > 0;
+    state.shipment = null;
     state.vehicles.moto = state.vehicles.moto ?? false;
     state.inventory.tea_harman = state.inventory.tea_harman ?? 0;
     state.inventory.levrek = state.inventory.levrek ?? 0;
@@ -491,6 +512,8 @@ export function resetProgress() {
   state.featureUnlocks = {}; state.branch = null; state.npcRel = {}; state.favorsDone = 0;
   state.cirak = null; state.story4 = { ch: 0, path: null, done: false, at: 0 };
   state.canavar = { wins: 0, next: 0 };
+  state.flips = []; state.teaMul = 1; state.teaHist = []; state.teaEvent = null;
+  state.teaStore = { kg: 0, valueKg: 0 }; state.fleet = 0; state.shipments = [];
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
