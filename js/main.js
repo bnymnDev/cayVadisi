@@ -95,6 +95,17 @@ import { initGate } from './gate.js';
 
 // v6: PIN-Gate (nur auf github.io aktiv) + Service Worker für Offline/PWA
 initGate();
+// v25.2: sichtbare Versionsnummer (Start + Pause) — zeigt sofort, ob ein
+// alter Cache noch die vorige Version ausliefert.
+for (const pid of ['start-screen', 'pause-screen']) {
+  const host = document.getElementById(pid);
+  if (host) {
+    const v = document.createElement('div');
+    v.textContent = 'v' + CFG.version;
+    v.style.cssText = 'position:absolute;right:10px;bottom:8px;font-size:11px;opacity:0.55;pointer-events:none';
+    host.appendChild(v);
+  }
+}
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
@@ -113,7 +124,7 @@ canvas.addEventListener('webglcontextlost', (e) => {
 });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.85;
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !isTouch;   // v25.2: Mobil ohne Schattenkarte (Flacker-Quelle)
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;   // v10: weiche Schatten
 // v15.1: Schattenkarte nur periodisch neu rendern — die Sonne wandert langsam
 renderer.shadowMap.autoUpdate = false;
@@ -960,11 +971,13 @@ function tick() {
   const rawDt = Math.max(0, (now - lastNow) / 1000);
   if (rawDt < 1 / currentFpsCap() - 0.0005) return;   // Frame auslassen — GPU ruht
   lastNow = now;
-  // Schatten höchstens 4× pro Sekunde aktualisieren
-  shadowTimer -= rawDt;
-  if (shadowTimer <= 0) {
-    shadowTimer = 0.25;
-    renderer.shadowMap.needsUpdate = true;
+  // Schatten höchstens 4× pro Sekunde aktualisieren (Mobil: gar nicht)
+  if (!isTouch) {
+    shadowTimer -= rawDt;
+    if (shadowTimer <= 0) {
+      shadowTimer = 0.25;
+      renderer.shadowMap.needsUpdate = true;
+    }
   }
   step(rawDt, false);
 }

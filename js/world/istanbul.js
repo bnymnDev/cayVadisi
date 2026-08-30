@@ -65,10 +65,16 @@ export function createIstanbul(ctx, terrain) {
   }
 
   // ---------- Bosporus mit ECHTER Spiegelung ----------
-  const reflector = new Reflector(new THREE.PlaneGeometry(420, 260), {
-    textureWidth: 768, textureHeight: 768,
-    color: 0x89a7b8, clipBias: 0.003
-  });
+  // v25.2: Der Reflector rendert die komplette Szene jede Frame in ein
+  // eigenes Rendertarget, sobald er im Blickfeld liegt — auf Mobil-GPUs
+  // eine Flacker-/Absturzquelle. Dort ersetzt ihn eine glatte Wasserfläche.
+  const reflector = ctx.isTouch
+    ? new THREE.Mesh(new THREE.PlaneGeometry(420, 260),
+        new THREE.MeshStandardMaterial({ color: 0x6f8fa4, roughness: 0.12, metalness: 0.35 }))
+    : new Reflector(new THREE.PlaneGeometry(420, 260), {
+        textureWidth: 768, textureHeight: 768,
+        color: 0x89a7b8, clipBias: 0.003
+      });
   reflector.rotation.x = -Math.PI / 2;
   reflector.position.set(-150, 0.14, -300);
   g.add(reflector);
