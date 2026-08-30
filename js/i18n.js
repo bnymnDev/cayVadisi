@@ -701,6 +701,11 @@ const STRINGS = {
     prompt_konakenter: 'E — Konak betreten',
     prompt_konakexit: 'E — Konak verlassen',
     konakEntered: '🏛️ Der alte Konak von innen — deine Fundstücke glänzen in den Vitrinen.',
+    // ---- v25.3: Grafik-Diagnose (Mobil) ----
+    gfxHint: '🔧 Grafik-Diagnose: Schalte einzelne Effekte aus, wenn das Bild flackert (lädt neu).',
+    gfxSky: 'Himmel-Shader',
+    gfxOcean: 'Wasser-Shader',
+    gfxGrass: 'Gras',
 
     // ---- v5: Story — Dede-Çayı ----
     stContinue: 'Weiter',
@@ -1933,6 +1938,11 @@ const STRINGS = {
     prompt_konakenter: 'E — Konağa gir',
     prompt_konakexit: 'E — Konaktan çık',
     konakEntered: '🏛️ Eski konağın içi — bulduğun eserler vitrinlerde parlıyor.',
+    // ---- v25.3 ----
+    gfxHint: '🔧 Grafik tanısı: Görüntü titriyorsa efektleri tek tek kapat (yeniden yükler).',
+    gfxSky: 'Gökyüzü efekti',
+    gfxOcean: 'Su efekti',
+    gfxGrass: 'Çimen',
 
     // ---- v5: Hikâye — Dede Çayı ----
     stContinue: 'Devam',
@@ -3104,6 +3114,11 @@ const STRINGS = {
     prompt_konakenter: 'E — Enter the konak',
     prompt_konakexit: 'E — Leave the konak',
     konakEntered: '🏛️ The old konak from the inside — your finds gleam in the display cases.',
+    // ---- v25.3 ----
+    gfxHint: '🔧 Graphics diagnostics: turn off individual effects if the screen flickers (reloads).',
+    gfxSky: 'Sky shader',
+    gfxOcean: 'Water shader',
+    gfxGrass: 'Grass',
     stContinue: 'Continue',
     stIcon_letter: '✉️', stTitle_letter: 'Grandfather\'s letter',
     stText_letter: '"Evlat, if you\'re reading this, the valley is yours. Pick your first 10 kilos — then you\'ll understand why I never left. Something waits for you in the old factory." Your first 10 kg are in. +250 ₺ from Dede\'s envelope.',

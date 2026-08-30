@@ -112,10 +112,15 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 
 const canvas = document.getElementById('scene');
 const isTouch = matchMedia('(pointer: coarse)').matches;
-// v25.1: Mobil rendert ohne Composer direkt in den Backbuffer — dort macht
-// der Browser das MSAA (stabil auf Adreno/Mali/iOS), also Kontext-AA an.
+// v25.3: Grafik-Diagnose-Flags (Pausenmenü, nur Mobil) — überleben Reloads.
+let gfx = {};
+try { gfx = JSON.parse(localStorage.getItem('cayvadisi_gfx') || '{}') || {}; } catch (e) { gfx = {}; }
+// v25.1/25.3: Mobil rendert ohne Composer direkt in den Backbuffer.
+// AA dort KOMPLETT aus: jede Version mit Flackern auf dem S24 hatte MSAA
+// aktiv (erst Composer-Blit, dann Kontext-AA) — Xclipse/Adreno-Treiber
+// haben bekannte MSAA-Resolve-Bugs.
 const renderer = new THREE.WebGLRenderer({
-  canvas, antialias: isTouch, powerPreference: 'default'   // v15.1: nicht zwanghaft die dGPU anwerfen
+  canvas, antialias: false, powerPreference: 'default'   // v15.1: nicht zwanghaft die dGPU anwerfen
 });
 // v25.1: verlorener WebGL-Kontext (Mobil-GPU-Reset) → sauber neu laden
 canvas.addEventListener('webglcontextlost', (e) => {
@@ -135,7 +140,7 @@ const camera = new THREE.PerspectiveCamera(69, innerWidth / innerHeight, 0.1, 14
 
 const loadingManager = new THREE.LoadingManager();
 
-const ctx = { renderer, scene, camera, loadingManager, isTouch };
+const ctx = { renderer, scene, camera, loadingManager, isTouch, gfx };
 
 // ---------- Composer ----------
 // Hinweis: bewusst KEIN Bloom — die HDR-Sonnenscheibe des Sky-Shaders
@@ -204,7 +209,7 @@ let qualityLevel = 'high';
 function applyQuality(level) {
   const q = CFG.quality[level];
   qualityLevel = level;
-  grass.setQuality(q.grass, q.grassR);
+  grass.setQuality(isTouch && gfx.noGrass ? 0 : q.grass, q.grassR);   // v25.3: Diagnose
   sky.setShadowSize(q.shadow);
   teaField.setCastShadow(level !== 'low');
   const pr = Math.min(devicePixelRatio || 1, q.pr, isTouch ? 1.3 : 99);   // v25.1: Mobil-Deckel

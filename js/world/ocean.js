@@ -4,6 +4,8 @@ import { CFG } from '../config.js';
 
 export function createOcean(ctx) {
   const { scene, loadingManager } = ctx;
+  // v25.3: Diagnose — Wasser-Shader abschaltbar (schlichte dunkle Fläche)
+  const simple = ctx.isTouch && ctx.gfx && ctx.gfx.noOcean;
   const tl = new THREE.TextureLoader(loadingManager);
   const nrm = tl.load('assets/textures/water/waternormals.jpg');
   nrm.wrapS = nrm.wrapT = THREE.RepeatWrapping;
@@ -21,7 +23,7 @@ export function createOcean(ctx) {
   });
 
   const uniforms = { uTime: { value: 0 } };
-  mat.onBeforeCompile = (shader) => {
+  if (!simple) mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vOWPos;')
@@ -38,6 +40,7 @@ export function createOcean(ctx) {
         normal = normalize( tbn * mapN );`);
   };
 
+  if (simple) { mat.normalMap = null; mat.roughness = 0.4; }
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.y = CFG.seaLevel;
   mesh.receiveShadow = true;
