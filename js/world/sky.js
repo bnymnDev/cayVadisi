@@ -10,6 +10,9 @@ export function createSky(ctx) {
 
   const sky = new Sky();
   sky.scale.setScalar(2000);
+  // v25.3: Diagnose — Sky-Shader abschaltbar (Hintergrund = Nebelfarbe,
+  // die ohnehin jede Frame als ClearColor gesetzt wird)
+  if (isTouch && ctx.gfx && ctx.gfx.simpleSky) sky.visible = false;
   scene.add(sky);
   const U = sky.material.uniforms;
 

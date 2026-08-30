@@ -1,6 +1,6 @@
 // Balancing & Welt-Konstanten
 export const CFG = {
-  version: '25.2',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
+  version: '25.3',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
   seed: 1453,
 
   // Welt

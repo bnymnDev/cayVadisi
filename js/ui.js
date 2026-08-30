@@ -2824,6 +2824,14 @@ export function createUI(ctx, hooks) {
       $('btn-speed').textContent = '×' + (state.settings.speed || 1);
       $('btn-cb').textContent = state.settings.cb ? t('on') : t('off');
       $('btn-lang').textContent = { de: 'Deutsch', tr: 'Türkçe', en: 'English' }[getLang()];
+      // v25.3: Grafik-Diagnose nur auf Touch-Geräten anbieten
+      if (ctx.isTouch) {
+        $('gfx-diag').classList.remove('hidden');
+        const g = ctx.gfx || {};
+        $('btn-gfx-sky').textContent = g.simpleSky ? t('off') : t('on');
+        $('btn-gfx-ocean').textContent = g.noOcean ? t('off') : t('on');
+        $('btn-gfx-grass').textContent = g.noGrass ? t('off') : t('on');
+      }
       show(els.pause);
     },
 
@@ -3143,6 +3151,18 @@ export function createUI(ctx, hooks) {
     e.target.textContent = '×' + next;
     save();
   });
+  // v25.3: Grafik-Diagnose — Flag umschalten, speichern, sauber neu laden
+  const gfxToggle = (id, key) => {
+    $(id).addEventListener('click', () => {
+      const g = ctx.gfx || {};
+      g[key] = !g[key];
+      try { localStorage.setItem('cayvadisi_gfx', JSON.stringify(g)); } catch (e2) {}
+      location.reload();
+    });
+  };
+  gfxToggle('btn-gfx-sky', 'simpleSky');
+  gfxToggle('btn-gfx-ocean', 'noOcean');
+  gfxToggle('btn-gfx-grass', 'noGrass');
   $('btn-cb').addEventListener('click', (e) => {
     state.settings.cb = !state.settings.cb;
     document.body.classList.toggle('cb-mode', state.settings.cb);
