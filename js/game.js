@@ -74,6 +74,31 @@ export function createGame(ctx, mods) {
   }
 
   // Markt-Tagespreise (±Schwankung) + Kemal Ağas Preisdumping
+  // v20: Çay-Börse — der Rohtee-Preis läuft als Markt (Random-Walk + Events)
+  function tickTeaMarket() {
+    const M = CFG.teaMarket;
+    if (state.teaEvent) {
+      state.teaEvent.daysLeft -= 1;
+      if (state.teaEvent.daysLeft <= 0) state.teaEvent = null;
+    }
+    let mul = state.teaMul * (1 + (Math.random() * 2 - 1) * M.drift);
+    if (!state.teaEvent) {
+      const r = Math.random();
+      if (r < M.spikeChance) {
+        state.teaEvent = { kind: 'spike', daysLeft: M.spikeDays };
+        mul *= M.spikeMul;
+        setTimeout(() => ui.toast(t('teaSpike'), true, 10000), 4000);
+      } else if (r < M.spikeChance + M.dipChance) {
+        state.teaEvent = { kind: 'dip', daysLeft: M.dipDays };
+        mul *= M.dipMul;
+        setTimeout(() => ui.toast(t('teaDip'), false, 9000), 4000);
+      }
+    }
+    state.teaMul = Math.round(Math.max(M.min, Math.min(M.max, mul)) * 100) / 100;
+    state.teaHist.push(state.teaMul);
+    while (state.teaHist.length > M.histLen) state.teaHist.shift();
+  }
+
   function planMarket() {
     const swing = CFG.city.priceSwing;
     for (const id of Object.keys(CFG.products)) {
@@ -117,6 +142,7 @@ export function createGame(ctx, mods) {
     planHeliJob();
     planPhotoMission();
     planMarket();
+    tickTeaMarket();   // v20: Çay-Börse
     // v15: Kemals täglicher Wirtschaftszug
     kemalMove();
     // v15: Temel bittet um Hilfe für die Hochzeit
@@ -163,6 +189,15 @@ export function createGame(ctx, mods) {
     if ((state.day % CFG.parcels.rivalEveryDays === 0 && state.day > 2) || nurtenActive) rivalClaimParcel();
     // v19: Story 4 fortschreiben
     story4Tick();
+    // v20: verkaufte Häuser verwahrlosen wieder — neue Flip-Chance
+    for (let fi = 0; fi < (state.flips || []).length; fi++) {
+      const f = state.flips[fi];
+      if (f && f.sold !== undefined && state.day >= f.sold) {
+        state.flips[fi] = null;
+        setTimeout(() => ui.toast(t('flipBack'), false, 7000), 10000);
+      }
+    }
+    if (mods.flips) mods.flips.sync();
     // v17: Imker-Meisterschaft heute
     if (mods.beecup && mods.beecup.active) {
       setTimeout(() => ui.toast(t('beeToday'), false, 9000), 15000);
@@ -221,13 +256,13 @@ export function createGame(ctx, mods) {
           }
         }
           if (rest > 0.01) {
-          const sum = rest * CFG.eco.pricePerKg * ((state.sofor || state.railway) ? 1 : CFG.workers.sellFactor);
+          const sum = rest * CFG.eco.pricePerKg * (state.teaMul || 1) * ((state.sofor || state.railway) ? 1 : CFG.workers.sellFactor);
           state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
         }
       } else {
         // Şoför liefert frisch: voller Preis statt 90 %
         const sellF = (state.sofor || state.railway) ? 1 : CFG.workers.sellFactor;   // v17: Bahn liefert frisch
-        const sum = state.workerKg * CFG.eco.pricePerKg * sellF * famBonus();
+        const sum = state.workerKg * CFG.eco.pricePerKg * (state.teaMul || 1) * sellF * famBonus();
         state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
         lines.push({ k: 'sumWorkerTea', v: '+' + fmtMoney(sum, L), sub: Math.round(state.workerKg * 10) / 10 + ' kg' + (state.sofor ? ' 🚚' : '') });
       }
@@ -313,6 +348,15 @@ export function createGame(ctx, mods) {
     if (state.railway) {
       state.inventory.coal += CFG.railway.coalPerDay;
       lines.push({ k: 'sumRail', v: '+' + CFG.railway.coalPerDay + ' 🪨' });
+    }
+    // v20: Pansiyon-Mieten aus renovierten Häusern
+    {
+      const rented = (state.flips || []).filter((f) => f && f.rent).length;
+      if (rented > 0) {
+        const rent = rented * Math.round(CFG.flip.rentBase + state.rep * CFG.flip.rentPerRep);
+        state.money += rent; state.dayEarned += rent; state.totalEarned += rent;
+        lines.push({ k: 'sumPansiyon', v: '+' + fmtMoney(rent, L), sub: rented + ' 🏠' });
+      }
     }
     // v19: Çırak — Lohn und Stufe-2-Abendverkauf
     if (state.cirak) {
@@ -526,19 +570,22 @@ export function createGame(ctx, mods) {
         lines.push({ k: 'sumSilo', v: '+' + fmtMoney(sum, L) });
       }
     }
-    // v15: Frachter kommt zurück — Abrechnung mit Sturm-Risiko
-    if (state.shipment) {
+    // v15/v20: Flotte kommt zurück — Abrechnung je Schiff, mit Versicherung
+    if (state.shipments.length) {
       const F = CFG.freighter;
-      const sh = state.shipment;
-      const r = F.routes[sh.route];
-      let rev = Math.round(sh.packs * CFG.products.tea_pack.sell * r.mul);
-      const storm = Math.random() < r.risk;
-      if (storm) rev = Math.round(rev * (1 - F.lossFactor));
-      state.money += rev; state.dayEarned += rev; state.totalEarned += rev;
-      trackPacks(sh.packs);
-      lines.push({ k: 'sumFreight', v: '+' + fmtMoney(rev, L), sub: t('route_' + sh.route) + (storm ? ' ⛈️' : '') });
-      if (storm) setTimeout(() => ui.toast(t('freightStorm'), false, 9000), 2000);
-      state.shipment = null;
+      for (const sh of state.shipments) {
+        const r = F.routes[sh.route];
+        let rev = Math.round(sh.packs * CFG.products.tea_pack.sell * r.mul);
+        const storm = Math.random() < r.risk;
+        if (storm && !sh.insured) rev = Math.round(rev * (1 - F.lossFactor));
+        state.money += rev; state.dayEarned += rev; state.totalEarned += rev;
+        trackPacks(sh.packs);
+        lines.push({ k: 'sumFreight', v: '+' + fmtMoney(rev, L),
+          sub: t('route_' + sh.route) + (storm ? (sh.insured ? ' ⛈️🛡️' : ' ⛈️') : '') });
+        if (storm && !sh.insured) setTimeout(() => ui.toast(t('freightStorm'), false, 9000), 2000);
+        if (storm && sh.insured) setTimeout(() => ui.toast(t('freightInsured'), true, 8000), 2000);
+      }
+      state.shipments = [];
       if (mods.freighter) mods.freighter.syncOwned();
     }
     // v14: Muhtarlık-Amtsbonus bzw. Kemals Sondersteuer
@@ -870,13 +917,46 @@ export function createGame(ctx, mods) {
   // ---------- Verkauf ----------
   function sellValue() {
     const dec = CFG.decrees.list[state.decree];
-    return state.basketValueKg * CFG.eco.pricePerKg * (state.dedeBonus ? 1.1 : 1)
+    return state.basketValueKg * CFG.eco.pricePerKg * (state.teaMul || 1) * (state.dedeBonus ? 1.1 : 1)
       * (state.koop ? CFG.koop.priceBonus : 1)
       * (dec && dec.teaMul ? dec.teaMul : 1)                  // v8: Subvention
       * (state.moralDays > 0 ? CFG.vacation.moralBonus : 1)
       * (state._kemalDump ? CFG.kemalAI.dumpMul : 1)   // v15: Kemals Dumping-Tag
       * (state.cirak && state.cirak.level >= 4 ? CFG.cirak.ustaBonus : 1)   // v19: Usta-Çırak
       * prestigeMul(CFG);
+  }
+
+  // v20: Rohtee einlagern (braucht das Silo) und später zum Kurs verkaufen
+  function storeBasket() {
+    if (!state.upgrades.silo || state.basketKg <= 0.01) { audio.deny(); return false; }
+    state.teaStore.kg += state.basketKg;
+    state.teaStore.valueKg += state.basketValueKg;
+    state.basketKg = 0;
+    state.basketValueKg = 0;
+    audio.harvest();
+    ui.refreshBasket();
+    ui.toast(t('teaStored', Math.round(state.teaStore.kg * 10) / 10), true, 5000);
+    save();
+    return true;
+  }
+
+  function sellStore() {
+    if (state.teaStore.kg <= 0.01) { audio.deny(); return 0; }
+    const dec = CFG.decrees.list[state.decree];
+    const sum = state.teaStore.valueKg * CFG.eco.pricePerKg * (state.teaMul || 1)
+      * (state.dedeBonus ? 1.1 : 1)
+      * (state.koop ? CFG.koop.priceBonus : 1)
+      * (dec && dec.teaMul ? dec.teaMul : 1)
+      * (state._kemalDump ? CFG.kemalAI.dumpMul : 1)
+      * (state.cirak && state.cirak.level >= 4 ? CFG.cirak.ustaBonus : 1)
+      * prestigeMul(CFG);
+    state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+    state.teaStore = { kg: 0, valueKg: 0 };
+    gainXp('trade', CFG.xp.tradePerSale);
+    audio.cash();
+    ui.refreshMoney();
+    save();
+    return sum;
   }
 
   function trackPacks(n) {
@@ -2483,27 +2563,39 @@ export function createGame(ctx, mods) {
 
   // ---------- v15: Frachter, Panayır, Bergwerk, Hochzeit, Kemal-KI, Falke, Brücke ----------
   function buyFreighter() {
-    if (state.freighter || state.money < CFG.freighter.cost) { audio.deny(); return false; }
-    state.money -= CFG.freighter.cost;
-    state.daySpent += CFG.freighter.cost;
+    const F = CFG.freighter;
+    const n = state.fleet || 0;
+    if (n >= F.costs.length || state.money < F.costs[n]) { audio.deny(); return false; }
+    state.money -= F.costs[n];
+    state.daySpent += F.costs[n];
+    state.fleet = n + 1;
     state.freighter = true;
     if (mods.freighter) mods.freighter.syncOwned();
     audio.tierUp();
-    ui.toast(t('freightBought'), true, 9000);
+    ui.toast(n === 0 ? t('freightBought') : t('fleetGrown', state.fleet), true, 9000);
     checkWealth(); ui.refreshMoney(); save();
     return true;
   }
-  function shipFreight(route) {
+  // v20: insured — Prämie jetzt zahlen, dafür kein Sturm-Verlust
+  function shipFreight(route, insured = false) {
     const F = CFG.freighter;
     const r = F.routes[route];
     const have = Math.floor(state.inventory.tea_pack);
-    if (!r || state.shipment || have < 1) { audio.deny(); return false; }
+    if (!r || state.shipments.length >= (state.fleet || 0) || have < 1) { audio.deny(); return false; }
     const packs = Math.min(F.maxPacks, have);
+    let premium = 0;
+    if (insured) {
+      premium = Math.round(packs * CFG.products.tea_pack.sell * F.insuranceRate);
+      if (state.money < premium) { audio.deny(); return false; }
+      state.money -= premium;
+      state.daySpent += premium;
+    }
     state.inventory.tea_pack -= packs;
-    state.shipment = { route, packs };
+    state.shipments.push({ route, packs, insured });
     if (mods.freighter) mods.freighter.syncOwned();
     audio.gondola();
-    ui.toast(t('freightOut', packs, t('route_' + route)), true, 9000);
+    ui.toast(t('freightOut', packs, t('route_' + route)) + (insured ? ' 🛡️' : ''), true, 9000);
+    ui.refreshMoney();
     save();
     return true;
   }
@@ -2866,6 +2958,63 @@ export function createGame(ctx, mods) {
     audio.cash();
     ui.toast(t('campaignBooked'), true, 12000);
     ui.refreshMoney(); save();
+    return true;
+  }
+
+  // ==================== v20: Immobilien-Flipping ====================
+  function buyFlip(i) {
+    const FL = CFG.flip;
+    const st = state.flips[i];
+    if ((st && st.sold === undefined) || state.money < FL.buyCost) { audio.deny(); return false; }
+    if (st && st.sold !== undefined) { audio.deny(); return false; }
+    state.money -= FL.buyCost;
+    state.daySpent += FL.buyCost;
+    state.flips[i] = { stage: 0, rent: false };
+    if (mods.flips) mods.flips.sync();
+    audio.cash();
+    ui.toast(t('flipBought'), true, 7000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  function renoFlip(i) {
+    const FL = CFG.flip;
+    const st = state.flips[i];
+    if (!st || st.stage === undefined || st.stage >= 3) { audio.deny(); return false; }
+    const cost = FL.renoCosts[st.stage];
+    if (state.money < cost) { audio.deny(); return false; }
+    state.money -= cost;
+    state.daySpent += cost;
+    st.stage += 1;
+    if (mods.flips) mods.flips.sync();
+    audio.tierUp();
+    ui.toast(t('flipReno', st.stage), true, 6000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  function sellFlip(i) {
+    const FL = CFG.flip;
+    const st = state.flips[i];
+    if (!st || st.stage !== 3) { audio.deny(); return false; }
+    state.money += FL.sellPrice; state.dayEarned += FL.sellPrice; state.totalEarned += FL.sellPrice;
+    state.flips[i] = { sold: state.day + FL.resellDays };
+    gainXp('trade', 6);
+    if (mods.flips) mods.flips.sync();
+    audio.tierUp();
+    ui.toast(t('flipSold', fmtMoney(FL.sellPrice, state.settings.lang)), true, 9000);
+    checkWealth(); ui.refreshMoney(); save();
+    return true;
+  }
+
+  function rentFlip(i) {
+    const st = state.flips[i];
+    if (!st || st.stage !== 3) { audio.deny(); return false; }
+    st.rent = !st.rent;
+    if (mods.flips) mods.flips.sync();
+    audio.cash();
+    ui.toast(t(st.rent ? 'flipRentOn' : 'flipRentOff'), true, 6000);
+    save();
     return true;
   }
 
@@ -3368,6 +3517,7 @@ export function createGame(ctx, mods) {
     else if (act.id === 'cirak') { player.releaseLock(); ui.showCirak(); }
     else if (act.id === 'museum') { player.releaseLock(); ui.showMuseum(); }
     else if (act.id === 'canavar') { player.releaseLock(); ui.showCanavar(); }
+    else if (act.id === 'flip') { player.releaseLock(); ui.showFlip(act.data); }
   }
 
   window.addEventListener('keydown', (e) => {
@@ -3466,6 +3616,10 @@ export function createGame(ctx, mods) {
     }
     // v19
     if (mods.cirak && mods.cirak.near(player.pos.x, player.pos.z)) return { id: 'cirak' };
+    if (mods.flips) {
+      const fli = mods.flips.near(player.pos.x, player.pos.z);
+      if (fli >= 0) return { id: 'flip', data: fli };
+    }
     if (mods.museum && mods.museum.near(player.pos.x, player.pos.z)) return { id: 'museum' };
     // v15
     if (mods.wedding && mods.wedding.active && !state._weddingJoined
@@ -3841,6 +3995,7 @@ export function createGame(ctx, mods) {
     featureOn, checkUnlocks, favorTalk, buyBranch, branchHire, branchMode, taxiValley2,
     hireCirak, trainCirak, story4Sell, story4Refuse, story4Finale,
     canavarReady, canavarResult, droneInfo,
+    storeBasket, sellStore, buyFlip, renoFlip, sellFlip, rentFlip,
     setFrozen(v) { frozen = v; },
     restoreKonak, feedCat, buyJointVenture, buyVillage,
     arcadeStart, arcadeResult, story3Choose, foundMemory, yearEventIs,

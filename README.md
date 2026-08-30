@@ -492,6 +492,24 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   Podeste mit Samtseil: Canavar-Trophäe, Pokale, Karten-Vitrine,
   Dede-Fotowand. **Jedes gefüllte Podest: +45/Tag Eintrittsgeld.**
 
+### Flipping, Börse & Reederei (v20)
+- **🏗️ Immobilien-Flipping:** Drei verfallene Häuser im Tal (SATILIK-Schild,
+  vernagelte Fenster, durchhängendes Dach). Kaufen (3.500), in drei sichtbaren
+  Stufen renovieren — frische Wände, neues Dach mit warm erleuchteten
+  Fenstern, Blumenkästen — dann für **18.000 verkaufen** (nach einer Woche
+  steht die nächste Ruine an) oder als **Pansiyon vermieten**: Miete/Tag
+  skaliert mit deinem Ruf.
+- **🫖 Çay-Börse:** Der Rohtee-Preis läuft jetzt als echter Markt
+  (Random-Walk ×0,6–×2,2) mit Events: Ernteausfälle bei den Großplantagen
+  treiben den Kurs (+50 %), Schwemmen drücken ihn. Mit dem **Silo** lagerst
+  du gepflückten Tee ein und verkaufst, wenn der Kurs explodiert. Kursverlauf
+  als Chart in der Borsa-App, Live-Preis an der Annahmestelle.
+- **🚢 Reederei-Ausbau:** Bis zu **drei Frachter** (42/60/90k) liegen
+  gestaffelt am Kai. Neue Fernrouten **Batum ×2,2** (40 % Risiko) und
+  **Odessa ×2,6** (50 %) — dagegen gibt es die **Fracht-Versicherung**
+  (15 % Prämie, deckt Sturmverluste voll). Alle Schiffe rechnen abends
+  einzeln ab.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

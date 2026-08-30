@@ -68,6 +68,7 @@ import { createBillboards } from './world/billboards.js';
 import { createValley2 } from './world/valley2.js';
 import { createCirak } from './cirak.js';
 import { createMuseum } from './world/museum.js';
+import { createFlips } from './world/flips.js';
 import { loadCustomModels } from './custom.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
@@ -151,6 +152,7 @@ let ada = null, memories = null;
 let wedding = null, freighter = null, panayir = null, mine = null, falcon = null, bridgeMod = null;
 let factoryext = null, parcels = null, railwayMod = null, landslideMod = null, stallMod = null, beecup = null, billboardsMod = null;
 let valley2 = null, cirakMod = null, museumMod = null;
+let flipsMod = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -250,6 +252,8 @@ createProps(ctx, terrain).then(async (p) => {
   billboardsMod = createBillboards(ctx, terrain);
   cirakMod = createCirak(ctx, terrain, chars);      // v19
   museumMod = createMuseum(ctx, terrain);           // v19
+  flipsMod = createFlips(ctx, terrain);             // v20
+  allColliders.push(...flipsMod.colliders);
   allColliders.push(...stallMod.colliders, landslideMod.collider);
   allColliders.push(...mine.colliders);
   allColliders.push(...selale.colliders, ...karsikoy.colliders, ...konak.colliders, ...village.colliders);
@@ -279,7 +283,7 @@ createProps(ctx, terrain).then(async (p) => {
     gulet, cats, konak, village, memories, wedding, freighter, panayir, mine, falcon,
     factoryext, parcels, railway: railwayMod, landslide: landslideMod,
     stall: stallMod, beecup, billboards: billboardsMod,
-    cirak: cirakMod, museum: museumMod,
+    cirak: cirakMod, museum: museumMod, flips: flipsMod,
     istanbul: null, npcs: null, ada: null, bridge: null
   };
   game = createGame(ctx, gameMods);
@@ -529,7 +533,7 @@ function wireHooks() {
   hooks.arcadeStart = () => game.arcadeStart();
   hooks.arcadeResult = (s2) => game.arcadeResult(s2);
   hooks.buyFreighter = () => game.buyFreighter();
-  hooks.shipFreight = (r2) => game.shipFreight(r2);
+  hooks.shipFreight = (r2, ins) => game.shipFreight(r2, ins);
   hooks.buyLot = () => game.buyLot();
   hooks.kraftResult = (s2) => game.kraftResult(s2);
   hooks.mineReward = (s2) => game.mineReward(s2);
@@ -553,6 +557,12 @@ function wireHooks() {
   hooks.story4Refuse = () => game.story4Refuse();
   hooks.story4Finale = (c2) => game.story4Finale(c2);
   hooks.npcName = (i2) => npcs ? npcs.nameOf(i2) : '?';
+  hooks.storeBasket = () => game.storeBasket();
+  hooks.sellStore = () => game.sellStore();
+  hooks.buyFlip = (i2) => game.buyFlip(i2);
+  hooks.renoFlip = (i2) => game.renoFlip(i2);
+  hooks.sellFlip = (i2) => game.sellFlip(i2);
+  hooks.rentFlip = (i2) => game.rentFlip(i2);
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();

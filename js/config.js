@@ -544,9 +544,14 @@ export const CFG = {
   // ---- v15: Frachter, Panayır, Bergwerk, Hochzeit, Kemal-KI, Falke, Brücke ----
   freighter: {
     cost: 42000, mooring: { x: 136, z: -162 }, maxPacks: 40,
+    // v20: Reederei — Flotte bis 3 Schiffe, riskante Fernrouten, Versicherung
+    costs: [42000, 60000, 90000],
+    insuranceRate: 0.15,               // Prämie: Anteil vom Ladungswert
     routes: {
       trabzon: { mul: 1.35, risk: 0.10 },
-      samsun:  { mul: 1.75, risk: 0.25 }
+      samsun:  { mul: 1.75, risk: 0.25 },
+      batum:   { mul: 2.2,  risk: 0.40 },   // v20
+      odessa:  { mul: 2.6,  risk: 0.50 }    // v20
     },
     lossFactor: 0.4   // bei Sturm auf See geht dieser Anteil verloren
   },
@@ -651,6 +656,28 @@ export const CFG = {
   home: { x: 16, z: -102, ry: -0.5 },        // Spielerhaus
   cableTop: { x: 4, z: -22 },                // Teleferik-Station am Feld
   interactDist: 4.2,
+
+  // ---- v20: Immobilien-Flipping ----
+  flip: {
+    houses: [
+      { x: 88, z: -66, ry: 0.3 },      // Dorfrand bei der Festwiese
+      { x: 142, z: -116, ry: -1.6 },   // Kasaba-Gasse
+      { x: -44, z: 70, ry: 0.9 }       // am Weg nach Karşıköy
+    ],
+    buyCost: 3500,
+    renoCosts: [1500, 2500, 4000],     // Stufe 1..3
+    sellPrice: 18000,                  // voll renoviert (Gewinn ~6.500)
+    resellDays: 7,                     // danach steht wieder eine Ruine an
+    rentBase: 120, rentPerRep: 3       // Pansiyon-Miete/Tag (skaliert mit Ruf)
+  },
+
+  // ---- v20: Çay-Börse (dynamischer Teepreis) ----
+  teaMarket: {
+    min: 0.6, max: 2.2, drift: 0.22,   // täglicher Random-Walk
+    spikeChance: 0.12, spikeMul: 1.5, spikeDays: 2,   // Ernteausfall bei Rivalen
+    dipChance: 0.08, dipMul: 0.7, dipDays: 2,          // Schwemme
+    histLen: 14
+  },
 
   // ---- v19: Çırak (Lehrling) ----
   cirak: {
