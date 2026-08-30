@@ -70,7 +70,7 @@ function buildDolmusMesh() {
 }
 
 export function createDolmus(ctx, terrain, audio) {
-  const { scene } = ctx;
+  const { scene, camera } = ctx;
   // Route: Hof -> Haus -> Stadt (ROADS[0] + ROADS[1])
   const route = [...ROADS[0], ...ROADS[1].slice(1)];
   // Haltestellen: Anfang, Mitte (Haus), Ende
@@ -80,6 +80,7 @@ export function createDolmus(ctx, terrain, audio) {
   let seg = 0, u = 0, dir = 1;
   let waitTimer = 0;
   let passengers = 0;
+  let riding = false;   // v25: Spieler sitzt drin
 
   function syncOwned() {
     if (state.dolmus && !parts) {
@@ -91,6 +92,18 @@ export function createDolmus(ctx, terrain, audio) {
 
   return {
     syncOwned,
+    // v25: Mitfahren — Fensterplatz hinter dem Fahrer
+    get riding() { return riding; },
+    nearBus(px, pz) {
+      if (!parts || !state.dolmus || riding) return false;
+      const p = parts.group.position;
+      return Math.hypot(px - p.x, pz - p.z) < 5;
+    },
+    board() { riding = true; },
+    leave() {
+      riding = false;
+      return parts ? { x: parts.group.position.x + 2, z: parts.group.position.z + 2 } : { x: 0, z: 0 };
+    },
     update(dt) {
       if (!parts) return;
       if (waitTimer > 0) {
@@ -119,6 +132,13 @@ export function createDolmus(ctx, terrain, audio) {
       const z = s.z + (e.z - s.z) * u;
       parts.group.position.set(x, terrain.heightAt(x, z), z);
       parts.group.rotation.y = Math.atan2((e.x - s.x) * dir, (e.z - s.z) * dir);
+      // v25: Kamera am Fensterplatz — leicht seitlich, Blick in Fahrtrichtung
+      if (riding) {
+        const yaw = parts.group.rotation.y;
+        const py = terrain.heightAt(x, z) + 1.75;
+        camera.position.set(x - Math.sin(yaw) * 0.6 + Math.cos(yaw) * 0.45, py, z - Math.cos(yaw) * 0.6 - Math.sin(yaw) * 0.45);
+        camera.lookAt(x + Math.sin(yaw) * 8, py - 0.15, z + Math.cos(yaw) * 8);
+      }
     }
   };
 }

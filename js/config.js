@@ -657,6 +657,34 @@ export const CFG = {
   cableTop: { x: 4, z: -22 },                // Teleferik-Station am Feld
   interactDist: 4.2,
 
+  // ---- v25: Anı Defteri (automatisches Erinnerungsbuch) ----
+  diary: {
+    moments: ['canavar', 'summit', 'wedding', 'riddle', 'ghost', 'sampiyon',
+              'muhtar', 'treeChest', 'amphoras', 'moto']
+  },
+
+  // ---- v25: Bienen & Blumenbeete auf der Yayla ----
+  flowers: { cost: 300, max: 4, honeyPer2: 1, spot: { x: 34, z: 100 } },
+
+  // ---- v25: Radyo Vadisi ----
+  radyoVadisi: {
+    cost: 5000, mast: { x: -8, z: -10 },   // Sendemast auf dem Feldhügel
+    adBonus: 1.05
+  },
+
+  // ---- v25: Angel-Buddy ----
+  buddy: { spot: { x: 106, z: -146 }, hours: 2, names: ['Temel', 'Yusuf'] },
+
+  // ---- v25: Eisfläche im Winter ----
+  icePond: { x: 70, z: 24, r: 9, slideMul: 1.6 },
+
+  // ---- v25: Konak-Innenraum (Teleport-Interieur in der Map-Ecke) ----
+  konakInt: {
+    zone: { x0: -196, x1: -172, z0: 176, z1: 196, h: 2 },
+    spawn: { x: -184, z: 192 },
+    exitDoor: { x: -184, z: 194 }
+  },
+
   // ---- v24: Fotomodus-Schalter (auf Wunsch erstmal aus; true = wieder an) ----
   photoEnabled: false,
 

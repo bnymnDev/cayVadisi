@@ -196,6 +196,19 @@ export function createGame(ctx, mods) {
         setTimeout(() => ui.toast(t('recipeFound', R.icon + ' ' + t('dish_' + rid)), true, 9000), 9000);
       }
     }
+    // v25: Anı Defteri — neue Momente festhalten
+    diaryTick();
+    // v25: Radyo Vadisi — Nachrichtenprogramm nennt den besten Marktpreis
+    if (state.radyo && state.radyo.program === 'news') {
+      let best = null;
+      for (const id of Object.keys(state.marketMul)) {
+        if (!best || state.marketMul[id] > state.marketMul[best]) best = id;
+      }
+      if (best && state.marketMul[best] > 1) {
+        setTimeout(() => ui.toast(t('radyoNews', CFG.products[best].icon + ' ' + t('prod_' + best),
+          Math.round((state.marketMul[best] - 1) * 100)), true, 9000), 11000);
+      }
+    }
     // v23: das Gerücht vom Geisterhaus
     if (state.story5.ch === 0 && state.day >= CFG.ghost.startDay) {
       state.story5.ch = 1;
@@ -792,7 +805,8 @@ export function createGame(ctx, mods) {
     }
     // v6: Honig von der Yayla (Frühling & Sommer)
     if (state.hives > 0 && CFG.yayla.honeySeasons.includes(season())) {
-      state.inventory.honey += state.hives;
+      state.inventory.honey += state.hives
+        + Math.floor(state.flowerPatches / 2) * CFG.flowers.honeyPer2;   // v25: Blumenbeete
     }
 
     // v11: Tierzucht — über Nacht kommt Nachwuchs zur Welt
@@ -848,6 +862,9 @@ export function createGame(ctx, mods) {
       const dec = CFG.decrees.list[state.decree];
       if (dec && dec.workerSpeed) state.workerBoost *= dec.workerSpeed;
     }
+
+    // v25: Radyo Vadisi — Musikprogramm stärkt den Dorf-Ruf
+    if (state.radyo && state.radyo.program === 'music') addRep(CFG.radyoVadisi.musicRep || 1);
 
     tea.newDay(CFG.seasonCycle.teaGrowth[season()]);
     if (!state.seasonOver && state.day > CFG.seasonDays) {
@@ -992,6 +1009,7 @@ export function createGame(ctx, mods) {
       * (state.moralDays > 0 ? CFG.vacation.moralBonus : 1)
       * (state._kemalDump ? CFG.kemalAI.dumpMul : 1)   // v15: Kemals Dumping-Tag
       * (state.cirak && state.cirak.level >= 4 ? CFG.cirak.ustaBonus : 1)   // v19: Usta-Çırak
+      * (state.radyo && state.radyo.program === 'ads' ? CFG.radyoVadisi.adBonus : 1)   // v25
       * prestigeMul(CFG);
   }
 
@@ -3119,6 +3137,112 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ---------- v25: Dolmuş-Mitfahrt, Anı Defteri, Blumen, Radyo, Buddy, Konak ----------
+  function boardDolmus() {
+    if (!mods.dolmus || !mods.dolmus.nearBus(player.pos.x, player.pos.z)) { audio.deny(); return false; }
+    mods.dolmus.board();
+    player.setEnabled(false);
+    player.releaseLock();
+    audio.gondola();
+    ui.toast(t('dolmusRideStart'), true, 6000);
+    return true;
+  }
+  function leaveDolmus() {
+    if (!mods.dolmus || !mods.dolmus.riding) return;
+    const p = mods.dolmus.leave();
+    player.teleport(p.x, p.z);
+    player.setEnabled(true);
+    if (!ctx.isTouch) player.requestLock();
+  }
+
+  // Anı Defteri: welche Momente sind neu erlebt?
+  const DIARY_CHECKS = {
+    canavar: () => state.canavar.wins > 0,
+    summit: () => state.summitDone,
+    wedding: () => state.wedding.stage === 2,
+    riddle: () => state.riddle.done,
+    ghost: () => state.story5.done,
+    sampiyon: () => state.sampiyon,
+    muhtar: () => state.muhtarluk,
+    treeChest: () => state.treeChest,
+    amphoras: () => (state.amphoras || 0) >= 5,
+    moto: () => (state.motoBest || 0) > 0
+  };
+  function diaryTick() {
+    for (const id of CFG.diary.moments) {
+      if (state.diary.some((e) => e.id === id)) continue;
+      if (DIARY_CHECKS[id] && DIARY_CHECKS[id]()) {
+        state.diary.push({ id, day: state.day });
+        setTimeout(() => { audio.pickDone(); ui.toast(t('diaryNew', t('diary_' + id)), true, 9000); }, 14000);
+      }
+    }
+  }
+
+  function buyFlowers() {
+    const F = CFG.flowers;
+    if (state.flowerPatches >= F.max) { audio.deny(); return false; }
+    if (state.money < F.cost) { ui.toast(t('noMoney'), false); audio.deny(); return false; }
+    state.money -= F.cost;
+    state.flowerPatches += 1;
+    if (mods.bees) mods.bees.sync();
+    audio.plant();
+    ui.toast(t('flowersPlanted', state.flowerPatches, F.max), true, 8000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  function buyRadyo() {
+    const R = CFG.radyoVadisi;
+    if (state.radyo) { audio.deny(); return false; }
+    if (state.money < R.cost) { ui.toast(t('noMoney'), false); audio.deny(); return false; }
+    state.money -= R.cost;
+    state.radyo = { program: 'music' };
+    if (mods.radyomast) mods.radyomast.sync();
+    audio.tierUp();
+    ui.toast(t('radyoBought'), true, 10000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+  function setRadyoProgram(prog) {
+    if (!state.radyo) return false;
+    state.radyo.program = prog;
+    state._radyoChosen = true;
+    audio.pickDone();
+    ui.toast(t('radyoSet_' + prog), true, 7000);
+    save();
+    return true;
+  }
+
+  function inviteBuddy() {
+    if (state._buddy) { audio.deny(); return false; }
+    const names = CFG.buddy.names;
+    const name = names[Math.floor(Math.random() * names.length)];
+    const secPerHour = CFG.dayLengthSec / (CFG.endHour - CFG.startHour);
+    state._buddy = { name, until: state.timeSec + CFG.buddy.hours * secPerHour };
+    audio.pickDone();
+    ui.toast(t('buddyStart', name), true, 9000);
+    save();
+    return true;
+  }
+
+  let konakReturn = null;
+  function konakEnter() {
+    if (state.konak < 3) { audio.deny(); return false; }
+    konakReturn = { x: player.pos.x, z: player.pos.z };
+    if (mods.konakint) mods.konakint.sync();
+    player.teleport(CFG.konakInt.spawn.x, CFG.konakInt.spawn.z);
+    audio.pickDone();
+    ui.toast(t('konakEntered'), true, 7000);
+    return true;
+  }
+  function konakExit() {
+    const back = konakReturn || { x: CFG.konak.x + 3, z: CFG.konak.z + 3 };
+    konakReturn = null;
+    player.teleport(back.x, back.z);
+    audio.pickDone();
+    return true;
+  }
+
   // --- Gewitter-Inszenierung ---
   let lightningTimer = 3;
   const flashEl = document.createElement('div');
@@ -3910,6 +4034,11 @@ export function createGame(ctx, mods) {
     if (state.survival && (state.hunger < CFG.survival.lowThreshold || state.energy < CFG.survival.lowThreshold)) {
       m *= CFG.survival.slowFactor;
     }
+    // v25: auf der zugefrorenen Eisfläche rutscht man schneller
+    if (mods.icepond && mods.icepond.onIce(player.pos.x, player.pos.z)) {
+      m *= CFG.icePond.slideMul;
+      if (!state._iceToast) { state._iceToast = true; ui.toast(t('iceSlide'), true, 7000); }
+    }
     return m;
   }
 
@@ -4081,6 +4210,14 @@ export function createGame(ctx, mods) {
     else if (act.id === 'tree') { player.releaseLock(); ui.showTree(); }
     else if (act.id === 'treedown') { player.teleport(mods.planetree.baseSpot.x, mods.planetree.baseSpot.z); audio.plant(); }
     else if (act.id === 'picnic') treePicnic();
+    // v25
+    else if (act.id === 'dolmusride') boardDolmus();
+    else if (act.id === 'flowers') buyFlowers();
+    else if (act.id === 'radyobuy') buyRadyo();
+    else if (act.id === 'radyoprog') { player.releaseLock(); ui.showRadyoVadisi(); }
+    else if (act.id === 'buddy') inviteBuddy();
+    else if (act.id === 'konakenter') konakEnter();
+    else if (act.id === 'konakexit') konakExit();
   }
 
   window.addEventListener('keydown', (e) => {
@@ -4097,6 +4234,13 @@ export function createGame(ctx, mods) {
       if (e.code === 'KeyE' || e.code === 'Escape') {
         if (e.code === 'Escape') e.stopImmediatePropagation();
         mods.campfire.stand(player);
+      }
+      return;
+    }
+    if (mods.dolmus && mods.dolmus.riding) {
+      if (e.code === 'KeyE' || e.code === 'Escape') {
+        if (e.code === 'Escape') e.stopImmediatePropagation();
+        leaveDolmus();
       }
       return;
     }
@@ -4132,6 +4276,7 @@ export function createGame(ctx, mods) {
     if (!locked && running && !ui.overlayOpen() && !vehicles.driving
         && !boat.driving && !(mods.sled && mods.sled.riding)
         && !(mods.heli && mods.heli.driving)
+        && !(mods.dolmus && mods.dolmus.riding)
         && !(mods.gulet && mods.gulet.touring)) pause(true);
   };
 
@@ -4213,6 +4358,18 @@ export function createGame(ctx, mods) {
     }
     if (Object.keys(state.recipes).length > 0 && !state._cooked && sky.hour < 18
         && distTo(CFG.home.x, CFG.home.z) < CFG.interactDist) return { id: 'cook' };
+    // v25
+    if (mods.konakint && mods.konakint.inside(player.pos.x, player.pos.z)
+        && mods.konakint.nearExit(player.pos.x, player.pos.z)) return { id: 'konakexit' };
+    if (mods.konakint && state.konak >= 3 && mods.konak
+        && mods.konak.near(player.pos.x, player.pos.z)) return { id: 'konakenter' };
+    if (mods.dolmus && mods.dolmus.nearBus(player.pos.x, player.pos.z)) return { id: 'dolmusride' };
+    if (mods.bees && mods.bees.nearFlowers(player.pos.x, player.pos.z)) return { id: 'flowers' };
+    if (mods.radyomast && state.rep >= (CFG.radyoVadisi.minRep || 0)
+        && mods.radyomast.nearMast(player.pos.x, player.pos.z)) {
+      return { id: state.radyo ? 'radyoprog' : 'radyobuy' };
+    }
+    if (mods.buddy && !state._buddy && mods.buddy.nearSpot(player.pos.x, player.pos.z)) return { id: 'buddy' };
     if (mods.ghost) {
       if (mods.ghost.nearKey(player.pos.x, player.pos.z)) return { id: 'ghostkey' };
       if ((state.story5.ch === 2 || state.story5.ch === 3) && isNight()
@@ -4373,6 +4530,15 @@ export function createGame(ctx, mods) {
       ui.setCrosshairActive(false);
       ui.setPickProgress(0);
       ui.setPrompt(t(mods.campfire.starActive ? 'prompt_wishNow' : 'prompt_campSit'), null);
+      return;
+    }
+
+    // v25: Dolmuş-Mitfahrt — Fensterplatz, die Kamera fährt mit
+    if (mods.dolmus && mods.dolmus.riding) {
+      ui.setSpeed(Math.round(CFG.dolmus.speed * 3.6));
+      ui.setCrosshairActive(false);
+      ui.setPickProgress(0);
+      ui.setPrompt(t('prompt_dolmusexit'), () => leaveDolmus());
       return;
     }
 
@@ -4603,6 +4769,17 @@ export function createGame(ctx, mods) {
       }
     }
 
+    // v25: Angel-Buddy — nach zwei Stunden gibt es frischen Fang geschenkt
+    if (state._buddy && state.timeSec >= state._buddy.until) {
+      const b = state._buddy;
+      state._buddy = null;
+      const n = 2 + Math.floor(Math.random() * 2);
+      state.inventory.hamsi += n;
+      audio.cash();
+      ui.toast(t('buddyGift', b.name, n), true, 10000);
+      save();
+    }
+
     // v18: Freischaltungen prüfen und Reveals abspielen
     unlockTimer -= dt;
     if (unlockTimer <= 0) {
@@ -4674,6 +4851,8 @@ export function createGame(ctx, mods) {
     buyMask, startDive, trainDog, treeBuild, treeClimb, postcardReward, startMotoRace,
     doSeasonFest, buyKemence, buskResult, arcade2Result, ghostKey, ghostVisit,
     cookDish, doTrick, touchStone, claimRiddle,
+    boardDolmus, leaveDolmus, buyFlowers, buyRadyo, setRadyoProgram,
+    inviteBuddy, konakEnter, konakExit,
     get motoRaceTime() { return motoRace ? motoRace.t : -1; },
     setFrozen(v) { frozen = v; },
     restoreKonak, feedCat, buyJointVenture, buyVillage,

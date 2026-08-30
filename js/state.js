@@ -158,6 +158,11 @@ export const state = {
   styleToday: 0,                   // Wheelies heute
   riddle: { progress: 0, done: false },
 
+  // v25
+  diary: [],                       // [{id, day}] — festgehaltene Momente
+  flowerPatches: 0,                // Blumenbeete auf der Yayla (0..4)
+  radyo: null,                     // { program: 'music'|'news'|'ads' }
+
   // v11
   animalNames: {},          // Art -> [Namen]
   orchard: false,           // Haselnuss-Plantage
@@ -317,7 +322,8 @@ export function save() {
     treeStage: s.treeStage, treeChest: s.treeChest,
     kemence: s.kemence, arcade2Best: s.arcade2Best, wildPhotos: s.wildPhotos,
     story5: s.story5, snowman: s.snowman, childDay: s.childDay,
-    summitDone: s.summitDone, recipes: s.recipes, riddle: s.riddle
+    summitDone: s.summitDone, recipes: s.recipes, riddle: s.riddle,
+    diary: s.diary, flowerPatches: s.flowerPatches, radyo: s.radyo
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -483,6 +489,9 @@ export function load() {
     state.summitDone = d.summitDone ?? false;
     state.recipes = d.recipes ?? {};
     state.riddle = d.riddle ?? { progress: 0, done: false };
+    state.diary = Array.isArray(d.diary) ? d.diary : [];
+    state.flowerPatches = d.flowerPatches ?? 0;
+    state.radyo = d.radyo ?? null;
     state.vehicles.moto = state.vehicles.moto ?? false;
     state.inventory.tea_harman = state.inventory.tea_harman ?? 0;
     state.inventory.levrek = state.inventory.levrek ?? 0;
@@ -574,6 +583,7 @@ export function resetProgress() {
   state.kemence = false; state.arcade2Best = 0; state.wildPhotos = {};
   state.story5 = { ch: 0, done: false }; state.snowman = 0; state.childDay = 0;
   state.summitDone = false; state.recipes = {}; state.riddle = { progress: 0, done: false };
+  state.diary = []; state.flowerPatches = 0; state.radyo = null;
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -608,6 +618,7 @@ export function resetDay() {
   state._wishLuck = false; state._hugged = {};
   state._buskDone = false; state._festDone = false;
   state.styleToday = 0; state._cooked = false; state._dishBuff = null;
+  state._buddy = null; state._radyoChosen = false;
   if (state.stall) { state.stall.soldToday = 0; state.stall.earnedToday = 0; }
   state._kemalDump = false; state._falconHint = 0;
   state._meisterDone = false;
