@@ -189,6 +189,14 @@ export function createGame(ctx, mods) {
     if ((state.day % CFG.parcels.rivalEveryDays === 0 && state.day > 2) || nurtenActive) rivalClaimParcel();
     // v19: Story 4 fortschreiben
     story4Tick();
+    // v21: eigene Werkstatt — Fahrzeuge stehen morgens frisch repariert da
+    if (state.petrol && state.petrol.werkstatt) {
+      let fixed = false;
+      for (const vid of Object.keys(state.vehWear)) {
+        if (state.vehWear[vid] > 1) { state.vehWear[vid] = 0; fixed = true; }
+      }
+      if (fixed) setTimeout(() => ui.toast(t('werkstattFixed'), true, 6000), 5000);
+    }
     // v20: verkaufte Häuser verwahrlosen wieder — neue Flip-Chance
     for (let fi = 0; fi < (state.flips || []).length; fi++) {
       const f = state.flips[fi];
@@ -348,6 +356,18 @@ export function createGame(ctx, mods) {
     if (state.railway) {
       state.inventory.coal += CFG.railway.coalPerDay;
       lines.push({ k: 'sumRail', v: '+' + CFG.railway.coalPerDay + ' 🪨' });
+    }
+    // v21: Tankstelle — Tagesbilanz + Werkstatt-Reparaturen
+    if (state.petrol) {
+      const served = state._petrolToday || 0;
+      if (served > 0) {
+        lines.push({ k: 'sumPetrol', v: '+' + fmtMoney(served * CFG.petrol.perCustomer, L), sub: served + ' 🚗' });
+      }
+      if (state.petrol.werkstatt) {
+        const w = CFG.petrol.werkstattPerDay;
+        state.money += w; state.dayEarned += w; state.totalEarned += w;
+        lines.push({ k: 'sumWerkstatt', v: '+' + fmtMoney(w, L) });
+      }
     }
     // v20: Pansiyon-Mieten aus renovierten Häusern
     {
@@ -2961,6 +2981,40 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ==================== v21: Tankstelle & Werkstatt ====================
+  function buyPetrol() {
+    if (state.petrol || state.money < CFG.petrol.cost) { audio.deny(); return false; }
+    state.money -= CFG.petrol.cost;
+    state.daySpent += CFG.petrol.cost;
+    state.petrol = { werkstatt: false };
+    if (mods.petrol) mods.petrol.sync();
+    audio.tierUp();
+    ui.toast(t('petrolBought'), true, 9000);
+    checkWealth(); ui.refreshMoney(); save();
+    return true;
+  }
+
+  function buyWerkstatt() {
+    if (!state.petrol || state.petrol.werkstatt || state.money < CFG.petrol.werkstattCost) { audio.deny(); return false; }
+    state.money -= CFG.petrol.werkstattCost;
+    state.daySpent += CFG.petrol.werkstattCost;
+    state.petrol.werkstatt = true;
+    if (mods.petrol) mods.petrol.sync();
+    audio.tierUp();
+    ui.toast(t('werkstattBought'), true, 9000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  // Ein Kunden-Auto hat getankt — Kasse klingelt sofort
+  function petrolPay() {
+    const pay = CFG.petrol.perCustomer;
+    state.money += pay; state.dayEarned += pay; state.totalEarned += pay;
+    state._petrolToday = (state._petrolToday || 0) + 1;
+    audio.cash();
+    ui.refreshMoney();
+  }
+
   // ==================== v20: Immobilien-Flipping ====================
   function buyFlip(i) {
     const FL = CFG.flip;
@@ -3518,6 +3572,7 @@ export function createGame(ctx, mods) {
     else if (act.id === 'museum') { player.releaseLock(); ui.showMuseum(); }
     else if (act.id === 'canavar') { player.releaseLock(); ui.showCanavar(); }
     else if (act.id === 'flip') { player.releaseLock(); ui.showFlip(act.data); }
+    else if (act.id === 'petrol') { player.releaseLock(); ui.showPetrol(); }
   }
 
   window.addEventListener('keydown', (e) => {
@@ -3620,6 +3675,7 @@ export function createGame(ctx, mods) {
       const fli = mods.flips.near(player.pos.x, player.pos.z);
       if (fli >= 0) return { id: 'flip', data: fli };
     }
+    if (mods.petrol && mods.petrol.near(player.pos.x, player.pos.z)) return { id: 'petrol' };
     if (mods.museum && mods.museum.near(player.pos.x, player.pos.z)) return { id: 'museum' };
     // v15
     if (mods.wedding && mods.wedding.active && !state._weddingJoined
@@ -3996,6 +4052,7 @@ export function createGame(ctx, mods) {
     hireCirak, trainCirak, story4Sell, story4Refuse, story4Finale,
     canavarReady, canavarResult, droneInfo,
     storeBasket, sellStore, buyFlip, renoFlip, sellFlip, rentFlip,
+    buyPetrol, buyWerkstatt, petrolPay,
     setFrozen(v) { frozen = v; },
     restoreKonak, feedCat, buyJointVenture, buyVillage,
     arcadeStart, arcadeResult, story3Choose, foundMemory, yearEventIs,

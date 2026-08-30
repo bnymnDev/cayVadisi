@@ -510,6 +510,14 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   (15 % Prämie, deckt Sturmverluste voll). Alle Schiffe rechnen abends
   einzeln ab.
 
+### Vadi Petrol (v21)
+- **⛽ Tankstelle & Werkstatt-Kette:** Die einzige Tankstelle des Tals steht
+  an der Landstraße zum Verkauf (9.000) — rotes Dach, zwei Zapfsäulen,
+  Preistafel, Kiosk. **NPC-Autos fahren sichtbar vor, tanken und zahlen
+  live** (35 pro Auto, Kasse klingelt). Der **Werkstatt-Anbau** (4.000,
+  Halle mit Hebebühne) bringt täglich Reparatur-Aufträge — und deine
+  eigenen Fahrzeuge stehen jeden Morgen frisch repariert da (Verschleiß 0).
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

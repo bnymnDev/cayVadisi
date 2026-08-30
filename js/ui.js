@@ -1323,6 +1323,42 @@ export function createUI(ctx, hooks) {
       show(els.eventS);
     },
 
+    // ---------- v21: Tankstelle & Werkstatt ----------
+    showPetrol() {
+      const L = state.settings.lang;
+      const P = CFG.petrol;
+      $('event-icon').textContent = '⛽';
+      $('event-title').textContent = t('petrolTitle');
+      const box = $('event-choices');
+      box.innerHTML = '';
+      if (!state.petrol) {
+        $('event-text').innerHTML = t('petrolPitch', fmtMoney(P.cost, L), fmtMoney(P.perCustomer, L));
+        const b = document.createElement('button');
+        b.className = 'big-btn';
+        b.disabled = state.money < P.cost;
+        b.textContent = t('petrolBuyBtn') + ' · ' + fmtMoney(P.cost, L);
+        b.addEventListener('click', () => { if (hooks.buyPetrol()) api.showPetrol(); });
+        box.appendChild(b);
+      } else {
+        $('event-text').innerHTML = t('petrolInfo', state._petrolToday || 0, fmtMoney((state._petrolToday || 0) * P.perCustomer, L))
+          + (state.petrol.werkstatt ? `<br>🔧 ${t('werkstattActive', fmtMoney(P.werkstattPerDay, L))}` : '');
+        if (!state.petrol.werkstatt) {
+          const w = document.createElement('button');
+          w.className = 'big-btn';
+          w.disabled = state.money < P.werkstattCost;
+          w.textContent = t('werkstattBuyBtn') + ' · ' + fmtMoney(P.werkstattCost, L);
+          w.addEventListener('click', () => { if (hooks.buyWerkstatt()) api.showPetrol(); });
+          box.appendChild(w);
+        }
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
     // ---------- v20: Immobilien-Flipping ----------
     showFlip(i) {
       const L = state.settings.lang;

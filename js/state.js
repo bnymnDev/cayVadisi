@@ -131,6 +131,9 @@ export const state = {
   fleet: 0,                        // Anzahl Frachter (0..3)
   shipments: [],                   // [{route, packs, insured}] — Schiffe auf See
 
+  // v21: Tankstelle & Werkstatt
+  petrol: null,                    // { werkstatt: bool }
+
   // v11
   animalNames: {},          // Art -> [Namen]
   orchard: false,           // Haselnuss-Plantage
@@ -283,7 +286,8 @@ export function save() {
     featureUnlocks: s.featureUnlocks, branch: s.branch, npcRel: s.npcRel, favorsDone: s.favorsDone,
     cirak: s.cirak, story4: s.story4, canavar: s.canavar,
     flips: s.flips, teaMul: s.teaMul, teaHist: s.teaHist, teaEvent: s.teaEvent,
-    teaStore: s.teaStore, fleet: s.fleet, shipments: s.shipments
+    teaStore: s.teaStore, fleet: s.fleet, shipments: s.shipments,
+    petrol: s.petrol
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -429,6 +433,7 @@ export function load() {
     state.shipments = Array.isArray(d.shipments) ? d.shipments : (d.shipment ? [d.shipment] : []);
     state.freighter = state.fleet > 0;
     state.shipment = null;
+    state.petrol = d.petrol ?? null;
     state.vehicles.moto = state.vehicles.moto ?? false;
     state.inventory.tea_harman = state.inventory.tea_harman ?? 0;
     state.inventory.levrek = state.inventory.levrek ?? 0;
@@ -514,6 +519,7 @@ export function resetProgress() {
   state.canavar = { wins: 0, next: 0 };
   state.flips = []; state.teaMul = 1; state.teaHist = []; state.teaEvent = null;
   state.teaStore = { kg: 0, valueKg: 0 }; state.fleet = 0; state.shipments = [];
+  state.petrol = null;
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -543,6 +549,7 @@ export function resetDay() {
   state._mineDone = false; state._kraftDone = false; state._weddingJoined = false;
   state._beeCupDone = false; state._stormToday = false;
   state._favors = {};
+  state._petrolToday = 0;
   if (state.stall) { state.stall.soldToday = 0; state.stall.earnedToday = 0; }
   state._kemalDump = false; state._falconHint = 0;
   state._meisterDone = false;
