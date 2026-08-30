@@ -6,7 +6,7 @@ import { lerp, clamp, smoothstep } from '../util.js';
 import { mulberry32 } from '../util.js';
 
 export function createSky(ctx) {
-  const { scene, renderer } = ctx;
+  const { scene, renderer, isTouch } = ctx;
 
   const sky = new Sky();
   sky.scale.setScalar(2000);
@@ -14,7 +14,9 @@ export function createSky(ctx) {
   const U = sky.material.uniforms;
 
   const sun = new THREE.DirectionalLight(0xfff2dd, 3.0);
-  sun.castShadow = true;
+  // v25.2: Auf Mobil keine Schattenkarte — das periodische Neu-Rendern des
+  // Shadow-Rendertargets ist eine der Flacker-Quellen auf Mobil-GPUs.
+  sun.castShadow = !isTouch;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.near = 10;
   sun.shadow.camera.far = 420;
@@ -122,14 +124,21 @@ export function createSky(ctx) {
 
   scene.fog = new THREE.FogExp2(0xc3d2d8, 0.0018);
 
-  const pmrem = new THREE.PMREMGenerator(renderer);
+  // v25.2: Auf Mobil KEIN PMREM-Environment. Der Bake alle ~2,5 s rendert in
+  // ein HalfFloat-Rendertarget — auf vielen Mobil-GPUs (Adreno/Mali/iOS)
+  // erzeugt genau das rhythmische schwarze Frames. Ohne Env gleichen
+  // Hemisphären- und Sonnenlicht die Helligkeit aus (siehe update()).
+  const pmrem = isTouch ? null : new THREE.PMREMGenerator(renderer);
   const envScene = new THREE.Scene();
-  const envSky = new Sky();
-  envSky.scale.setScalar(800);
-  // Sonnenscheibe NICHT mitbacken: ihre extremen HDR-Werte laufen im
-  // PMREM-Mipping zu Inf/NaN über und schwärzen dann die ganze Szene.
-  envSky.material.uniforms.showSunDisc.value = 0;
-  envScene.add(envSky);
+  let envSky = null;
+  if (!isTouch) {
+    envSky = new Sky();
+    envSky.scale.setScalar(800);
+    // Sonnenscheibe NICHT mitbacken: ihre extremen HDR-Werte laufen im
+    // PMREM-Mipping zu Inf/NaN über und schwärzen dann die ganze Szene.
+    envSky.material.uniforms.showSunDisc.value = 0;
+    envScene.add(envSky);
+  }
   // Das Sky-HDR trägt die volle Sonnenscheibe — als IBL stark dämpfen,
   // direkte Beleuchtung übernimmt die DirectionalLight.
   scene.environmentIntensity = 0.38;   // v10: etwas satteres Umgebungslicht
@@ -210,6 +219,7 @@ export function createSky(ctx) {
     scene.fog.density = lerp(lerp(0.0019, 0.0033, lowSun), 0.0066, r) + api.extraFog;
     renderer.setClearColor(fogCol);
     hemi.intensity *= 1 - nightDeep * 0.45;   // Nacht: nur Mond-Restlicht
+    if (isTouch) { hemi.intensity *= 1.5; sun.intensity *= 1.08; }   // v25.2: Env-Ersatz
 
     // Regenbogen ein-/ausblenden
     rainbow.visible = api.rainbowT > 0.01;
@@ -240,10 +250,10 @@ export function createSky(ctx) {
     );
     moonGlow.position.copy(moon.position);
 
-    // Environment nur gelegentlich neu backen
+    // Environment nur gelegentlich neu backen (Desktop; Mobil: siehe oben)
     api._envTimer += dt;
     const elevChanged = Math.abs(elev - api._lastElev) > 0.03;
-    if (api._envTimer > 2.5 && (elevChanged || Math.abs(r - (api._lastRain ?? -1)) > 0.05)) {
+    if (!isTouch && api._envTimer > 2.5 && (elevChanged || Math.abs(r - (api._lastRain ?? -1)) > 0.05)) {
       api._envTimer = 0;
       api._lastElev = elev;
       api._lastRain = r;

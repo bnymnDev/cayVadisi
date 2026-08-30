@@ -12,6 +12,12 @@ komplett offline, DE/TR). Start: `npm start` → `http://localhost:8137`.
   aus FBX via `npm i fbx2gltf` → `FBX2glTF --binary` konvertiert; Anims Idle/Walk/
   Run/Working). Instanzen via `js/chars.js` (SkeletonUtils-Klone + Palettentextur-
   Tausch); `makeWorkerMesh` bleibt als Fallback.
+- **Mobil-Stabilität (v25.1/25.2):** Auf Touch-Geräten (`ctx.isTouch`) laufen
+  NIEMALS: EffectComposer (direktes renderer.render + Kontext-AA), PMREM-Env-
+  Bakes (sky.js — Hemi/Sonne kompensieren stattdessen), Schattenkarten und der
+  Istanbul-Reflector (einfache Wasserfläche). Alles davon erzeugte schwarze
+  Frame-Flacker auf Adreno/Mali/iOS. Versionsbadge (CFG.version) unten rechts
+  auf Start-/Pausescreen zeigt, welche Version ein Gerät wirklich ausführt.
 - Sky-Sonnenscheibe NIEMALS ins Environment-PMREM backen (`showSunDisc = 0` im envSky),
   sonst Inf/NaN → komplett schwarze Szene.
 - Spielstand: `localStorage` (`cayvadisi_save_v2`), `state.js` migriert ältere Stände.
