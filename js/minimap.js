@@ -57,6 +57,15 @@ export function createMinimap(ctx, terrain, player, getWorkers, getVehicles) {
     { x: CFG.city.dealer.x, z: CFG.city.dealer.z, icon: '🚗' }
   ];
 
+  // v23: Klick auf die Minimap -> Schnellreise-Wunsch (game.js entscheidet)
+  cv.style.pointerEvents = 'auto';
+  cv.addEventListener('click', (e) => {
+    const r = cv.getBoundingClientRect();
+    const wx = ((e.clientX - r.left) / r.width - 0.5) * W;
+    const wz = ((e.clientY - r.top) / r.height - 0.5) * W;
+    window.dispatchEvent(new CustomEvent('cayFastTravel', { detail: { x: wx, z: wz } }));
+  });
+
   let visible = true;
   let accum = 0;
 

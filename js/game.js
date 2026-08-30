@@ -189,6 +189,17 @@ export function createGame(ctx, mods) {
     if ((state.day % CFG.parcels.rivalEveryDays === 0 && state.day > 2) || nurtenActive) rivalClaimParcel();
     // v19: Story 4 fortschreiben
     story4Tick();
+    // v23: das Gerücht vom Geisterhaus
+    if (state.story5.ch === 0 && state.day >= CFG.ghost.startDay) {
+      state.story5.ch = 1;
+      if (mods.ghost) mods.ghost.sync();
+      setTimeout(() => ui.toast(t('ghostRumor'), false, 11000), 12000);
+    }
+    // v23: Saisonfest heute?
+    if (mods.seasonfest && mods.seasonfest.festToday()) {
+      if (mods.seasonfest.festToday() === 'schneefest') state.snowman = 0;
+      setTimeout(() => ui.toast(t('fest_' + mods.seasonfest.festToday() + 'Today'), true, 9000), 5000);
+    }
     // v22: Sternschnuppen-Wunsch geht in Erfüllung
     if (state.wish) {
       const w = state.wish;
@@ -380,6 +391,11 @@ export function createGame(ctx, mods) {
     if (state.railway) {
       state.inventory.coal += CFG.railway.coalPerDay;
       lines.push({ k: 'sumRail', v: '+' + CFG.railway.coalPerDay + ' 🪨' });
+    }
+    // v23: das Kind hilft beim Eiersammeln
+    if (mods.child && mods.child.grownEnough() && (state.animals.chicken || 0) > 0) {
+      state.inventory.egg += CFG.childGrow.eggsPerDay;
+      lines.push({ k: 'sumChild', v: '+' + CFG.childGrow.eggsPerDay + ' 🥚' });
     }
     // v21: Tankstelle — Tagesbilanz + Werkstatt-Reparaturen
     if (state.petrol) {
@@ -2290,6 +2306,25 @@ export function createGame(ctx, mods) {
 
   // Wird von main bei jedem Foto (C im Fotomodus) aufgerufen
   function photoTaken(camPos, camDir) {
+    // v23: Wildtiere im Bild? (zählt zusätzlich zu allem anderen)
+    if (mods.wildanimals) {
+      for (const a of mods.wildanimals.visibleAnimals()) {
+        if (state.wildPhotos[a.id]) continue;
+        if (Math.hypot(camPos.x - a.x, camPos.z - a.z) < 20) {
+          state.wildPhotos[a.id] = true;
+          const pay2 = CFG.wildlife2.photoPay;
+          state.money += pay2; state.dayEarned += pay2; state.totalEarned += pay2;
+          audio.cash();
+          ui.toast(t('wildPhoto', t('wild_' + a.id)), true, 8000);
+          if (Object.keys(state.wildPhotos).length >= 3) {
+            addRep(CFG.wildlife2.allRep);
+            setTimeout(() => ui.toast(t('wildComplete'), true, 10000), 1500);
+          }
+          ui.refreshMoney(); save();
+          break;
+        }
+      }
+    }
     // v17: gebuchte Werbekampagne — Foto vom Teefeld oder der Fabrik
     if (state.campaign === 'shoot') {
       const F = CFG.field;
@@ -3008,6 +3043,130 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // ==================== v23: Feste, Musik, Wildnis & Komfort ====================
+  // --- Jahreszeiten-Feste ---
+  function doSeasonFest() {
+    const fest = mods.seasonfest.festToday();
+    if (!fest) return false;
+    if (fest === 'erntedank') {
+      if (state._festDone) { audio.deny(); return false; }
+      state._festDone = true;
+      for (const id of Object.keys(CFG.products)) state.marketMul[id] = (state.marketMul[id] || 1) * CFG.seasonFest.erntedankBonus;
+      addRep(1);
+      audio.tierUp();
+      ui.toast(t('festErntedank'), true, 9000);
+    } else if (fest === 'schneefest') {
+      if (state.snowman >= 3) { audio.deny(); return false; }
+      state.snowman += 1;
+      v3.set(CFG.seasonFest.spot.x, 1, CFG.seasonFest.spot.z);
+      particles.burst(v3, 10, camera.position);
+      audio.plant();
+      if (state.snowman >= 3) {
+        state._festDone = true;
+        addRep(CFG.seasonFest.snowmanRep);
+        audio.tierUp();
+        ui.toast(t('festSnowmanDone'), true, 9000);
+      } else ui.toast(t('festSnowball', state.snowman), true, 4000);
+    } else if (fest === 'hidirellez') {
+      if (state._festDone) { audio.deny(); return false; }
+      state._festDone = true;
+      state.moralDays += CFG.seasonFest.hidirellezMoral;
+      addRep(1);
+      audio.tierUp();
+      ui.toast(t('festHidirellez'), true, 9000);
+    }
+    save();
+    return true;
+  }
+
+  // --- Kemençe ---
+  function buyKemence() {
+    if (state.kemence || state.money < CFG.busking.cost) { audio.deny(); return false; }
+    state.money -= CFG.busking.cost;
+    state.daySpent += CFG.busking.cost;
+    state.kemence = true;
+    audio.tierUp();
+    ui.toast(t('kemenceBought'), true, 8000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  function buskResult(scores) {
+    const hits = scores.filter((s2) => s2 > 0.5).length;
+    const pay = Math.round(hits * CFG.busking.perHit * (1 + state.rep / 100));
+    state.money += pay; state.dayEarned += pay; state.totalEarned += pay;
+    state._buskDone = true;
+    if (hits >= scores.length) addRep(1);
+    if (pay > 0) audio.cash(); else audio.deny();
+    ui.refreshMoney(); save();
+    return { hits, pay, perfect: hits >= scores.length };
+  }
+
+  function nearBusk() {
+    return CFG.busking.spots.some((b) => Math.hypot(player.pos.x - b.x, player.pos.z - b.z) < CFG.interactDist + 2);
+  }
+
+  // --- Arcade 2 ---
+  function arcade2Result(score) {
+    const pay = score * CFG.arcade2.perPoint;
+    state.money += pay; state.dayEarned += pay; state.totalEarned += pay;
+    if (score > state.arcade2Best) state.arcade2Best = score;
+    if (pay > 0) audio.cash(); else audio.deny();
+    ui.refreshMoney(); save();
+    return { pay, best: state.arcade2Best, rivals: CFG.arcade2.rivals };
+  }
+
+  // --- Geisterhaus (Story 5) ---
+  function ghostKey() {
+    if (state.story5.ch !== 1) return false;
+    state.story5.ch = 2;
+    if (mods.ghost) mods.ghost.sync();
+    audio.tierUp();
+    ui.toast(t('ghostKeyFound'), true, 9000);
+    save();
+    return true;
+  }
+
+  function ghostVisit() {
+    if (state.story5.ch === 2) {
+      state.story5.ch = 3;
+      player.releaseLock();
+      ui.showGhost(1);
+    } else if (state.story5.ch === 3) {
+      state.story5.done = true;
+      const G2 = CFG.ghost;
+      state.money += G2.reward; state.dayEarned += G2.reward; state.totalEarned += G2.reward;
+      addRep(G2.rep);
+      if (mods.ghost) mods.ghost.sync();
+      audio.tierUp();
+      player.releaseLock();
+      ui.showGhost(2);
+      ui.refreshMoney();
+    }
+    save();
+    return true;
+  }
+
+  // --- Komfort: Schnellreise über die Minimap ---
+  window.addEventListener('cayFastTravel', (e) => {
+    if (!running || paused || vehicles.driving || boat.driving || ui.overlayOpen()) return;
+    if ((mods.diving && mods.diving.active) || (mods.campfire && mods.campfire.sitting)) return;
+    const C2 = CFG.comfort;
+    let best = null, bestD = 26;
+    for (const stop of C2.stops) {
+      const d = Math.hypot(e.detail.x - stop.x, e.detail.z - stop.z);
+      if (d < bestD) { bestD = d; best = stop; }
+    }
+    if (!best) return;
+    if (state.money < C2.fastTravelCost) { audio.deny(); return; }
+    state.money -= C2.fastTravelCost;
+    state.daySpent += C2.fastTravelCost;
+    player.teleport(best.x + 2, best.z + 2);
+    audio.engineStart();
+    ui.toast(t('fastTravel', t('ft_' + best.id), fmtMoney(C2.fastTravelCost, state.settings.lang)), true, 5000);
+    ui.refreshMoney(); save();
+  });
+
   // ==================== v22: Atmosphäre-Paket ====================
   // --- Tauchen ---
   function buyMask() {
@@ -3646,7 +3805,7 @@ export function createGame(ctx, mods) {
 
   // Tempo-Malus bei Hunger/Erschöpfung (für player.update)
   function speedMul() {
-    let m = state.baston ? CFG.life.bastonSpeed : 1;
+    let m = (state.baston ? CFG.life.bastonSpeed : 1) * (state.settings.speed || 1);   // v23: Tempo-Option
     if (state.survival && (state.hunger < CFG.survival.lowThreshold || state.energy < CFG.survival.lowThreshold)) {
       m *= CFG.survival.slowFactor;
     }
@@ -3777,7 +3936,7 @@ export function createGame(ctx, mods) {
     else if (act.id === 'kuryepick') kuryePickup();
     else if (act.id === 'kuryedrop') kuryeDeliver();
     else if (act.id === 'memory') foundMemory(act.data);
-    else if (act.id === 'arcade') { player.releaseLock(); ui.showArcade(); }
+    else if (act.id === 'arcade') { player.releaseLock(); ui.showArcadeMenu(); }
     else if (act.id === 'adalight') adaRestore();
     else if (act.id === 'adacave') adaCave();
     else if (act.id === 'adafish') adaFish();
@@ -3802,6 +3961,11 @@ export function createGame(ctx, mods) {
     else if (act.id === 'canavar') { player.releaseLock(); ui.showCanavar(); }
     else if (act.id === 'flip') { player.releaseLock(); ui.showFlip(act.data); }
     else if (act.id === 'petrol') { player.releaseLock(); ui.showPetrol(); }
+    else if (act.id === 'fest') doSeasonFest();
+    else if (act.id === 'buskbuy') { player.releaseLock(); ui.showBuskBuy(); }
+    else if (act.id === 'busk') { player.releaseLock(); ui.showBusking(); }
+    else if (act.id === 'ghostkey') ghostKey();
+    else if (act.id === 'ghostdoor') ghostVisit();
     else if (act.id === 'dive') startDive();
     else if (act.id === 'divebuy') { player.releaseLock(); ui.showDiveBuy(); }
     else if (act.id === 'campfire') campfireSit();
@@ -3930,6 +4094,17 @@ export function createGame(ctx, mods) {
       if (fli >= 0) return { id: 'flip', data: fli };
     }
     if (mods.petrol && mods.petrol.near(player.pos.x, player.pos.z)) return { id: 'petrol' };
+    // v23
+    if (mods.seasonfest && mods.seasonfest.festToday() && !state._festDone
+        && mods.seasonfest.near(player.pos.x, player.pos.z)) {
+      return { id: 'fest', data: mods.seasonfest.festToday() };
+    }
+    if (!state._buskDone && nearBusk()) return { id: state.kemence ? 'busk' : 'buskbuy' };
+    if (mods.ghost) {
+      if (mods.ghost.nearKey(player.pos.x, player.pos.z)) return { id: 'ghostkey' };
+      if ((state.story5.ch === 2 || state.story5.ch === 3) && isNight()
+          && mods.ghost.nearDoor(player.pos.x, player.pos.z)) return { id: 'ghostdoor' };
+    }
     // v22
     if (mods.diving && Math.hypot(player.pos.x - CFG.diving.entry.x, player.pos.z - CFG.diving.entry.z) < CFG.interactDist + 2.5) {
       return { id: state.mask ? 'dive' : 'divebuy' };
@@ -4354,6 +4529,7 @@ export function createGame(ctx, mods) {
     storeBasket, sellStore, buyFlip, renoFlip, sellFlip, rentFlip,
     buyPetrol, buyWerkstatt, petrolPay,
     buyMask, startDive, trainDog, treeBuild, treeClimb, postcardReward, startMotoRace,
+    doSeasonFest, buyKemence, buskResult, arcade2Result, ghostKey, ghostVisit,
     get motoRaceTime() { return motoRace ? motoRace.t : -1; },
     setFrozen(v) { frozen = v; },
     restoreKonak, feedCat, buyJointVenture, buyVillage,

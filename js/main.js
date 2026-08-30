@@ -76,6 +76,10 @@ import { createFestival2 } from './world/festival2.js';
 import { createMotoRace } from './world/motorace.js';
 import { createPlaneTree } from './world/planetree.js';
 import { createPostcards } from './world/postcards.js';
+import { createSeasonFest } from './world/seasonfest.js';
+import { createWildAnimals } from './world/wildanimals.js';
+import { createGhostHouse } from './world/ghosthouse.js';
+import { createChild } from './world/child.js';
 import { loadCustomModels } from './custom.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
@@ -161,6 +165,7 @@ let factoryext = null, parcels = null, railwayMod = null, landslideMod = null, s
 let valley2 = null, cirakMod = null, museumMod = null;
 let flipsMod = null, petrolMod = null;
 let divingMod = null, campfireMod = null, festival2Mod = null, motoraceMod = null, planetreeMod = null, postcardsMod = null;
+let seasonfestMod = null, wildMod = null, ghostMod = null, childMod = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -267,6 +272,11 @@ createProps(ctx, terrain).then(async (p) => {
   festival2Mod = createFestival2(ctx, terrain, chars);
   motoraceMod = createMotoRace(ctx, terrain);
   postcardsMod = createPostcards(ctx, terrain);
+  seasonfestMod = createSeasonFest(ctx, terrain);   // v23
+  wildMod = createWildAnimals(ctx, terrain);
+  ghostMod = createGhostHouse(ctx, terrain);
+  childMod = createChild(ctx, terrain, chars);
+  allColliders.push(...ghostMod.colliders);
   allColliders.push(...flipsMod.colliders, ...petrolMod.colliders);
   allColliders.push(...stallMod.colliders, landslideMod.collider);
   allColliders.push(...mine.colliders);
@@ -300,6 +310,7 @@ createProps(ctx, terrain).then(async (p) => {
     cirak: cirakMod, museum: museumMod, flips: flipsMod, petrol: petrolMod,
     diving: divingMod, campfire: campfireMod, festival2: festival2Mod,
     motorace: motoraceMod, planetree: null,
+    seasonfest: seasonfestMod, wildanimals: wildMod, ghost: ghostMod, child: childMod,
     istanbul: null, npcs: null, ada: null, bridge: null
   };
   game = createGame(ctx, gameMods);
@@ -594,6 +605,9 @@ function wireHooks() {
   hooks.postcardReward = (i2) => game.postcardReward(i2);
   hooks.npcCount = () => npcs ? npcs.count : 0;
   hooks.postcardsSync = () => postcardsMod && postcardsMod.sync(npcs);
+  hooks.buyKemence = () => game.buyKemence();
+  hooks.buskResult = (s2) => game.buskResult(s2);
+  hooks.arcade2Result = (s2) => game.arcade2Result(s2);
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -1035,6 +1049,10 @@ function step(rawDt, manual, skipRender = false) {
     if (festival2Mod) festival2Mod.update(dt, elapsed, sky.hour);
     if (motoraceMod) motoraceMod.update(dt, elapsed, game ? game.motoRaceTime : -1);
     if (planetreeMod) planetreeMod.update(dt, elapsed);
+    if (seasonfestMod) seasonfestMod.update(dt, elapsed, window.__started && game && game.isNight());
+    if (wildMod) wildMod.update(dt, elapsed, sky.hour, player.pos);
+    if (ghostMod) ghostMod.update(dt, elapsed, window.__started && game && game.isNight());
+    if (childMod) childMod.update(dt);
     if (factoryext) factoryext.update(dt);
     if (parcels) parcels.update(dt, elapsed);
     if (railwayMod) railwayMod.update(dt);

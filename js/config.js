@@ -657,6 +657,54 @@ export const CFG = {
   cableTop: { x: 4, z: -22 },                // Teleferik-Station am Feld
   interactDist: 4.2,
 
+  // ---- v23: Jahreszeiten-Feste (Tag 3 jeder Saison, Sommer hat das Festival) ----
+  seasonFest: {
+    dayInSeason: 3,
+    spot: { x: 112, z: -94 },            // Festplatz an der Kasaba
+    erntedankBonus: 1.2,                 // Herbst: Marktpreise +20 % heute
+    snowmanRep: 3,                       // Winter: Schneemann fertig
+    hidirellezMoral: 2                   // Frühling: Feuersprung
+  },
+
+  // ---- v23: Kemençe-Straßenmusik ----
+  busking: {
+    cost: 600, perHit: 45,
+    spots: [ { x: 116, z: -96 }, { x: -136, z: 74 }, { x: 30, z: 92 } ]   // Kasaba, Karşıköy, Yayla
+  },
+
+  // ---- v23: Arcade Nr. 2 — Kayık Rallisi ----
+  arcade2: {
+    perPoint: 12,
+    rivals: [ ['Temel', 34], ['Dursun', 28], ['Yusuf', 22], ['Kemal A.', 41] ]
+  },
+
+  // ---- v23: Wildtiere & Foto-Sammlung „Vahşi Vadi" ----
+  wildlife2: {
+    photoPay: 150, allRep: 5,
+    spots: [ { x: -40, z: 30 }, { x: 40, z: 60 }, { x: -70, z: -30 } ]
+  },
+
+  // ---- v23: Das Geisterhaus (Story 5) ----
+  ghost: {
+    house: { x: -62, z: 44, ry: 0.7 },   // Waldrand
+    startDay: 10, reward: 2000, rep: 4
+  },
+
+  // ---- v23: Komfort ----
+  comfort: {
+    fastTravelCost: 30,
+    stops: [
+      { id: 'home', x: 16, z: -102 }, { id: 'hut', x: -27, z: -108 },
+      { id: 'city', x: 118, z: -100 }, { id: 'farm', x: -98, z: -96 },
+      { id: 'yayla', x: 26, z: 96 }, { id: 'karsikoy', x: -132, z: 70 }
+    ]
+  },
+
+  // ---- v23: Kind wächst mit ----
+  childGrow: {
+    growDays: 30, helpAt: 0.65, eggsPerDay: 2
+  },
+
   // ---- v22: Tauchen (Wrack vor der Ada) ----
   diving: {
     maskCost: 800,

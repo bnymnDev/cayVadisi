@@ -1346,6 +1346,150 @@ export function createUI(ctx, hooks) {
       show(els.eventS);
     },
 
+    // ---------- v23: Kemençe kaufen ----------
+    showBuskBuy() {
+      const L = state.settings.lang;
+      $('event-icon').textContent = '🎻';
+      $('event-title').textContent = t('buskTitle');
+      $('event-text').innerHTML = t('buskPitch', fmtMoney(CFG.busking.cost, L));
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const b = document.createElement('button');
+      b.className = 'big-btn';
+      b.disabled = state.money < CFG.busking.cost;
+      b.textContent = t('buskBuyBtn') + ' · ' + fmtMoney(CFG.busking.cost, L);
+      b.addEventListener('click', () => { if (hooks.buyKemence()) hooks.closeShop(); });
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.append(b, leave);
+      show(els.eventS);
+    },
+
+    // ---------- v23: Straßenmusik (Timing wie Kraftmesser) ----------
+    showBusking() {
+      const L = state.settings.lang;
+      api._timingGame({
+        icon: '🎻', title: t('buskTitle'), intro: t('buskIntro', fmtMoney(CFG.busking.perHit, L)),
+        btn: t('buskPlay'), rounds: 4, speed: 1.5,
+        onDone(scores) {
+          const res = hooks.buskResult(scores);
+          return `${res.perfect ? '🌟 ' + t('buskPerfect') : t('buskOk', res.hits)}<br><b>+${fmtMoney(res.pay, L)}</b>`;
+        }
+      });
+    },
+
+    // ---------- v23: Arcade-Auswahl + Kayık Rallisi ----------
+    showArcadeMenu() {
+      $('event-icon').textContent = '🕹️';
+      $('event-title').textContent = t('arcadeMenuTitle');
+      $('event-text').innerHTML = t('arcadeMenuIntro');
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const g1 = document.createElement('button');
+      g1.className = 'big-btn';
+      g1.textContent = '🐟 ' + t('arcadeTitle');
+      g1.addEventListener('click', () => api.showArcade());
+      const g2 = document.createElement('button');
+      g2.className = 'big-btn';
+      g2.textContent = '🛶 ' + t('arcade2Title');
+      g2.addEventListener('click', () => api.showArcade2());
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.append(g1, g2, leave);
+      show(els.eventS);
+    },
+
+    showArcade2() {
+      $('event-icon').textContent = '🛶';
+      $('event-title').textContent = t('arcade2Title');
+      $('event-text').innerHTML = `${t('arcade2Intro', state.arcade2Best)}
+        <canvas id="arc2-cv" width="300" height="330" style="display:block;margin:10px auto;background:#0d2430;border-radius:10px"></canvas>`;
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const cv = $('arc2-cv');
+      const cx2 = cv.getContext('2d');
+      let bx = 150, score = 0, tLeft = 25, running2 = true, raf = 0, speed2 = 90;
+      const buoys = [];
+      let last = performance.now();
+      const onMove = (e) => {
+        const r = cv.getBoundingClientRect();
+        bx = Math.max(24, Math.min(276, (e.clientX - r.left) / r.width * 300));
+      };
+      const onKey = (e) => {
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') bx = Math.max(24, bx - 26);
+        if (e.code === 'ArrowRight' || e.code === 'KeyD') bx = Math.min(276, bx + 26);
+      };
+      cv.addEventListener('mousemove', onMove);
+      window.addEventListener('keydown', onKey);
+      function frame(now) {
+        const dt2 = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        if (!running2) return;
+        tLeft -= dt2;
+        speed2 += dt2 * 6;
+        if (Math.random() < dt2 * 1.6) buoys.push({ x: 24 + Math.random() * 252, y: -12 });
+        cx2.fillStyle = '#0d2430'; cx2.fillRect(0, 0, 300, 330);
+        // Ufer
+        cx2.fillStyle = '#1e4d33'; cx2.fillRect(0, 0, 14, 330); cx2.fillRect(286, 0, 14, 330);
+        cx2.font = '20px serif'; cx2.textAlign = 'center';
+        for (let i = buoys.length - 1; i >= 0; i--) {
+          const b2 = buoys[i];
+          b2.y += speed2 * dt2;
+          cx2.fillText('🛟', b2.x, b2.y);
+          if (b2.y > 340) { buoys.splice(i, 1); score += 1; continue; }
+          if (Math.abs(b2.x - bx) < 20 && Math.abs(b2.y - 300) < 18) {
+            running2 = false;   // Crash beendet die Fahrt
+          }
+        }
+        cx2.fillText('🛶', bx, 306);
+        cx2.fillStyle = '#cfe8ef'; cx2.font = '14px system-ui'; cx2.textAlign = 'left';
+        cx2.fillText(`⏱ ${Math.ceil(tLeft)}s · ★ ${score}`, 20, 22);
+        if (tLeft <= 0) running2 = false;
+        if (running2) { raf = requestAnimationFrame(frame); return; }
+        // Ende
+        cv.removeEventListener('mousemove', onMove);
+        window.removeEventListener('keydown', onKey);
+        const res = hooks.arcade2Result(score);
+        const L2 = state.settings.lang;
+        const list = [...res.rivals, [state.playerName || 'SEN', res.best]]
+          .sort((a2, b3) => b3[1] - a2[1])
+          .map(([n2, sc], i2) => `${i2 + 1}. ${n2} — ${sc}`).join('<br>');
+        $('event-text').innerHTML = `${t('arcade2Done', score, fmtMoney(res.pay, L2))}<br><br><b>${t('arcade2Board')}</b><br>${list}`;
+      }
+      raf = requestAnimationFrame(frame);
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => {
+        running2 = false;
+        cancelAnimationFrame(raf);
+        cv.removeEventListener('mousemove', onMove);
+        window.removeEventListener('keydown', onKey);
+        hooks.closeShop();
+      });
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
+    // ---------- v23: Geisterhaus-Kapitel ----------
+    showGhost(stage) {
+      $('event-icon').textContent = '🏚️';
+      $('event-title').textContent = t('ghostTitle');
+      $('event-text').innerHTML = t('ghostCh' + stage);
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const ok = document.createElement('button');
+      ok.className = 'big-btn';
+      ok.textContent = t('continue2');
+      ok.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(ok);
+      show(els.eventS);
+    },
+
     // ---------- v22: Tauchmaske ----------
     showDiveBuy() {
       const L = state.settings.lang;
@@ -2587,6 +2731,8 @@ export function createUI(ctx, hooks) {
       $('btn-sound').textContent = state.settings.sound ? t('on') : t('off');
       $('btn-quality').textContent = t('q' + (state.settings.quality[0].toUpperCase() + state.settings.quality.slice(1)));
       $('btn-eco').textContent = t('eco_' + (state.settings.eco || 'auto'));
+      $('btn-speed').textContent = '×' + (state.settings.speed || 1);
+      $('btn-cb').textContent = state.settings.cb ? t('on') : t('off');
       $('btn-lang').textContent = { de: 'Deutsch', tr: 'Türkçe', en: 'English' }[getLang()];
       show(els.pause);
     },
@@ -2873,6 +3019,20 @@ export function createUI(ctx, hooks) {
     e.target.textContent = t('q' + next[0].toUpperCase() + next.slice(1));
     save();
   });
+  $('btn-speed').addEventListener('click', (e) => {
+    const order = [1, 1.15, 1.3];
+    const next = order[(order.indexOf(state.settings.speed || 1) + 1) % order.length];
+    state.settings.speed = next;
+    e.target.textContent = '×' + next;
+    save();
+  });
+  $('btn-cb').addEventListener('click', (e) => {
+    state.settings.cb = !state.settings.cb;
+    document.body.classList.toggle('cb-mode', state.settings.cb);
+    e.target.textContent = state.settings.cb ? t('on') : t('off');
+    save();
+  });
+  document.body.classList.toggle('cb-mode', !!state.settings.cb);
   $('btn-eco').addEventListener('click', (e) => {
     const order = ['auto', 'eco', 'perf'];
     const next = order[(order.indexOf(state.settings.eco || 'auto') + 1) % order.length];
