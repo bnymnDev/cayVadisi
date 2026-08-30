@@ -21,17 +21,33 @@ komplett offline, DE/TR). Start: `npm start` → `http://localhost:8137`.
 ## Roadmap / Merker
 - **Multiplayer (Koop im Tal): vom Nutzer gewünscht, bewusst NOCH NICHT eingebaut.**
   Wenn es soweit ist: kleiner WebSocket-Server + Positions-/State-Sync, Save bleibt lokal.
-- **Deployment: KEIN GitHub Pages** (Repo bleibt privat, kein Plan-Upgrade). Ziel ist
-  eine **Subdomain auf nesbun.de** — statisches Hosting reicht (Dateien 1:1 hochladen),
-  das PIN-Gate (js/gate.js, PIN cay1453) ist bereits auf `*.nesbun.de` scharf.
+- **Deployment: KEIN GitHub Pages** (Repo bleibt privat). Live: **cayvadisi.nesbun.de**
+  (Mittwald, Projekt `p-ng6rad`, PHP-App `a-kzcb7x` unter
+  `/home/p-ng6rad/html/cayvadisi-php-k0qxx`). Das PIN-Gate (js/gate.js, PIN cay1453)
+  ist auf `*.nesbun.de` scharf.
+- **Deploy-Verfahren (nach JEDEM Release durchführen, vom Nutzer gewünscht):**
+  1. Mittwald-MCP: temporären SSH-User anlegen (`ssh_user_create`, publicKey frisch
+     generieren — Node crypto, openssh-key-v1-Format —, `expires: 2d`).
+  2. GitHub-Actions-Workflow `.github/workflows/deploy-nesbun.yml` per
+     `actions_run_trigger` (workflow_dispatch, ref main) starten — Inputs:
+     `ssh_key` (privater Key), `ssh_user` (z. B. ssh-xxxxxx), `target`
+     (Default = PHP-App-Pfad). Der Runner rsynct das Repo auf den Webspace.
+  3. Live-Check: `curl https://cayvadisi.nesbun.de/sw.js` muss die neue
+     CACHE-Version zeigen; `cloudsave.php` muss antworten (kein 403).
+  4. SSH-User sofort wieder löschen (`ssh_user_delete`), lokale Key-Dateien entfernen.
+  SSH direkt aus der Sandbox geht NICHT (nur HTTPS-Proxy) — deshalb der Actions-Umweg.
+  Domain-Routing: Virtualhost `cayvadisi.nesbun.de` → Ingress-Path `/` auf die
+  PHP-App (Ingress-ID 3ddaebb1-baec-475b-98d1-db27262dfa9e; Umschalten per
+  Mittwald-REST `PATCH /v2/ingresses/{id}/paths` mit kurzlebigem API-Token).
 - İstanbul-Viertel: eigene Höhen-Zone via `terrain.addHeightZone` — wird bewusst NACH
   Terrain-Mesh & Minimap registriert, sonst erscheint die Kai-Platte im Gelände.
   Gleiches gilt für Ada (v14) und das Fındık Vadisi (v18, `js/world/valley2.js`).
 - Geführter Fortschritt (v18): `CFG.progress.features` + `state.featureUnlocks`;
   Reveals laufen über `ctx.runReveal` in main.js (friert das Spiel via
   `game.setFrozen` ein). Alte Saves bekommen `featureUnlocks._all = true`.
-- Cloud-Save: `cloudsave.php` (Mittwald-PHP auf nesbun.de, saves/-Ordner
-  entsteht automatisch); der Service Worker cached `.php` bewusst nie.
+- Cloud-Save: `cloudsave.php` (läuft seit dem PHP-App-Umzug direkt auf
+  cayvadisi.nesbun.de, saves/-Ordner entsteht automatisch); der Service
+  Worker cached `.php` bewusst nie.
 - Eigene TRELLIS-/Custom-Modelle: `assets/models/extra/custom/index.json`
   (nicht eingecheckt) → `js/custom.js`; Doku in `tools/TRELLIS.md`.
 - Ideen-Backlog: TRELLIS-2-Pipeline für eigene Bild→3D-Assets (lokal generieren, als glTF ablegen).
