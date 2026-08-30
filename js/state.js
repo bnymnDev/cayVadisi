@@ -117,6 +117,11 @@ export const state = {
   npcRel: {},                      // NPC-Index -> Beziehungslevel
   favorsDone: 0,                   // erledigte Gefallen (kumulativ)
 
+  // v19: Çırak, Story 4, Canavar
+  cirak: null,                     // { level: 1..4 } — Lehrling eingestellt
+  story4: { ch: 0, path: null, done: false, at: 0 },
+  canavar: { wins: 0, next: 0 },   // next = frühester Tag für den nächsten Kampf
+
   // v11
   animalNames: {},          // Art -> [Namen]
   orchard: false,           // Haselnuss-Plantage
@@ -266,7 +271,8 @@ export function save() {
     factoryLines: s.factoryLines, parcels: s.parcels, railway: s.railway,
     landslide: s.landslide, stall: s.stall, queen: s.queen,
     beeCupWins: s.beeCupWins, billboards: s.billboards, campaign: s.campaign,
-    featureUnlocks: s.featureUnlocks, branch: s.branch, npcRel: s.npcRel, favorsDone: s.favorsDone
+    featureUnlocks: s.featureUnlocks, branch: s.branch, npcRel: s.npcRel, favorsDone: s.favorsDone,
+    cirak: s.cirak, story4: s.story4, canavar: s.canavar
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -399,6 +405,9 @@ export function load() {
     state.branch = d.branch ?? null;
     state.npcRel = d.npcRel ?? {};
     state.favorsDone = d.favorsDone ?? 0;
+    state.cirak = d.cirak ?? null;
+    state.story4 = d.story4 ?? { ch: 0, path: null, done: false, at: 0 };
+    state.canavar = d.canavar ?? { wins: 0, next: 0 };
     state.vehicles.moto = state.vehicles.moto ?? false;
     state.inventory.tea_harman = state.inventory.tea_harman ?? 0;
     state.inventory.levrek = state.inventory.levrek ?? 0;
@@ -480,6 +489,8 @@ export function resetProgress() {
   state.landslide = null; state.stall = null; state.queen = false;
   state.beeCupWins = 0; state.billboards = 0; state.campaign = '';
   state.featureUnlocks = {}; state.branch = null; state.npcRel = {}; state.favorsDone = 0;
+  state.cirak = null; state.story4 = { ch: 0, path: null, done: false, at: 0 };
+  state.canavar = { wins: 0, next: 0 };
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();

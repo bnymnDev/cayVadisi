@@ -469,6 +469,29 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   eigene glTF-Modelle werden beim Start automatisch platziert
   (`js/custom.js`); Anleitung in `tools/TRELLIS.md`.
 
+### Çırak, Nurten & der Canavar (v19)
+- **🎓 Çırak Yusuf:** Lehrling einstellen (läuft sichtbar über den Hof und
+  füttert die Tiere), in vier Stufen ausbilden: +10 % Tierprodukte →
+  automatischer Abendverkauf → Basar-Stand-Boost → **Usta: +5 % auf alle
+  Verkäufe**. Jede Stufe verdient mehr, als sie kostet.
+- **📜 Ajanda-Questlog:** Neue Smartphone-App mit Hauptgeschichten,
+  nächsten Freischaltungen (mit Fortschritt), heutigen Gefallen und
+  Boss-Status — Schluss mit verpassten Toasts.
+- **🕴️ Story 4 — Nurten Hanım:** Eine Investorin kauft täglich sichtbar
+  Parzellen auf. Verkauf ihr dein Land **zum doppelten Preis** — oder
+  stell dich ihr: Mobilisiere das Dorf (ihre Parzellen fallen an dich!),
+  nimm einen Anwalt oder verliere Land. Jede Entscheidung zahlt anders.
+- **🐉 Karadeniz Canavarı:** Ab Angel-Level 4 wartet nachts am
+  Ada-Angelspot der Boss — fünf Drills, vier müssen sitzen. Erste Trophäe
+  **5.000**, danach alle 7 Tage 2.500. Die Trophäe steht im Museum.
+- **🚁 Tal-Übersicht:** **M lang halten** — die Kamera steigt auf, das
+  ganze Tal live von oben: Fahnen, Zug, NPCs. Dazu ein Chancen-HUD
+  (bestes Tagesgeschäft am Markt, freie Parzellen, Betriebszahlen).
+  WASD schwenken, Mausrad Höhe, M/Esc beenden.
+- **🧿 Konak-Ausstellung:** Sobald der Konak Museum ist, stehen davor
+  Podeste mit Samtseil: Canavar-Trophäe, Pokale, Karten-Vitrine,
+  Dede-Fotowand. **Jedes gefüllte Podest: +45/Tag Eintrittsgeld.**
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

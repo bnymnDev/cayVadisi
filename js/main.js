@@ -66,6 +66,8 @@ import { createStall } from './world/stall.js';
 import { createBeeCup } from './world/beecup.js';
 import { createBillboards } from './world/billboards.js';
 import { createValley2 } from './world/valley2.js';
+import { createCirak } from './cirak.js';
+import { createMuseum } from './world/museum.js';
 import { loadCustomModels } from './custom.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
@@ -148,7 +150,7 @@ let gulet = null, cats = null, konak = null, village = null;
 let ada = null, memories = null;
 let wedding = null, freighter = null, panayir = null, mine = null, falcon = null, bridgeMod = null;
 let factoryext = null, parcels = null, railwayMod = null, landslideMod = null, stallMod = null, beecup = null, billboardsMod = null;
-let valley2 = null;
+let valley2 = null, cirakMod = null, museumMod = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -246,6 +248,8 @@ createProps(ctx, terrain).then(async (p) => {
   stallMod = createStall(ctx, terrain, chars);
   beecup = createBeeCup(ctx, terrain, chars);
   billboardsMod = createBillboards(ctx, terrain);
+  cirakMod = createCirak(ctx, terrain, chars);      // v19
+  museumMod = createMuseum(ctx, terrain);           // v19
   allColliders.push(...stallMod.colliders, landslideMod.collider);
   allColliders.push(...mine.colliders);
   allColliders.push(...selale.colliders, ...karsikoy.colliders, ...konak.colliders, ...village.colliders);
@@ -275,6 +279,7 @@ createProps(ctx, terrain).then(async (p) => {
     gulet, cats, konak, village, memories, wedding, freighter, panayir, mine, falcon,
     factoryext, parcels, railway: railwayMod, landslide: landslideMod,
     stall: stallMod, beecup, billboards: billboardsMod,
+    cirak: cirakMod, museum: museumMod,
     istanbul: null, npcs: null, ada: null, bridge: null
   };
   game = createGame(ctx, gameMods);
@@ -541,6 +546,13 @@ function wireHooks() {
   hooks.branchHire = () => game.branchHire();
   hooks.branchMode = () => game.branchMode();
   hooks.taxiValley2 = () => game.taxiValley2();
+  hooks.hireCirak = () => game.hireCirak();
+  hooks.trainCirak = () => game.trainCirak();
+  hooks.canavarResult = (s2) => game.canavarResult(s2);
+  hooks.story4Sell = () => game.story4Sell();
+  hooks.story4Refuse = () => game.story4Refuse();
+  hooks.story4Finale = (c2) => game.story4Finale(c2);
+  hooks.npcName = (i2) => npcs ? npcs.nameOf(i2) : '?';
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -679,6 +691,89 @@ function updateReveal(dt) {
   camera.lookAt(r.look);
   if (r.t >= r.dur + 2.5) endReveal();
 }
+
+// ---------- v19: Drohnen-Übersicht (M lang halten) ----------
+let droneMode = false;
+const droneKeys = {};
+const dronePos = { x: 0, z: 0, h: CFG.drone.height };
+const droneHud = document.createElement('div');
+droneHud.id = 'drone-hud';
+droneHud.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);'
+  + 'background:rgba(10,20,16,.72);color:#e8f0dc;padding:10px 18px;border-radius:12px;'
+  + 'font:14px/1.5 system-ui,sans-serif;z-index:40;display:none;text-align:center;pointer-events:none;max-width:80vw';
+document.body.appendChild(droneHud);
+let droneHudTimer = 0;
+
+let droneQualityBefore = null;
+function setDroneMode(v) {
+  droneMode = v;
+  droneHud.style.display = v ? '' : 'none';
+  if (v) {
+    dronePos.x = player.pos.x;
+    dronePos.z = player.pos.z;
+    dronePos.h = CFG.drone.height;
+    player.setEnabled(false);
+    player.releaseLock();
+    droneHudTimer = 0;
+    // Ganzes Tal im Bild = teuer: für den Flug auf 'low' schalten
+    droneQualityBefore = qualityLevel;
+    if (qualityLevel !== 'low') applyQuality('low');
+    audio.gull && audio.gull();
+  } else {
+    if (droneQualityBefore && droneQualityBefore !== 'low') applyQuality(droneQualityBefore);
+    droneQualityBefore = null;
+    player.setEnabled(true);
+    if (!ctx.isTouch) player.requestLock();
+  }
+}
+
+function updateDrone(dt) {
+  const sp = CFG.drone.speed * dt * (dronePos.h / CFG.drone.height);
+  if (droneKeys.KeyW || droneKeys.ArrowUp) dronePos.z -= sp;
+  if (droneKeys.KeyS || droneKeys.ArrowDown) dronePos.z += sp;
+  if (droneKeys.KeyA || droneKeys.ArrowLeft) dronePos.x -= sp;
+  if (droneKeys.KeyD || droneKeys.ArrowRight) dronePos.x += sp;
+  const lim = CFG.worldSize / 2 - 10;
+  dronePos.x = Math.max(-lim, Math.min(lim, dronePos.x));
+  dronePos.z = Math.max(-lim, Math.min(lim, dronePos.z));
+  camera.position.set(dronePos.x, dronePos.h, dronePos.z + 14);
+  camera.lookAt(dronePos.x, 0, dronePos.z);
+  droneHudTimer -= dt;
+  if (droneHudTimer <= 0 && game) {
+    droneHudTimer = 1;
+    const d = game.droneInfo();
+    let line2 = '';
+    if (d.bestProd) line2 += `📈 ${t('prod_' + d.bestProd)} +${d.bestMul - 100}% `;
+    line2 += `· 🚩 ${d.myParcels} (${d.freeParcels} ${t('droneFree')}) · 👷 ${d.workers}`;
+    if (d.lines > 0) line2 += ` · 🏭 ${d.lines}`;
+    if (d.branch >= 0) line2 += ` · 🌰 ${d.branch}`;
+    if (d.fair) line2 += ' · 🎪';
+    droneHud.innerHTML = `<b>🚁 ${t('droneTitle')}</b><br>${line2}<br><span style="opacity:.7">${t('droneHint')}</span>`;
+  }
+}
+
+let mHoldTimer = null;
+window.addEventListener('keydown', (e) => {
+  if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+  if (droneMode) {
+    droneKeys[e.code] = true;
+    if (e.code === 'KeyM' && !e.repeat) { window.__droneSuppressM = true; setDroneMode(false); }
+    if (e.code === 'Escape') { e.stopImmediatePropagation(); setDroneMode(false); }
+    return;
+  }
+  if (e.code === 'KeyM' && !e.repeat && window.__started && game && game.running
+      && !game.paused && !ui.overlayOpen() && !photoMode && !vehicles?.driving) {
+    mHoldTimer = setTimeout(() => { window.__droneSuppressM = true; setDroneMode(true); }, 550);
+  }
+}, { capture: true });
+window.addEventListener('keyup', (e) => {
+  droneKeys[e.code] = false;
+  if (e.code === 'KeyM' && mHoldTimer) { clearTimeout(mHoldTimer); mHoldTimer = null; }
+});
+window.addEventListener('wheel', (e) => {
+  if (!droneMode) return;
+  dronePos.h = Math.max(CFG.drone.minH, Math.min(CFG.drone.maxH, dronePos.h + e.deltaY * 0.08));
+}, { passive: true });
 
 // ---------- Auto-Qualität ----------
 let autoTuneOn = state.settings.quality === 'auto';
@@ -827,6 +922,7 @@ function step(rawDt, manual, skipRender = false) {
   if (game && vehicles) pollGamepad(dt);
   player.update(dt, state.upgrades.boots, game ? game.speedMul() : 1);
   if (photoMode) updatePhoto(dt);
+  else if (droneMode) updateDrone(dt);
   else if (reveal) { camera.position.copy(reveal.camCurve.getPointAt(Math.min(0.999, reveal.t / reveal.dur < 0.7 ? reveal.t / reveal.dur / 0.7 : 1))); camera.lookAt(reveal.look); }
   else if (thirdPerson && !vehicles?.driving && !boat?.driving && playing) applyThirdPerson(dt);
   if (avatar) {
@@ -885,6 +981,7 @@ function step(rawDt, manual, skipRender = false) {
     if (falcon) falcon.update(dt, elapsed);
     if (bridgeMod) bridgeMod.update(dt, elapsed, player.pos);
     if (valley2) valley2.update(dt, elapsed);
+    if (cirakMod) cirakMod.update(dt);
     if (factoryext) factoryext.update(dt);
     if (parcels) parcels.update(dt, elapsed);
     if (railwayMod) railwayMod.update(dt);

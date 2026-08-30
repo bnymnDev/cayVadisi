@@ -652,6 +652,34 @@ export const CFG = {
   cableTop: { x: 4, z: -22 },                // Teleferik-Station am Feld
   interactDist: 4.2,
 
+  // ---- v19: Çırak (Lehrling) ----
+  cirak: {
+    hireCost: 1500, wage: 60,
+    trainCosts: [600, 1100, 1800],          // Stufe 1->2, 2->3, 3->4
+    // Stufen-Perks: 1 Tierpflege (+10 % Tierprodukte, +1 Ei), 2 Abend-
+    // Verkauf von Eiern/Milch/Wolle, 3 Stand-Boost, 4 Usta (+5 % Verkäufe)
+    animalBonus: 1.1, stallBoost: 0.15, ustaBonus: 1.05
+  },
+
+  // ---- v19: Story 4 — Nurten Hanım kauft das Tal ----
+  story4: {
+    startDay: 16,
+    sellMul: 2,                              // sie zahlt das Doppelte je Parzelle
+    courtCost: 5000                          // Prozesskosten, wenn das Dorf nicht hilft
+  },
+
+  // ---- v19: Karadeniz Canavarı (Angel-Boss an der Ada) ----
+  canavar: {
+    minFishLvl: 4, everyDays: 7,
+    prize: 5000, repeatPrize: 2500, xp: 90
+  },
+
+  // ---- v19: Drohnen-Übersicht (M lang halten) ----
+  drone: { height: 115, minH: 55, maxH: 170, speed: 46 },
+
+  // ---- v19: Museum-Ausstellung am Konak ----
+  museum2: { perExhibit: 45 },               // Eintritts-Bonus je Exponat und Tag
+
   // ---- v18: Geführter Fortschritt (GTA-Style-Freischaltungen) ----
   progress: {
     // Bedingungen: day / kg (totalKg) / earned (totalEarned) / rep / xp:[zweig,level] / needs:[features]

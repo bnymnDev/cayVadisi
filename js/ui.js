@@ -297,7 +297,7 @@ export function createUI(ctx, hooks) {
         const APPS = [
           ['hava', '⛅'], ['piyasa', '📊'], ['banka', '💳'],
           ['borsa', '📈'], ['taksi', '🚕'], ['karar', '📜'],
-          ['lojistik', '🚚'], ['kurye', '🏍️'], ['imperium', '👑'], ['tapu', '🗺️'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
+          ['lojistik', '🚚'], ['kurye', '🏍️'], ['imperium', '👑'], ['tapu', '🗺️'], ['ajanda', '📜'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
         ];
         body.innerHTML = `<div class="app-grid">${APPS.map(([id, ic]) =>
           `<button class="app-btn" data-app="${id}"><span>${ic}</span><em>${t('app_' + id)}</em></button>`).join('')}</div>`;
@@ -335,6 +335,47 @@ export function createUI(ctx, hooks) {
             <div class="u-body"><div class="u-name">${t('kuryeNone')}</div>
             <div class="u-desc">${t('kuryeStats', state.kuryeDone)}</div></div></div>`;
         }
+        body.innerHTML = html;
+      } else if (app === 'ajanda') {
+        // v19: Questlog — Haupt- und Nebenaufgaben aus dem Spielstand abgeleitet
+        const rows = [];
+        const S4 = state.story4;
+        if (!S4.done && S4.ch >= 1) rows.push(['🕴️', t('story4Title'), t('q_story4_' + Math.min(S4.ch, 3))]);
+        if (S4.done) rows.push(['🕴️', t('story4Title'), '✅ ' + t('q_done')]);
+        if (state.story < 5) rows.push(['📖', t('q_dede'), t('q_dedeDesc', state.story, 5)]);
+        if (state.story3 && state.story3.ch > 0 && !state.story3.done) rows.push(['🕵️', t('story3Title'), t('q_inProgress')]);
+        if (state.wedding.stage === 1) rows.push(['💍', t('q_wedding'), t('q_weddingDesc', state.wedding.catering)]);
+        // Nächste Freischaltungen
+        if (!state.featureUnlocks._all) {
+          let shown = 0;
+          for (const [id, def] of Object.entries(CFG.progress.features)) {
+            if (state.featureUnlocks[id] || shown >= 3) continue;
+            let cond = '';
+            if (def.kg) cond = t('qc_kg', def.kg, Math.floor(state.totalKg));
+            else if (def.earned) cond = t('qc_earned', def.earned, Math.floor(state.totalEarned));
+            else if (def.rep) cond = t('qc_rep', def.rep, state.rep);
+            else if (def.xp) cond = t('qc_xp', t('xp_' + def.xp[0]), def.xp[1]);
+            else if (def.day) cond = t('qc_day', def.day);
+            rows.push(['🔒', t('feat_' + id).replace(/^[^ ]+ /, ''), cond]);
+            shown++;
+          }
+        }
+        // Heutige Gefallen
+        for (const [idx, f] of Object.entries(state._favors || {})) {
+          rows.push(['❗', t('q_favor'), t('favorAsk', hooks.npcName ? hooks.npcName(+idx) : '?', f.qty, CFG.products[f.item].icon + ' ' + t('prod_' + f.item))]);
+        }
+        // Canavar
+        if (state.rod) {
+          const ready = state.day >= (state.canavar.next || 0);
+          rows.push(['🐉', t('canavarTitle'), ready ? t('q_canavarReady') : t('q_canavarWait', state.canavar.next)]);
+        }
+        let html = `<div class="section-info">${t('ajandaInfo')}</div>`;
+        for (const [ic, name, desc] of rows) {
+          html += `<div class="upgrade-item"><div class="u-icon">${ic}</div>
+            <div class="u-body"><div class="u-name">${name}</div>
+            <div class="u-desc">${desc}</div></div></div>`;
+        }
+        if (!rows.length) html += `<div class="section-info">${t('ajandaEmpty')}</div>`;
         body.innerHTML = html;
       } else if (app === 'tapu') {
         // v17: Grundbuch — wem gehört das Tal?
@@ -1237,6 +1278,139 @@ export function createUI(ctx, hooks) {
       show(els.eventS);
     },
 
+    // ---------- v19: Çırak ----------
+    showCirak() {
+      const L = state.settings.lang;
+      const C = CFG.cirak;
+      $('event-icon').textContent = '🎓';
+      $('event-title').textContent = t('cirakTitle');
+      const box = $('event-choices');
+      box.innerHTML = '';
+      if (!state.cirak) {
+        $('event-text').innerHTML = t('cirakPitch', fmtMoney(C.hireCost, L), fmtMoney(C.wage, L));
+        const b = document.createElement('button');
+        b.className = 'big-btn';
+        b.disabled = state.money < C.hireCost;
+        b.textContent = t('cirakHireBtn') + ' · ' + fmtMoney(C.hireCost, L);
+        b.addEventListener('click', () => { if (hooks.hireCirak()) api.showCirak(); });
+        box.appendChild(b);
+      } else {
+        const lvl = state.cirak.level;
+        let perks = '';
+        for (let i = 1; i <= 4; i++) {
+          perks += `<div>${i <= lvl ? '✅' : '🔒'} ${t('cirakPerk' + i)}</div>`;
+        }
+        $('event-text').innerHTML = `${t('cirakLevelInfo', lvl)}<br><br>${perks}`;
+        if (lvl < 4) {
+          const cost = C.trainCosts[lvl - 1];
+          const b = document.createElement('button');
+          b.className = 'big-btn';
+          b.disabled = state.money < cost;
+          b.textContent = t('cirakTrainBtn', lvl + 1) + ' · ' + fmtMoney(cost, L);
+          b.addEventListener('click', () => { if (hooks.trainCirak()) api.showCirak(); });
+          box.appendChild(b);
+        }
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
+    // ---------- v19: Museum-Ausstellung ----------
+    showMuseum() {
+      const L = state.settings.lang;
+      $('event-icon').textContent = '🧿';
+      $('event-title').textContent = t('museumTitle');
+      const rows = [
+        ['🐟', 'exCanavar', state.canavar && state.canavar.wins > 0],
+        ['🏆', 'exCups', state.sampiyon || state.beeCupWins > 0 || state.electionsWon > 0],
+        ['🃏', 'exCards', Object.keys(state.collect || {}).length >= 3],
+        ['📸', 'exPhotos', (state.memories || []).length >= 5]
+      ];
+      const n = rows.filter((r) => r[2]).length;
+      let html = t('museumIntro', n, fmtMoney(n * CFG.museum2.perExhibit, L)) + '<br><br>';
+      for (const [ic, key, on] of rows) {
+        html += `<div>${on ? ic : '⬜'} ${t(key)} ${on ? '✓' : '<span class="row-sub">' + t('exMissing') + '</span>'}</div>`;
+      }
+      $('event-text').innerHTML = html;
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
+    // ---------- v19: Karadeniz Canavarı — Boss-Drill ----------
+    showCanavar() {
+      const L = state.settings.lang;
+      api._timingGame({
+        icon: '🐉', title: t('canavarTitle'), intro: t('canavarIntro', fmtMoney(CFG.canavar.prize, L)),
+        btn: t('canavarReel'), rounds: 5, speed: 2.0,
+        onDone(scores) {
+          const res = hooks.canavarResult(scores);
+          if (res.win) {
+            return `${res.first ? '🏆 ' + t('canavarFirst') : t('canavarAgain')}<br><b>+${fmtMoney(res.prize, L)}</b>`;
+          }
+          return t('canavarEscaped', res.hits);
+        }
+      });
+    },
+
+    // ---------- v19: Story 4 — Nurten Hanım ----------
+    showStory4(stage) {
+      const L = state.settings.lang;
+      $('event-icon').textContent = '🕴️';
+      $('event-title').textContent = t('story4Title');
+      const box = $('event-choices');
+      box.innerHTML = '';
+      if (stage === 1) {
+        $('event-text').innerHTML = t('story4Ch1');
+        const ok = document.createElement('button');
+        ok.className = 'big-btn';
+        ok.textContent = t('continue2');
+        ok.addEventListener('click', () => hooks.closeShop());
+        box.appendChild(ok);
+      } else if (stage === 2) {
+        const mine = state.parcels.filter((o) => o === 'me').length;
+        const offer = mine * CFG.parcels.price * CFG.story4.sellMul;
+        $('event-text').innerHTML = t('story4Ch2', mine, fmtMoney(offer, L));
+        const sell = document.createElement('button');
+        sell.className = 'big-btn';
+        sell.textContent = t('story4SellBtn', fmtMoney(offer, L));
+        sell.addEventListener('click', () => { hooks.story4Sell(); hooks.closeShop(); });
+        const fight = document.createElement('button');
+        fight.className = 'big-btn ghost';
+        fight.textContent = t('story4FightBtn');
+        fight.addEventListener('click', () => { hooks.story4Refuse(); hooks.closeShop(); });
+        box.append(sell, fight);
+      } else {
+        $('event-text').innerHTML = t('story4Ch3');
+        const canVillage = state.rep >= 25 || state.muhtarluk;
+        const v = document.createElement('button');
+        v.className = 'big-btn';
+        v.disabled = !canVillage;
+        v.textContent = t('story4VillageBtn') + (canVillage ? '' : ' 🔒');
+        v.addEventListener('click', () => { hooks.story4Finale('village'); hooks.closeShop(); });
+        const c = document.createElement('button');
+        c.className = 'big-btn ghost';
+        c.disabled = state.money < CFG.story4.courtCost;
+        c.textContent = t('story4CourtBtn', fmtMoney(CFG.story4.courtCost, L));
+        c.addEventListener('click', () => { hooks.story4Finale('court'); hooks.closeShop(); });
+        const g = document.createElement('button');
+        g.className = 'big-btn danger';
+        g.textContent = t('story4GiveBtn');
+        g.addEventListener('click', () => { hooks.story4Finale('give'); hooks.closeShop(); });
+        box.append(v, c, g);
+      }
+      show(els.eventS);
+    },
+
     // ---------- v10: Elfmeter-Duell gegen die Karşıköy Gençlik ----------
     showMac() {
       api._timingGame({
@@ -2034,6 +2208,7 @@ export function createUI(ctx, hooks) {
               ${t('hireWorker')} · ${fmtMoney(W.hireCost, L)}</button>
             <button id="btn-fire" class="big-btn ghost" ${state.workers <= 0 ? 'disabled' : ''}>${t('fireWorker')}</button>
           </div>
+          <button id="btn-cirak" class="big-btn ghost">🎓 ${state.cirak ? t('cirakStatus', state.cirak.level) : t('cirakHireBtn')}</button>
           ${state.workerData.map((wd, i) => {
             let lvl = 0;
             for (let li = 0; li < CFG.workerLevelDays.length; li++) if ((wd.days || 0) >= CFG.workerLevelDays[li]) lvl = li;
@@ -2047,6 +2222,7 @@ export function createUI(ctx, hooks) {
               ${t('soforBtn')} · ${fmtMoney(CFG.soforCost, L)}</button>
             <div class="section-info">${t('soforInfo')}</div>` : ''}`;
         $('btn-hire').addEventListener('click', () => { if (hooks.hireWorker()) api.renderManage(); });
+        $('btn-cirak').addEventListener('click', () => { api.hideOverlays(); api.showCirak(); });
         $('btn-fire').addEventListener('click', () => { if (hooks.fireWorker()) api.renderManage(); });
         const sb = $('btn-sofor');
         if (sb) sb.addEventListener('click', () => { if (hooks.promoteSofor()) api.renderManage(); });
