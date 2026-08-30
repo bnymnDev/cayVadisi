@@ -144,6 +144,8 @@ export function createGame(ctx, mods) {
     if (mods.factoryext) mods.factoryext.sync();
     if (mods.stall) mods.stall.sync();
     if (mods.railway) mods.railway.sync();
+    if (mods.museum) mods.museum.sync();     // v19
+    if (mods.cirak) mods.cirak.sync();
     // v17: fertiges Kampagnen-Plakat wird morgens aufgestellt
     if (state.campaign === 'pending') {
       state.campaign = '';
@@ -156,7 +158,11 @@ export function createGame(ctx, mods) {
       setTimeout(() => ui.toast(t('landslideMorning'), false, 10000), 7000);
     }
     // v17: alle zwei Tage schnappt sich ein Rivale freies Land
-    if (state.day % CFG.parcels.rivalEveryDays === 0 && state.day > 2) rivalClaimParcel();
+    // v19: solange Nurtens Landnahme läuft, kauft sie TÄGLICH
+    const nurtenActive = state.story4.ch >= 1 && !state.story4.done;
+    if ((state.day % CFG.parcels.rivalEveryDays === 0 && state.day > 2) || nurtenActive) rivalClaimParcel();
+    // v19: Story 4 fortschreiben
+    story4Tick();
     // v17: Imker-Meisterschaft heute
     if (mods.beecup && mods.beecup.active) {
       setTimeout(() => ui.toast(t('beeToday'), false, 9000), 15000);
@@ -307,6 +313,31 @@ export function createGame(ctx, mods) {
     if (state.railway) {
       state.inventory.coal += CFG.railway.coalPerDay;
       lines.push({ k: 'sumRail', v: '+' + CFG.railway.coalPerDay + ' 🪨' });
+    }
+    // v19: Çırak — Lohn und Stufe-2-Abendverkauf
+    if (state.cirak) {
+      state.money -= CFG.cirak.wage;
+      state.daySpent += CFG.cirak.wage;
+      if (state.cirak.level >= 2) {
+        let sum = 0, sold = 0;
+        for (const id of ['egg', 'milk', 'wool']) {
+          const n = Math.floor(state.inventory[id] || 0);
+          if (n > 0) {
+            sum += n * CFG.products[id].sell * (state.marketMul[id] || 1) * prestigeMul(CFG);
+            state.inventory[id] -= n;
+            sold += n;
+          }
+        }
+        if (sold > 0) {
+          sum = Math.round(sum);
+          state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+          lines.push({ k: 'sumCirak', v: '+' + fmtMoney(sum, L), sub: sold + ' 🥚 · −' + fmtMoney(CFG.cirak.wage, L) });
+        } else {
+          lines.push({ k: 'sumCirakWage', v: '−' + fmtMoney(CFG.cirak.wage, L) });
+        }
+      } else {
+        lines.push({ k: 'sumCirakWage', v: '−' + fmtMoney(CFG.cirak.wage, L) });
+      }
     }
     // v18: Warenstrom aus dem Fındık Vadisi
     if (state.branch && state.branch.workers > 0) {
@@ -563,6 +594,8 @@ export function createGame(ctx, mods) {
     if (state.konak >= 3) {
       const K = CFG.konak;
       let entry = Math.round(K.entryBase + state.rep * K.entryPerRep);
+      const exhibits = mods.museum ? mods.museum.count() : 0;   // v19: Ausstellung
+      entry += exhibits * CFG.museum2.perExhibit;
       let full = false;
       if (mods.collectibles && mods.collectibles.count() >= mods.collectibles.total) {
         entry *= K.collectionBonus;
@@ -633,10 +666,12 @@ export function createGame(ctx, mods) {
     farm.refreshPlots();
 
     // Tiere produzieren über Nacht (v6: Sommer-Milchbonus dank Yayla-Weide)
+    const cirakMul = state.cirak && state.cirak.level >= 1 ? CFG.cirak.animalBonus : 1;   // v19
     for (const [id, spec] of Object.entries(CFG.animals)) {
       const n = state.animals[id] || 0;
-      if (n > 0) state.inventory[spec.product] += n * spec.perDay;
+      if (n > 0) state.inventory[spec.product] += n * spec.perDay * cirakMul;
     }
+    if (state.cirak && (state.animals.chicken || 0) > 0) state.inventory.egg += 1;   // v19: Çırak füttert
     if (season() === 0 && (state.animals.cow || 0) > 0) {
       state.inventory.milk += state.animals.cow * CFG.yayla.milkBonusSummer;
     }
@@ -840,6 +875,7 @@ export function createGame(ctx, mods) {
       * (dec && dec.teaMul ? dec.teaMul : 1)                  // v8: Subvention
       * (state.moralDays > 0 ? CFG.vacation.moralBonus : 1)
       * (state._kemalDump ? CFG.kemalAI.dumpMul : 1)   // v15: Kemals Dumping-Tag
+      * (state.cirak && state.cirak.level >= 4 ? CFG.cirak.ustaBonus : 1)   // v19: Usta-Çırak
       * prestigeMul(CFG);
   }
 
@@ -997,6 +1033,7 @@ export function createGame(ctx, mods) {
     let price = CFG.products[id].sell * (state.marketMul[id] || 1) * prestigeMul(CFG);
     if (state.landslide) price *= CFG.landslide.marketMalus;         // v17: Straße blockiert
     if (id.startsWith('tea') && state.billboards > 0) price *= 1 + state.billboards * CFG.billboards.bonusPer;   // v17: Werbung
+    if (state.cirak && state.cirak.level >= 4) price *= CFG.cirak.ustaBonus;   // v19: Usta-Çırak
     // v14: Hamsi-Schwemme drückt alle Fischpreise
     if (yearEventIs('hamsi') && ['hamsi', 'lufer', 'kalkan', 'levrek', 'kofana', 'mersin'].includes(id)) price *= 0.5;
     const sum = n * price;
@@ -1131,7 +1168,8 @@ export function createGame(ctx, mods) {
     const price = CFG.products.tea_pack.sell * CFG.supermarket.retailFactor * (state.marketMul.tea_pack || 1)
       * (state.jointVenture ? CFG.jointVenture.priceMul : 1)    // v12: JV-Markenaufschlag
       * (state._kemalDump ? CFG.kemalAI.dumpMul : 1)            // v15: Kemals Dumping-Tag
-      * (1 + state.billboards * CFG.billboards.bonusPer);       // v17: Plakat-Kampagne
+      * (1 + state.billboards * CFG.billboards.bonusPer)        // v17: Plakat-Kampagne
+      * (state.cirak && state.cirak.level >= 4 ? CFG.cirak.ustaBonus : 1);   // v19: Usta-Çırak
     const sum = n * price * famBonus();
     state.inventory.tea_pack -= n;
     trackPacks(n);
@@ -2677,7 +2715,8 @@ export function createGame(ctx, mods) {
     if (!free.length) return;
     const idx = free[Math.floor(Math.random() * free.length)];
     const names = Object.keys(P.rivals);
-    const rival = names[Math.floor(Math.random() * names.length)];
+    const rival = (state.story4.ch >= 1 && !state.story4.done)
+      ? 'nurten' : names[Math.floor(Math.random() * names.length)];   // v19: ihre Landnahme
     state.parcels[idx] = rival;
     if (mods.parcels) mods.parcels.sync();
     setTimeout(() => ui.toast(t('parcelTaken', t('rival_' + rival)), false, 9000), 12000);
@@ -2769,7 +2808,8 @@ export function createGame(ctx, mods) {
     const ids = Object.keys(state.stall.stock).filter((id) => state.stall.stock[id] > 0);
     if (!ids.length) return;
     const f = state.stall.factor;
-    const chance = clamp(1.18 - f * 0.62 + state.rep * 0.002 + state.billboards * 0.03, 0.1, 0.95);
+    const chance = clamp(1.18 - f * 0.62 + state.rep * 0.002 + state.billboards * 0.03
+      + (state.cirak && state.cirak.level >= 3 ? CFG.cirak.stallBoost : 0), 0.1, 0.97);   // v19: Çırak hilft
     if (Math.random() > chance) return;   // zu teuer — Kunde zieht weiter
     const id = ids[Math.floor(Math.random() * ids.length)];
     state.stall.stock[id] -= 1;
@@ -2827,6 +2867,142 @@ export function createGame(ctx, mods) {
     ui.toast(t('campaignBooked'), true, 12000);
     ui.refreshMoney(); save();
     return true;
+  }
+
+  // ==================== v19: Çırak ====================
+  function hireCirak() {
+    if (state.cirak || state.money < CFG.cirak.hireCost) { audio.deny(); return false; }
+    state.money -= CFG.cirak.hireCost;
+    state.daySpent += CFG.cirak.hireCost;
+    state.cirak = { level: 1 };
+    if (mods.cirak) mods.cirak.sync();
+    audio.tierUp();
+    ui.toast(t('cirakHired'), true, 10000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  function trainCirak() {
+    if (!state.cirak || state.cirak.level >= 4) { audio.deny(); return false; }
+    const cost = CFG.cirak.trainCosts[state.cirak.level - 1];
+    if (state.money < cost) { audio.deny(); return false; }
+    state.money -= cost;
+    state.daySpent += cost;
+    state.cirak.level += 1;
+    audio.tierUp();
+    ui.toast(t('cirakLevel', state.cirak.level), true, 9000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  // ==================== v19: Story 4 — Nurten Hanım ====================
+  function story4Tick() {
+    const S4 = state.story4;
+    if (S4.done) return;
+    if (S4.ch === 0 && state.day >= CFG.story4.startDay) {
+      S4.ch = 1; S4.at = state.day;
+      setTimeout(() => { if (running && !paused && !ui.overlayOpen()) { ui.showStory4(1); player.releaseLock(); } }, 8000);
+    } else if (S4.ch === 1 && state.day >= S4.at + 3) {
+      S4.ch = 2;
+      setTimeout(() => { if (running && !paused && !ui.overlayOpen()) { ui.showStory4(2); player.releaseLock(); } }, 6000);
+    } else if (S4.ch === 3 && state.day >= S4.at + 2) {
+      S4.ch = 4;
+      setTimeout(() => { if (running && !paused && !ui.overlayOpen()) { ui.showStory4(3); player.releaseLock(); } }, 6000);
+    }
+    save();
+  }
+
+  function story4Sell() {
+    const mine = state.parcels.map((o, i) => o === 'me' ? i : -1).filter((i) => i >= 0);
+    const sum = mine.length * CFG.parcels.price * CFG.story4.sellMul;
+    for (const i of mine) state.parcels[i] = 'nurten';
+    state.money += sum; state.dayEarned += sum; state.totalEarned += sum;
+    state.story4.done = true; state.story4.path = 'sold';
+    if (mods.parcels) mods.parcels.sync();
+    audio.cash();
+    ui.toast(t('story4Sold', fmtMoney(sum, state.settings.lang)), true, 10000);
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  function story4Refuse() {
+    state.story4.ch = 3; state.story4.at = state.day;
+    ui.toast(t('story4War'), false, 9000);
+    save();
+    return true;
+  }
+
+  function story4Finale(choice) {
+    const S4 = state.story4;
+    if (choice === 'village') {
+      if (state.rep < 25 && !state.muhtarluk) { audio.deny(); return false; }
+      let taken = 0;
+      for (let i = 0; i < state.parcels.length; i++) {
+        if (state.parcels[i] === 'nurten') { state.parcels[i] = 'me'; taken++; }
+      }
+      addRep(5);
+      S4.done = true; S4.path = 'won';
+      audio.tierUp();
+      ui.toast(t('story4Won', taken), true, 12000);
+    } else if (choice === 'court') {
+      if (state.money < CFG.story4.courtCost) { audio.deny(); return false; }
+      state.money -= CFG.story4.courtCost;
+      state.daySpent += CFG.story4.courtCost;
+      S4.done = true; S4.path = 'court';
+      ui.toast(t('story4Court'), true, 9000);
+    } else {
+      let lost = 0;
+      for (let i = 0; i < state.parcels.length && lost < 2; i++) {
+        if (state.parcels[i] === 'me') { state.parcels[i] = 'nurten'; lost++; }
+      }
+      S4.done = true; S4.path = 'lost';
+      audio.deny();
+      ui.toast(t('story4Lost', lost), false, 9000);
+    }
+    if (mods.parcels) mods.parcels.sync();
+    ui.refreshMoney(); save();
+    return true;
+  }
+
+  // ==================== v19: Karadeniz Canavarı ====================
+  function canavarReady() {
+    return state.rod && isNight() && xpLevel(state.xp.fish) >= CFG.canavar.minFishLvl
+      && state.day >= (state.canavar.next || 0);
+  }
+
+  function canavarResult(scores) {
+    const C = CFG.canavar;
+    state.canavar.next = state.day + C.everyDays;
+    const hits = scores.filter((s2) => s2 > 0.5).length;
+    const win = hits >= 4;
+    let prize = 0;
+    if (win) {
+      prize = state.canavar.wins === 0 ? C.prize : C.repeatPrize;
+      state.canavar.wins += 1;
+      state.money += prize; state.dayEarned += prize; state.totalEarned += prize;
+      gainXp('fish', C.xp);
+      if (mods.museum) mods.museum.sync();
+      audio.tierUp();
+    } else audio.deny();
+    ui.refreshMoney(); save();
+    return { win, hits, prize, first: win && state.canavar.wins === 1 };
+  }
+
+  // ==================== v19: Drohnen-Info (Chancen von oben) ====================
+  function droneInfo() {
+    let bestProd = null, bestMul = 0;
+    for (const [id2, mul] of Object.entries(state.marketMul || {})) {
+      if (mul > bestMul && CFG.products[id2]) { bestMul = mul; bestProd = id2; }
+    }
+    const freeParcels = CFG.parcels.spots.filter((_, i) => !state.parcels[i]).length;
+    const myParcels = state.parcels.filter((o) => o === 'me').length;
+    return {
+      bestProd, bestMul: Math.round(bestMul * 100),
+      freeParcels, myParcels,
+      workers: state.workers, lines: state.factoryLines,
+      branch: state.branch ? state.branch.workers : -1,
+      fair: state.day % CFG.panayir.everyDays === CFG.panayir.offset
+    };
   }
 
   // ==================== v18: Geführter Fortschritt ====================
@@ -3189,6 +3365,9 @@ export function createGame(ctx, mods) {
     else if (act.id === 'beecup') { player.releaseLock(); ui.showBeeCup(); }
     else if (act.id === 'branch') { player.releaseLock(); ui.showBranch(); }
     else if (act.id === 'favor') favorTalk(act.data);
+    else if (act.id === 'cirak') { player.releaseLock(); ui.showCirak(); }
+    else if (act.id === 'museum') { player.releaseLock(); ui.showMuseum(); }
+    else if (act.id === 'canavar') { player.releaseLock(); ui.showCanavar(); }
   }
 
   window.addEventListener('keydown', (e) => {
@@ -3285,6 +3464,9 @@ export function createGame(ctx, mods) {
       const fi = mods.npcs.nearFavor(player.pos.x, player.pos.z);
       if (fi >= 0) return { id: 'favor', data: fi };
     }
+    // v19
+    if (mods.cirak && mods.cirak.near(player.pos.x, player.pos.z)) return { id: 'cirak' };
+    if (mods.museum && mods.museum.near(player.pos.x, player.pos.z)) return { id: 'museum' };
     // v15
     if (mods.wedding && mods.wedding.active && !state._weddingJoined
         && mods.wedding.near(player.pos.x, player.pos.z)) return { id: 'wedding' };
@@ -3307,6 +3489,7 @@ export function createGame(ctx, mods) {
     if (mods.ada && mods.ada.onIsland(player.pos.x, player.pos.z)) {
       if (state.ada.light < 2 && mods.ada.nearLight(player.pos.x, player.pos.z)) return { id: 'adalight' };
       if (!state.ada.cave && mods.ada.nearCave(player.pos.x, player.pos.z)) return { id: 'adacave' };
+      if (canavarReady() && mods.ada.nearFish(player.pos.x, player.pos.z)) return { id: 'canavar' };
       if (state.rod && !state._adaFish && mods.ada.nearFish(player.pos.x, player.pos.z)) return { id: 'adafish' };
       if (!state._adaHoney && mods.ada.nearHoney(player.pos.x, player.pos.z)) return { id: 'adahoney' };
     }
@@ -3656,6 +3839,8 @@ export function createGame(ctx, mods) {
     buyLine, buyParcel, buildRailway, shovelScoop, buyStall, stallStock,
     stallCycleFactor, stallCustomer, enterBeeCup, buyQueen, bookCampaign,
     featureOn, checkUnlocks, favorTalk, buyBranch, branchHire, branchMode, taxiValley2,
+    hireCirak, trainCirak, story4Sell, story4Refuse, story4Finale,
+    canavarReady, canavarResult, droneInfo,
     setFrozen(v) { frozen = v; },
     restoreKonak, feedCat, buyJointVenture, buyVillage,
     arcadeStart, arcadeResult, story3Choose, foundMemory, yearEventIs,

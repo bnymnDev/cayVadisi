@@ -123,9 +123,11 @@ export function createMinimap(ctx, terrain, player, getWorkers, getVehicles) {
     g.restore();
   }
 
-  window.addEventListener('keydown', (e) => {
+  // v19: Toggle erst beim Loslassen — langes Halten von M öffnet die Drohnen-Übersicht
+  window.addEventListener('keyup', (e) => {
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     if (e.code === 'KeyM') {
+      if (window.__droneSuppressM) { window.__droneSuppressM = false; return; }
       visible = !visible;
       el.classList.toggle('hidden', !visible);
     }
