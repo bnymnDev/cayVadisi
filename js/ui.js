@@ -297,7 +297,7 @@ export function createUI(ctx, hooks) {
         let APPS = [
           ['hava', '⛅'], ['piyasa', '📊'], ['banka', '💳'],
           ['borsa', '📈'], ['taksi', '🚕'], ['karar', '📜'],
-          ['lojistik', '🚚'], ['kurye', '🏍️'], ['imperium', '👑'], ['tapu', '🗺️'], ['ajanda', '📜'], ['kart', '💌'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
+          ['lojistik', '🚚'], ['kurye', '🏍️'], ['imperium', '👑'], ['tapu', '🗺️'], ['ajanda', '📜'], ['defter', '📔'], ['kart', '💌'], ['album', '📸'], ['radyo', '📻'], ['kamera', '🤳']
         ];
         if (!CFG.photoEnabled) APPS = APPS.filter(([id2]) => id2 !== 'kamera');   // v24
         body.innerHTML = `<div class="app-grid">${APPS.map(([id, ic]) =>
@@ -377,6 +377,18 @@ export function createUI(ctx, hooks) {
           });
         });
         body.appendChild(b);
+      } else if (app === 'defter') {
+        // v25: Anı Defteri — automatisch festgehaltene große Momente
+        const ICONS = { canavar: '🐉', summit: '⛰️', wedding: '💍', riddle: '🗿', ghost: '👻',
+          sampiyon: '🏆', muhtar: '🏛️', treeChest: '🧰', amphoras: '🏺', moto: '🏍️' };
+        let html = `<div class="section-info">${t('defterInfo', state.diary.length, CFG.diary.moments.length)}</div>`;
+        for (const e of state.diary) {
+          html += `<div class="upgrade-item"><div class="u-icon">${ICONS[e.id] || '📖'}</div>
+            <div class="u-body"><div class="u-name">${t('diary_' + e.id)}</div>
+            <div class="u-desc">${t('day')} ${e.day} — ${t('diaryDesc_' + e.id)}</div></div></div>`;
+        }
+        if (!state.diary.length) html += `<div class="section-info">${t('defterEmpty')}</div>`;
+        body.innerHTML = html;
       } else if (app === 'ajanda') {
         // v19: Questlog — Haupt- und Nebenaufgaben aus dem Spielstand abgeleitet
         const rows = [];
@@ -1391,6 +1403,30 @@ export function createUI(ctx, hooks) {
         info.className = 'section-info';
         info.textContent = t('cookDoneToday');
         box.appendChild(info);
+      }
+      const leave = document.createElement('button');
+      leave.className = 'big-btn ghost';
+      leave.textContent = t('back');
+      leave.addEventListener('click', () => hooks.closeShop());
+      box.appendChild(leave);
+      show(els.eventS);
+    },
+
+    // ---------- v25: Radyo Vadisi — Tagesprogramm ----------
+    showRadyoVadisi() {
+      $('event-icon').textContent = '📡';
+      $('event-title').textContent = t('radyoTitle');
+      $('event-text').innerHTML = t('radyoIntro');
+      const box = $('event-choices');
+      box.innerHTML = '';
+      const PROGS = [['music', '🎶'], ['news', '🗞️'], ['ads', '📢']];
+      for (const [pid, ic] of PROGS) {
+        const b = document.createElement('button');
+        const active = state.radyo && state.radyo.program === pid;
+        b.className = 'big-btn' + (active ? '' : ' ghost');
+        b.textContent = `${ic} ${t('radyoProg_' + pid)}${active ? ' ✓' : ''} — ${t('radyoProgDesc_' + pid)}`;
+        b.addEventListener('click', () => { if (hooks.setRadyoProgram(pid)) hooks.closeShop(); });
+        box.appendChild(b);
       }
       const leave = document.createElement('button');
       leave.className = 'big-btn ghost';

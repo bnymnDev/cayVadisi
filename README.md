@@ -585,6 +585,26 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   richtigen Reihenfolge berühren (falsch = alles erlischt) — dann öffnet
   sich der Fels am Nordhang: Truhe mit 1.500 + Ruf.
 
+### Dolmuş-Mitfahrt, Anı Defteri & Radyo Vadisi (v25)
+- **🚐 Dolmuş-Mitfahrt:** Am haltenden Dolmuş **E** drücken — Fensterplatz!
+  Die Kamera fährt auf der Route Hof–Haus–Stadt mit, E zum Aussteigen.
+- **📔 Anı Defteri:** Neue Handy-App — das Erinnerungsbuch hält 10 große
+  Momente automatisch fest (Canavar, Gipfel, Hochzeit, Rätsel, Geisterhaus,
+  Şampiyon, Muhtar, Geheimkiste, Amphoren, Moto-Rennen), je mit Tag & Text.
+- **🐝 Bienen-Upgrade:** Sichtbare Bienenflüge zwischen Stöcken und neuen
+  **Blumenbeeten** (bis 4, je 300 ₺) auf der Yayla — alle 2 Beete +1 Honig
+  pro Nacht.
+- **🏛️ Konak-Innenraum:** Das fertig restaurierte Konak ist begehbar —
+  Museum mit warmem Licht, rotem Läufer und Vitrinen, die deine echten
+  Fundstücke zeigen (Canavar, Pokal, Sammelkarten, Erinnerungen, Amphoren).
+- **📡 Radyo Vadisi:** Eigener Sendemast für 5.000 ₺ (Schild beim Feldhügel).
+  Tagesprogramm wählbar: **Musik** (+1 Ruf/Tag), **Marktnachrichten**
+  (Morgens-Tipp zum besten Preis) oder **Werbung** (Tee-Verkauf +5 %).
+- **🎣 Angel-Buddy:** Am Steg-Spot einen Kumpel (Temel oder Yusuf) zum
+  Angeln einladen — nach zwei Stunden schenkt er dir 2–3 frische Hamsi.
+- **⛸️ Eisfläche:** Im Winter friert der Teich zu — auf dem Eis rutschst du
+  ×1,6 so schnell, und ein Kind dreht Schlittschuh-Runden.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

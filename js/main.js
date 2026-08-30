@@ -82,6 +82,7 @@ import { createGhostHouse } from './world/ghosthouse.js';
 import { createChild } from './world/child.js';
 import { createGoatPath } from './world/goatpath.js';
 import { createRiddle } from './world/riddle.js';
+import { createBees, createRadyoMast, createBuddy, createIcePond, createKonakInt } from './world/vadi25.js';
 import { loadCustomModels } from './custom.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
@@ -169,6 +170,7 @@ let flipsMod = null, petrolMod = null;
 let divingMod = null, campfireMod = null, festival2Mod = null, motoraceMod = null, planetreeMod = null, postcardsMod = null;
 let seasonfestMod = null, wildMod = null, ghostMod = null, childMod = null;
 let goatpathMod = null, riddleMod = null;
+let beesMod = null, radyoMastMod = null, buddyMod = null, icePondMod = null, konakIntMod = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -280,6 +282,10 @@ createProps(ctx, terrain).then(async (p) => {
   ghostMod = createGhostHouse(ctx, terrain);
   childMod = createChild(ctx, terrain, chars);
   riddleMod = createRiddle(ctx, terrain);          // v24
+  beesMod = createBees(ctx, terrain);              // v25
+  radyoMastMod = createRadyoMast(ctx, terrain);
+  buddyMod = createBuddy(ctx, terrain, chars);
+  icePondMod = createIcePond(ctx, terrain, chars);
   allColliders.push(...ghostMod.colliders, ...riddleMod.colliders);
   allColliders.push(...flipsMod.colliders, ...petrolMod.colliders);
   allColliders.push(...stallMod.colliders, landslideMod.collider);
@@ -316,6 +322,8 @@ createProps(ctx, terrain).then(async (p) => {
     motorace: motoraceMod, planetree: null,
     seasonfest: seasonfestMod, wildanimals: wildMod, ghost: ghostMod, child: childMod,
     goatpath: null, riddle: riddleMod,
+    bees: beesMod, radyomast: radyoMastMod, buddy: buddyMod, icepond: icePondMod,   // v25
+    konakint: null,
     istanbul: null, npcs: null, ada: null, bridge: null
   };
   game = createGame(ctx, gameMods);
@@ -333,6 +341,9 @@ createProps(ctx, terrain).then(async (p) => {
   // v24: Ziegen-Bergpfad — Zonen ebenfalls NACH der Minimap
   goatpathMod = createGoatPath(ctx, terrain);
   gameMods.goatpath = goatpathMod;
+  // v25: Konak-Innenraum — Höhen-Zone ebenfalls NACH der Minimap (siehe CLAUDE.md)
+  konakIntMod = createKonakInt(ctx, terrain);
+  gameMods.konakint = konakIntMod;
   // v22: Platanenbaum — Plattform-Zone ebenfalls NACH der Minimap
   planetreeMod = createPlaneTree(ctx, terrain);
   gameMods.planetree = planetreeMod;
@@ -617,6 +628,7 @@ function wireHooks() {
   hooks.buskResult = (s2) => game.buskResult(s2);
   hooks.arcade2Result = (s2) => game.arcade2Result(s2);
   hooks.cookDish = (id2) => game.cookDish(id2);
+  hooks.setRadyoProgram = (p2) => game.setRadyoProgram(p2);   // v25
   hooks.enterPhoto = () => { if (!CFG.photoEnabled) return; ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -1063,6 +1075,10 @@ function step(rawDt, manual, skipRender = false) {
     if (ghostMod) ghostMod.update(dt, elapsed, window.__started && game && game.isNight());
     if (childMod) childMod.update(dt);
     if (goatpathMod) goatpathMod.update(dt, elapsed);
+    if (beesMod) beesMod.update(dt, elapsed);
+    if (radyoMastMod) radyoMastMod.update(dt, elapsed, window.__started && game && game.isNight());
+    if (buddyMod) buddyMod.update(dt);
+    if (icePondMod) icePondMod.update(dt, elapsed);
     if (factoryext) factoryext.update(dt);
     if (parcels) parcels.update(dt, elapsed);
     if (railwayMod) railwayMod.update(dt);
