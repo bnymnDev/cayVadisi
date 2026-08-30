@@ -1,0 +1,32 @@
+# Manuelles Deployment nach cayvadisi.nesbun.de (Mittwald Static-Files-App).
+# Der SSH-Key kommt als workflow_dispatch-Input und gehört zu einem temporären,
+# ablaufenden Mittwald-SSH-User — nach dem Deploy wird der User gelöscht.
+name: Deploy nesbun
+on:
+  workflow_dispatch:
+    inputs:
+      ssh_key:
+        description: 'Temporärer Deploy-Key (OpenSSH private key)'
+        required: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rsync zum Webspace
+        env:
+          KEY: ${{ inputs.ssh_key }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          SSH="ssh -i $HOME/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -l ssh-kvaxyx@p-ng6rad"
+          TARGET=$($SSH ssh.lashorst.project.host "find /home/p-ng6rad/html -maxdepth 3 -name sw.js | head -1 | xargs -r dirname")
+          echo "Zielverzeichnis: $TARGET"
+          test -n "$TARGET"
+          rsync -rz --checksum --stats -e "$SSH" \
+            --exclude '.git*' --exclude '.github' --exclude '.claude' \
+            --exclude 'tools' --exclude 'tests' --exclude 'node_modules' \
+            ./ ssh.lashorst.project.host:"$TARGET"/
+          echo '--- Live-Check ---'
+          $SSH ssh.lashorst.project.host "grep -m1 'const CACHE' $TARGET/sw.js"
