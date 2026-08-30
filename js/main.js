@@ -69,6 +69,7 @@ import { createValley2 } from './world/valley2.js';
 import { createCirak } from './cirak.js';
 import { createMuseum } from './world/museum.js';
 import { createFlips } from './world/flips.js';
+import { createPetrol } from './world/petrol.js';
 import { loadCustomModels } from './custom.js';
 import { createStory } from './story.js';
 import { createAchievements, ACH_DEFS } from './achievements.js';
@@ -152,7 +153,7 @@ let ada = null, memories = null;
 let wedding = null, freighter = null, panayir = null, mine = null, falcon = null, bridgeMod = null;
 let factoryext = null, parcels = null, railwayMod = null, landslideMod = null, stallMod = null, beecup = null, billboardsMod = null;
 let valley2 = null, cirakMod = null, museumMod = null;
-let flipsMod = null;
+let flipsMod = null, petrolMod = null;
 let thirdPerson = false;
 let photoMode = false;
 
@@ -253,7 +254,8 @@ createProps(ctx, terrain).then(async (p) => {
   cirakMod = createCirak(ctx, terrain, chars);      // v19
   museumMod = createMuseum(ctx, terrain);           // v19
   flipsMod = createFlips(ctx, terrain);             // v20
-  allColliders.push(...flipsMod.colliders);
+  petrolMod = createPetrol(ctx, terrain);           // v21
+  allColliders.push(...flipsMod.colliders, ...petrolMod.colliders);
   allColliders.push(...stallMod.colliders, landslideMod.collider);
   allColliders.push(...mine.colliders);
   allColliders.push(...selale.colliders, ...karsikoy.colliders, ...konak.colliders, ...village.colliders);
@@ -283,7 +285,7 @@ createProps(ctx, terrain).then(async (p) => {
     gulet, cats, konak, village, memories, wedding, freighter, panayir, mine, falcon,
     factoryext, parcels, railway: railwayMod, landslide: landslideMod,
     stall: stallMod, beecup, billboards: billboardsMod,
-    cirak: cirakMod, museum: museumMod, flips: flipsMod,
+    cirak: cirakMod, museum: museumMod, flips: flipsMod, petrol: petrolMod,
     istanbul: null, npcs: null, ada: null, bridge: null
   };
   game = createGame(ctx, gameMods);
@@ -563,6 +565,8 @@ function wireHooks() {
   hooks.renoFlip = (i2) => game.renoFlip(i2);
   hooks.sellFlip = (i2) => game.sellFlip(i2);
   hooks.rentFlip = (i2) => game.rentFlip(i2);
+  hooks.buyPetrol = () => game.buyPetrol();
+  hooks.buyWerkstatt = () => game.buyWerkstatt();
   hooks.enterPhoto = () => { ui.hideOverlays(); game.pause(false); setPhotoMode(true); };
   hooks.radioNext = () => {
     if (!audio.ctx) audio.ensure();
@@ -992,6 +996,9 @@ function step(rawDt, manual, skipRender = false) {
     if (bridgeMod) bridgeMod.update(dt, elapsed, player.pos);
     if (valley2) valley2.update(dt, elapsed);
     if (cirakMod) cirakMod.update(dt);
+    if (petrolMod) petrolMod.update(dt,
+      window.__started && game && game.running && !game.paused && !game.isNight(),
+      () => game.petrolPay());
     if (factoryext) factoryext.update(dt);
     if (parcels) parcels.update(dt, elapsed);
     if (railwayMod) railwayMod.update(dt);

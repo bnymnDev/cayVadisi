@@ -657,6 +657,14 @@ export const CFG = {
   cableTop: { x: 4, z: -22 },                // Teleferik-Station am Feld
   interactDist: 4.2,
 
+  // ---- v21: Tankstelle & Werkstatt-Kette ----
+  petrol: {
+    spot: { x: 66, z: -103, ry: 0.1 },       // an der Landstraße Haus->Stadt
+    cost: 9000, perCustomer: 35,
+    customerEvery: 34,                        // ~Sekunden zwischen Kunden-Autos
+    werkstattCost: 4000, werkstattPerDay: 80  // Anbau: NPC-Reparaturen/Tag
+  },
+
   // ---- v20: Immobilien-Flipping ----
   flip: {
     houses: [
