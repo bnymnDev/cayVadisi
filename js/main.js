@@ -100,8 +100,16 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 }
 
 const canvas = document.getElementById('scene');
+const isTouch = matchMedia('(pointer: coarse)').matches;
+// v25.1: Mobil rendert ohne Composer direkt in den Backbuffer — dort macht
+// der Browser das MSAA (stabil auf Adreno/Mali/iOS), also Kontext-AA an.
 const renderer = new THREE.WebGLRenderer({
-  canvas, antialias: false, powerPreference: 'default'   // v15.1: nicht zwanghaft die dGPU anwerfen
+  canvas, antialias: isTouch, powerPreference: 'default'   // v15.1: nicht zwanghaft die dGPU anwerfen
+});
+// v25.1: verlorener WebGL-Kontext (Mobil-GPU-Reset) → sauber neu laden
+canvas.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  setTimeout(() => location.reload(), 800);
 });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.85;
@@ -114,7 +122,6 @@ renderer.shadowMap.needsUpdate = true;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(69, innerWidth / innerHeight, 0.1, 1400);
 
-const isTouch = matchMedia('(pointer: coarse)').matches;
 const loadingManager = new THREE.LoadingManager();
 
 const ctx = { renderer, scene, camera, loadingManager, isTouch };
@@ -189,7 +196,7 @@ function applyQuality(level) {
   grass.setQuality(q.grass, q.grassR);
   sky.setShadowSize(q.shadow);
   teaField.setCastShadow(level !== 'low');
-  const pr = Math.min(devicePixelRatio || 1, q.pr);
+  const pr = Math.min(devicePixelRatio || 1, q.pr, isTouch ? 1.3 : 99);   // v25.1: Mobil-Deckel
   renderer.setPixelRatio(pr);
   composer.setPixelRatio(pr);
   onResize();
@@ -357,7 +364,7 @@ createProps(ctx, terrain).then(async (p) => {
   npcs = createNpcs(ctx, terrain, ui, player, () => game.playerShare(), chars);
   postcardsMod.sync(npcs);   // v22: hängende Postkarten wiederherstellen
   gameMods.npcs = npcs;
-  ui.bindTouch(player, vehicles, boat);
+  ui.bindTouch(player, vehicles, boat, () => game);
   wireHooks();
   propsApi = p;      // erst jetzt: der Render-Loop prüft propsApi als "alles bereit"
   propsDone = true;
@@ -1116,7 +1123,12 @@ function step(rawDt, manual, skipRender = false) {
   }
   ui.updateMarker(camera);
 
-  if (!skipRender) composer.render();
+  if (!skipRender) {
+    // v25.1: Mobil direkt rendern — der Composer-MSAA-Blit flackert auf
+    // manchen Mobil-GPUs (schwarze Frames); Kontext-AA übernimmt dort.
+    if (isTouch) renderer.render(scene, camera);
+    else composer.render();
+  }
 }
 
 onResize();

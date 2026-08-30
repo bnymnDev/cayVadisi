@@ -14,7 +14,6 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
   const keys = new Set();
   let locked = false;
   let dragging = false;
-  let lastTouch = null;
   let bobPhase = 0;
   let enabled = false;
   let wantLock = false;    // Spiel möchte PointerLock (First-Person aktiv)
@@ -63,16 +62,36 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
   window.addEventListener('mouseup', () => { dragging = false; });
   dom.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  // Touch: 1 Finger ziehen = umsehen
-  dom.addEventListener('touchstart', (e) => { lastTouch = e.touches[0]; }, { passive: true });
-  dom.addEventListener('touchmove', (e) => {
-    if (!enabled || !lastTouch) return;
-    const t = e.touches[0];
-    euler.y -= (t.clientX - lastTouch.clientX) * 0.005;
-    euler.x = clamp(euler.x - (t.clientY - lastTouch.clientY) * 0.005, -1.45, 1.45);
-    lastTouch = t;
+  // Touch: 1 Finger ziehen = umsehen.
+  // v25.1: Der Look-Finger wird über seine Touch-ID verfolgt — vorher nahm
+  // der Handler immer touches[0], und sobald der linke Daumen auf dem
+  // Joystick lag, drehte DER die Kamera (wildes Rumschauen beim Laufen).
+  // Dazu eine kleine Totzone, damit Halten-zum-Pflücken nicht sofort dreht.
+  let lookId = null, lookX = 0, lookY = 0, lookMoved = 0;
+  dom.addEventListener('touchstart', (e) => {
+    if (lookId !== null) return;
+    const t = e.changedTouches[0];
+    lookId = t.identifier;
+    lookX = t.clientX; lookY = t.clientY; lookMoved = 0;
   }, { passive: true });
-  dom.addEventListener('touchend', () => { lastTouch = null; }, { passive: true });
+  dom.addEventListener('touchmove', (e) => {
+    if (!enabled || lookId === null) return;
+    for (const t of e.changedTouches) {
+      if (t.identifier !== lookId) continue;
+      const dx = t.clientX - lookX, dy = t.clientY - lookY;
+      lookMoved += Math.abs(dx) + Math.abs(dy);
+      if (lookMoved > 7) {
+        euler.y -= dx * 0.0042;
+        euler.x = clamp(euler.x - dy * 0.0042, -1.45, 1.45);
+      }
+      lookX = t.clientX; lookY = t.clientY;
+    }
+  }, { passive: true });
+  const endLook = (e) => {
+    for (const t of e.changedTouches) if (t.identifier === lookId) lookId = null;
+  };
+  dom.addEventListener('touchend', endLook, { passive: true });
+  dom.addEventListener('touchcancel', endLook, { passive: true });
 
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;

@@ -305,6 +305,21 @@ body {
 }
 .tc-btn:active { background: rgba(111,174,87,0.5); }
 
+/* v25.1: Mobil-Schnellzugriffe rechts + große Aktions-Taste */
+#tc-actions {
+  position: absolute; right: 14px; top: 108px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.tc-small { width: 46px; height: 46px; font-size: 18px; }
+.tc-act { width: 72px; height: 72px; font-size: 26px; }
+
+/* v25.1: Auf Touch-Geräten wandert die Minimap nach oben links,
+   damit sie nicht auf dem Joystick liegt; Prompt größer zum Antippen. */
+@media (pointer: coarse) {
+  #minimap { left: 12px; bottom: auto; top: 64px; width: 120px; height: 120px; }
+  #interact-prompt { font-size: 17px; padding: 12px 18px; }
+}
+
 /* ---- Minimap ---- */
 #minimap {
   position: absolute; left: 20px; bottom: 24px;

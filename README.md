@@ -605,6 +605,18 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
 - **⛸️ Eisfläche:** Im Winter friert der Teich zu — auf dem Eis rutschst du
   ×1,6 so schnell, und ein Kind dreht Schlittschuh-Runden.
 
+### Mobil-Paket (v25.1)
+- **Kein schwarzes Flackern mehr:** Auf Touch-Geräten rendert das Spiel ohne
+  Composer direkt in den Backbuffer (Browser-MSAA statt Composer-Blit, der
+  auf Adreno/Mali/iOS-GPUs schwarze Frames erzeugte), Pixel-Ratio gedeckelt,
+  und ein verlorener WebGL-Kontext lädt automatisch sauber neu.
+- **Steuerung repariert:** Die Kamera folgt jetzt dem richtigen Finger
+  (vorher drehte der Joystick-Daumen mit), mit Totzone fürs
+  Halten-zum-Pflücken.
+- **Neue Touch-Buttons:** große ✋-Aktionstaste (E), dazu rechts 📱 Handy,
+  🗺️ Karte, 🎒 Verwaltung und ⏸ Pause; die Minimap wandert auf dem Handy
+  nach oben, weg vom Joystick.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,
