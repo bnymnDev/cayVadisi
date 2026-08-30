@@ -2869,7 +2869,7 @@ export function createUI(ctx, hooks) {
     },
 
     // ---------- v2: Touch-Steuerung verdrahten ----------
-    bindTouch(player, vehicles, boat) {
+    bindTouch(player, vehicles, boat, getGame) {
       const joy = $('joystick'), knob = $('joystick-knob');
       let joyId = null;
       const R = 46;
@@ -2924,6 +2924,33 @@ export function createUI(ctx, hooks) {
       };
       bindPedal('tbtn-gas', 1);
       bindPedal('tbtn-brake', -1);
+
+      // v25.1: Schnellzugriffe — Handy, Karte, Verwaltung, Pause, Aktion.
+      // Handy/Karte/Verwaltung gehen über synthetische Tastendrücke, damit
+      // die vorhandene Auf/Zu-Logik (N/M/Tab) 1:1 greift.
+      const sendKey = (code) => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }));
+        window.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true }));
+      };
+      const bindTap = (id, fn) => {
+        const b = $(id);
+        if (!b) return;
+        b.addEventListener('touchstart', (e) => { fn(); e.preventDefault(); }, { passive: false });
+        b.addEventListener('click', (e) => e.preventDefault());
+      };
+      bindTap('tbtn-phone', () => sendKey('KeyN'));
+      bindTap('tbtn-map', () => sendKey('KeyM'));
+      bindTap('tbtn-menu', () => sendKey('Tab'));
+      bindTap('tbtn-pause', () => {
+        const g = getGame && getGame();
+        if (!g || !g.running) return;
+        if (g.paused) g.pause(false);
+        else if (!api.overlayOpen()) g.pause(true);
+      });
+      bindTap('tbtn-act', () => {
+        const g = getGame && getGame();
+        if (g && g.running && !g.paused && !api.overlayOpen()) g.doInteract();
+      });
     }
   };
 
