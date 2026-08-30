@@ -89,6 +89,21 @@ export function createMuseum(ctx, terrain) {
     g.add(photos);
     exhibits.push({ node: photos, extra: wall, on: () => (state.memories || []).length >= 5 });
   }
+  // 5. Amphoren-Podest (v22: Tauchfunde)
+  {
+    pedestal(3.2, 0.8);
+    const ampG = new THREE.Group();
+    const ampMat2 = new THREE.MeshStandardMaterial({ color: 0xa8703a, roughness: 0.8 });
+    const body2 = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.22, 0.5, 8), ampMat2);
+    body2.position.y = 1.28;
+    ampG.add(body2);
+    const neck2 = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 0.18, 8), ampMat2);
+    neck2.position.y = 1.58;
+    ampG.add(neck2);
+    ampG.position.set(3.2, 0, 0.8);
+    g.add(ampG);
+    exhibits.push({ node: ampG, on: () => (state.amphoras || 0) > 0 });
+  }
   // Samtseil drumherum
   for (let i = 0; i < 4; i++) {
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.9, 6), goldMat);

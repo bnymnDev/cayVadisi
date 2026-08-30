@@ -134,6 +134,16 @@ export const state = {
   // v21: Tankstelle & Werkstatt
   petrol: null,                    // { werkstatt: bool }
 
+  // v22: Atmosphäre-Paket
+  mask: false,                     // Tauchmaske gekauft
+  amphoras: 0,                     // geborgene Amphoren (0..5)
+  dogTricks: {},                   // sit/fetch/herd -> true
+  wish: null,                      // Sternschnuppen-Segen für morgen ('luck'|'price'|'rep')
+  postcardsSent: 0,
+  motoBest: 0,                     // Bestzeit Kurier-Rennen (s, 0 = nie)
+  treeStage: 0,                    // Baumhaus 0..2
+  treeChest: false,                // Geheimkiste gefunden
+
   // v11
   animalNames: {},          // Art -> [Namen]
   orchard: false,           // Haselnuss-Plantage
@@ -287,7 +297,10 @@ export function save() {
     cirak: s.cirak, story4: s.story4, canavar: s.canavar,
     flips: s.flips, teaMul: s.teaMul, teaHist: s.teaHist, teaEvent: s.teaEvent,
     teaStore: s.teaStore, fleet: s.fleet, shipments: s.shipments,
-    petrol: s.petrol
+    petrol: s.petrol,
+    mask: s.mask, amphoras: s.amphoras, dogTricks: s.dogTricks, wish: s.wish,
+    postcardsSent: s.postcardsSent, motoBest: s.motoBest,
+    treeStage: s.treeStage, treeChest: s.treeChest
   };
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat-Modus o.ä. */ }
 }
@@ -434,6 +447,14 @@ export function load() {
     state.freighter = state.fleet > 0;
     state.shipment = null;
     state.petrol = d.petrol ?? null;
+    state.mask = d.mask ?? false;
+    state.amphoras = d.amphoras ?? 0;
+    state.dogTricks = d.dogTricks ?? {};
+    state.wish = d.wish ?? null;
+    state.postcardsSent = d.postcardsSent ?? 0;
+    state.motoBest = d.motoBest ?? 0;
+    state.treeStage = d.treeStage ?? 0;
+    state.treeChest = d.treeChest ?? false;
     state.vehicles.moto = state.vehicles.moto ?? false;
     state.inventory.tea_harman = state.inventory.tea_harman ?? 0;
     state.inventory.levrek = state.inventory.levrek ?? 0;
@@ -520,6 +541,8 @@ export function resetProgress() {
   state.flips = []; state.teaMul = 1; state.teaHist = []; state.teaEvent = null;
   state.teaStore = { kg: 0, valueKg: 0 }; state.fleet = 0; state.shipments = [];
   state.petrol = null;
+  state.mask = false; state.amphoras = 0; state.dogTricks = {}; state.wish = null;
+  state.postcardsSent = 0; state.motoBest = 0; state.treeStage = 0; state.treeChest = false;
   // prestige bleibt absichtlich erhalten (New Game+)
   resetDay();
   save();
@@ -550,6 +573,8 @@ export function resetDay() {
   state._beeCupDone = false; state._stormToday = false;
   state._favors = {};
   state._petrolToday = 0;
+  state._iftarDone = false; state._sekerLeft = 0; state._picnicDone = false; state._wishUsed = false;
+  state._wishLuck = false; state._hugged = {};
   if (state.stall) { state.stall.soldToday = 0; state.stall.earnedToday = 0; }
   state._kemalDump = false; state._falconHint = 0;
   state._meisterDone = false;

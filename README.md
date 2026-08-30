@@ -518,6 +518,30 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   Halle mit Hebebühne) bringt täglich Reparatur-Aufträge — und deine
   eigenen Fahrzeuge stehen jeden Morgen frisch repariert da (Verschleiß 0).
 
+### Atmosphäre-Paket (v22)
+- **🌊 Tauchen:** Tauchboje am Ada-Strand — Maske kaufen und hinab zum
+  versunkenen Kayık: türkises Dämmerlicht, wehendes Seegras, kreisende
+  Fischschwärme und **fünf Amphoren** zum Bergen (Museums-Podest + Prämie).
+  Luftvorrat läuft, Auftauchen beendet den Gang.
+- **🎆 Ramazan & Bayram:** Alle 28 Tage. Abends steht die **Iftar-Tafel** mit
+  Lichterkette und Speisen am Dorfplatz — Platz nehmen gibt Ruf und Moral.
+  Am Bayram hüpfen **Kinder vor deiner Tür** (Süßigkeiten!), und jede
+  Bayram-Umarmung stärkt die Beziehung.
+- **🐕 Kangal-Schule:** Sitz (posiert: Foto-Aufträge +50 %), Apport (bringt
+  morgens eine Kleinigkeit) und Hüten (+10 % Tierprodukte) — bezahlt in Peynir.
+- **🔥 Lagerfeuer am Strand:** Nachts ans Feuer setzen — Funkenflug,
+  Meerblick und **Sternschnuppen**: rechtzeitig die Leertaste drücken und der
+  Wunsch geht am nächsten Morgen in Erfüllung (Glück, Teepreis oder Ruf).
+- **💌 Vadi-Postkarten:** Dein letztes Foto wird mit Rahmen, Marke und Gruß
+  zur Karte — der beschenkte Dorfbewohner **hängt sie sichtbar vor sein Haus**.
+- **🛵 Kurye-Rennen:** Startflagge an der Kasaba — mit der Moto durch
+  leuchtende Checkpoint-Ringe quer durchs Tal, gegen den **Geist deiner
+  Bestzeit**. Unter 80 s gibt es die Prämie.
+- **🌳 Der alte Platanenbaum:** Riesige Platane mit Sprossenleiter am
+  Feldrand. Oben: Plattform mit Talblick, **Geheimkiste beim ersten
+  Aufstieg**, Baumhaus in zwei Ausbaustufen (Hütte → Fahne + Fernrohr) und
+  Familien-Picknick.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

@@ -657,6 +657,56 @@ export const CFG = {
   cableTop: { x: 4, z: -22 },                // Teleferik-Station am Feld
   interactDist: 4.2,
 
+  // ---- v22: Tauchen (Wrack vor der Ada) ----
+  diving: {
+    maskCost: 800,
+    entry: { x: -50, z: -184 },        // Tauchboje am Ada-Strand
+    wreck: { x: -44, z: -196 },        // versunkener Kayık am Meeresgrund
+    depth: -6.5, airSec: 75,
+    amphoras: 5, amphoraValue: 350
+  },
+
+  // ---- v22: Ramazan & Bayram (alle 28 Tage) ----
+  holidays: {
+    cycle: 28, ramazanFrom: 20, ramazanDays: 5,   // Tag 20-24 Ramazan, 25-26 Bayram
+    iftarHour: 19, iftarRep: 2,
+    sekerCost: 50, sekerRep: 1, kids: 2
+  },
+
+  // ---- v22: Kangal-Ausbildung ----
+  dogTricks: {
+    sit:   { cheese: 1 },              // posiert: Foto-Missionen +50 %
+    fetch: { cheese: 2 },              // apportiert morgens eine Kleinigkeit
+    herd:  { cheese: 3 }               // hütet: +10 % Tierprodukte
+  },
+
+  // ---- v22: Lagerfeuer am Strand ----
+  campfire: {
+    spot: { x: 104, z: -144 },         // Strand beim Bootssteg
+    starEvery: 16                      // ~Sekunden zwischen Sternschnuppen
+  },
+
+  // ---- v22: Vadi-Postkarten ----
+  postcards: { max: 5, rep: 1 },
+
+  // ---- v22: Moto-Kurier-Rennen ----
+  motorace: {
+    start: { x: 96, z: -102 },         // Startflagge an der Kasaba-Straße
+    gates: [
+      { x: 52, z: -106 }, { x: 8, z: -106 }, { x: -30, z: -108 },
+      { x: -90, z: -96 }, { x: -60, z: -102 }, { x: 24, z: -102 }, { x: 84, z: -104 }
+    ],
+    radius: 7, targetSec: 80, prize: 800, rep: 2
+  },
+
+  // ---- v22: Der alte Platanenbaum ----
+  planeTree: {
+    x: -8, z: 14,                       // Hügel am Feldrand mit Talblick
+    platform: { x0: -11, x1: -5, z0: 11, z1: 17, h: 8.5 },
+    stages: [800, 1500],                // Baumhaus-Ausbau 1..2
+    chest: 500
+  },
+
   // ---- v21: Tankstelle & Werkstatt-Kette ----
   petrol: {
     spot: { x: 66, z: -103, ry: 0.1 },       // an der Landstraße Haus->Stadt
