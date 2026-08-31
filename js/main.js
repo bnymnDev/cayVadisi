@@ -147,8 +147,13 @@ const ctx = { renderer, scene, camera, loadingManager, isTouch, gfx };
 // überstrahlt sonst die halbe Szene. MSAA + ACES reichen für den Look.
 // Mobil: HalfFloat + 4×MSAA flackert auf vielen Mobil-GPUs (Adreno/Mali,
 // iOS) — dort RGBA8 mit 2×MSAA, das ist überall stabil.
+// v25.5: Mobil rendert in ein Offscreen-Target OHNE MSAA (samples: 0) und
+// bringt das Bild mit einem simplen Vollbild-Quad auf den Schirm. Der
+// Xclipse-Treiber (Exynos-S24, Chrome/Vulkan) präsentiert den Backbuffer
+// sonst kachelweise unfertig (schwarze Bänder) — direkter Render (v25.1-4)
+// und MSAA-Targets (bis v25) flackerten beide.
 const rt = new THREE.WebGLRenderTarget(1, 1, isTouch
-  ? { samples: 2, type: THREE.UnsignedByteType }
+  ? { samples: 0, type: THREE.UnsignedByteType }
   : { samples: 4, type: THREE.HalfFloatType });
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
@@ -1142,9 +1147,9 @@ function step(rawDt, manual, skipRender = false) {
   ui.updateMarker(camera);
 
   if (!skipRender) {
-    // v25.1: Mobil direkt rendern — der Composer-MSAA-Blit flackert auf
-    // manchen Mobil-GPUs (schwarze Frames); Kontext-AA übernimmt dort.
-    if (isTouch) renderer.render(scene, camera);
+    // v25.5: Standard ist überall der Composer (Mobil ohne MSAA, s. oben).
+    // Diagnose-Schalter „Render-Pfad" erzwingt den direkten Backbuffer-Weg.
+    if (isTouch && gfx.directRender) renderer.render(scene, camera);
     else composer.render();
   }
 }

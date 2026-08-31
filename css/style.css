@@ -323,7 +323,15 @@ body {
     -webkit-backdrop-filter: none !important;
   }
   .world-marker span { filter: none !important; }
-  #minimap { left: 12px; bottom: auto; top: 64px; width: 120px; height: 120px; }
+  /* !important: die max-width-720-Regel weiter unten legte die Minimap
+     sonst oben rechts über die Schnellzugriff-Buttons (S24-Screenshot). */
+  #minimap {
+    left: 12px !important; right: auto !important;
+    top: 112px !important; bottom: auto !important;
+    width: 112px !important; height: 112px !important;
+  }
+  /* Korb-Anzeige nicht unter der ✋-Aktionstaste */
+  #hud-basket { right: 108px !important; bottom: 20px !important; }
   #interact-prompt { font-size: 17px; padding: 12px 18px; }
 }
 
