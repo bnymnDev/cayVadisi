@@ -122,7 +122,13 @@ export function createTerrain(ctx) {
   const rockN = loadTex(tl, T + 'aerial_rocks_02/aerial_rocks_02_nor_gl_2k.jpg', false, aniso);
   const rockA = loadTex(tl, T + 'aerial_rocks_02/aerial_rocks_02_arm_2k.jpg', false, aniso);
 
-  const S = CFG.worldSize, segs = CFG.terrainSegs;
+  // v25.8: Auf Mobil maximal 254 Segmente — 255² = 65.025 Vertices bleiben
+  // unter 65.536, damit three.js einen 16-Bit-Index-Buffer nutzt. Das
+  // Terrain war die EINZIGE Geometrie mit 32-Bit-Index, und defekte
+  // 32-Bit-Index-Fetches auf Samsung-GPUs erzeugten genau die schwarzen
+  // Dreiecks-Spieße, die alle in einer Map-Ecke (Vertex 0) zusammenliefen.
+  // heightAt/Kollision sind analytisch und unabhängig von der Auflösung.
+  const S = CFG.worldSize, segs = ctx.isTouch ? Math.min(CFG.terrainSegs, 254) : CFG.terrainSegs;
   const geo = new THREE.PlaneGeometry(S, S, segs, segs);
   geo.rotateX(-Math.PI / 2);
 

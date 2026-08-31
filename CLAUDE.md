@@ -20,6 +20,9 @@ komplett offline, DE/TR). Start: `npm start` → `http://localhost:8137`.
   dem Canvas (v25.4, Samsung-Compositor-Bug — per CSS-Media-Query pointer:
   coarse global deaktiviert). Versionsbadge (CFG.version) unten rechts
   auf Start-/Pausescreen zeigt, welche Version ein Gerät wirklich ausführt.
+- Auf Touch NIEMALS Geometrien mit 32-Bit-Index (>65.535 Vertices) — der
+  Terrain-Mesh läuft dort mit 254 statt 256 Segmenten (16-Bit-Index);
+  32-Bit-Index-Fetches erzeugten auf dem S24 schwarze Dreiecks-Spieße.
 - Sky-Sonnenscheibe NIEMALS ins Environment-PMREM backen (`showSunDisc = 0` im envSky),
   sonst Inf/NaN → komplett schwarze Szene.
 - Spielstand: `localStorage` (`cayvadisi_save_v2`), `state.js` migriert ältere Stände.
