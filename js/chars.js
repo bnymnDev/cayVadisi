@@ -29,6 +29,11 @@ export function createChars(ctx) {
   }
 
   lib.load = () => new Promise((resolve) => {
+    // v25.6: Skelett-Animation (Bone-Texturen) erzeugt auf manchen Mobil-
+    // GPUs explodierende Riesen-Dreiecke (S24-Screenshot). Auf Touch laufen
+    // deshalb standardmäßig die prozeduralen Figuren; das Diagnose-Panel
+    // („3D-Figuren") kann die GLB-Modelle wieder aktivieren.
+    if (ctx.isTouch && !(ctx.gfx && ctx.gfx.richChars)) { resolve(false); return; }
     new GLTFLoader(ctx.loadingManager).load(BASE + 'human.glb', (gltf) => {
       root = gltf.scene;
       clips = gltf.animations;

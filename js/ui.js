@@ -2832,6 +2832,7 @@ export function createUI(ctx, hooks) {
         $('btn-gfx-ocean').textContent = g.noOcean ? t('off') : t('on');
         $('btn-gfx-grass').textContent = g.noGrass ? t('off') : t('on');
         $('btn-gfx-direct').textContent = g.directRender ? 'B' : 'A';
+        $('btn-gfx-chars').textContent = g.richChars ? t('on') : t('off');
       }
       show(els.pause);
     },
@@ -3165,6 +3166,7 @@ export function createUI(ctx, hooks) {
   gfxToggle('btn-gfx-ocean', 'noOcean');
   gfxToggle('btn-gfx-grass', 'noGrass');
   gfxToggle('btn-gfx-direct', 'directRender');
+  gfxToggle('btn-gfx-chars', 'richChars');
   $('btn-cb').addEventListener('click', (e) => {
     state.settings.cb = !state.settings.cb;
     document.body.classList.toggle('cb-mode', state.settings.cb);

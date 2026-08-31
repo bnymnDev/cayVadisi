@@ -707,6 +707,7 @@ const STRINGS = {
     gfxOcean: 'Wasser-Shader',
     gfxGrass: 'Gras',
     gfxDirect: 'Render-Pfad (A=Puffer, B=direkt)',
+    gfxChars: '3D-Figuren (Skelett-Animation)',
 
     // ---- v5: Story — Dede-Çayı ----
     stContinue: 'Weiter',
@@ -1945,6 +1946,7 @@ const STRINGS = {
     gfxOcean: 'Su efekti',
     gfxGrass: 'Çimen',
     gfxDirect: 'Çizim yolu (A=tampon, B=doğrudan)',
+    gfxChars: '3B karakterler (iskelet animasyonu)',
 
     // ---- v5: Hikâye — Dede Çayı ----
     stContinue: 'Devam',
@@ -3122,6 +3124,7 @@ const STRINGS = {
     gfxOcean: 'Water shader',
     gfxGrass: 'Grass',
     gfxDirect: 'Render path (A=buffer, B=direct)',
+    gfxChars: '3D characters (skeletal animation)',
     stContinue: 'Continue',
     stIcon_letter: '✉️', stTitle_letter: 'Grandfather\'s letter',
     stText_letter: '"Evlat, if you\'re reading this, the valley is yours. Pick your first 10 kilos — then you\'ll understand why I never left. Something waits for you in the old factory." Your first 10 kg are in. +250 ₺ from Dede\'s envelope.',

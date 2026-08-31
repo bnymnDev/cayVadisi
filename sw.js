@@ -3,7 +3,7 @@
 // JS-Dateien (der Cache füllt sich „on demand") — das Spiel hing dann bei 0 %.
 // Jetzt kommt Code (js/html/css) immer frisch vom Server, solange man online
 // ist; nur offline greift der Cache. Modelle/Texturen bleiben Cache-zuerst.
-const CACHE = 'cayvadisi-v25-5';
+const CACHE = 'cayvadisi-v25-6';
 
 const CORE = [
   './',
@@ -37,9 +37,12 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
 
   if (e.request.mode === 'navigate' || isCode(url)) {
-    // Netz-zuerst: immer konsistenter Code; offline fällt der Cache ein
+    // Netz-zuerst: immer konsistenter Code; offline fällt der Cache ein.
+    // v25.6: cache:'no-cache' — sonst bedient der HTTP-Cache des Browsers
+    // die SW-Anfrage mit alten Dateien und Updates kommen nie an (S24: nach
+    // dem Deploy lief weiter das alte CSS).
     e.respondWith(
-      fetch(e.request).then((res) => {
+      fetch(e.request, { cache: 'no-cache' }).then((res) => {
         if (res.ok) {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(e.request, copy));
