@@ -2831,6 +2831,7 @@ export function createUI(ctx, hooks) {
         $('btn-gfx-sky').textContent = g.simpleSky ? t('off') : t('on');
         $('btn-gfx-ocean').textContent = g.noOcean ? t('off') : t('on');
         $('btn-gfx-grass').textContent = g.noGrass ? t('off') : t('on');
+        $('btn-gfx-direct').textContent = g.directRender ? 'B' : 'A';
       }
       show(els.pause);
     },
@@ -3163,6 +3164,7 @@ export function createUI(ctx, hooks) {
   gfxToggle('btn-gfx-sky', 'simpleSky');
   gfxToggle('btn-gfx-ocean', 'noOcean');
   gfxToggle('btn-gfx-grass', 'noGrass');
+  gfxToggle('btn-gfx-direct', 'directRender');
   $('btn-cb').addEventListener('click', (e) => {
     state.settings.cb = !state.settings.cb;
     document.body.classList.toggle('cb-mode', state.settings.cb);
