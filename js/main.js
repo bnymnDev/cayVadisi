@@ -95,6 +95,16 @@ import { initGate } from './gate.js';
 
 // v6: PIN-Gate (nur auf github.io aktiv) + Service Worker für Offline/PWA
 initGate();
+// v25.7: Mini-Versionsbadge dauerhaft im Spiel (oben mittig) — jeder
+// Screenshot zeigt damit sofort, welche Version das Gerät wirklich ausführt.
+{
+  const hv = document.createElement('div');
+  hv.textContent = 'v' + CFG.version;
+  hv.style.cssText = 'position:fixed;top:3px;left:50%;transform:translateX(-50%);'
+    + 'font-size:10px;line-height:1;opacity:0.55;z-index:12;color:#fff;'
+    + 'pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,0.8)';
+  document.body.appendChild(hv);
+}
 // v25.2: sichtbare Versionsnummer (Start + Pause) — zeigt sofort, ob ein
 // alter Cache noch die vorige Version ausliefert.
 for (const pid of ['start-screen', 'pause-screen']) {

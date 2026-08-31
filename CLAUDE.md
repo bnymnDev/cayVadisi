@@ -42,6 +42,9 @@ komplett offline, DE/TR). Start: `npm start` → `http://localhost:8137`.
      (Default = PHP-App-Pfad). Der Runner rsynct das Repo auf den Webspace.
   3. Live-Check: `curl https://cayvadisi.nesbun.de/sw.js` muss die neue
      CACHE-Version zeigen; `cloudsave.php` muss antworten (kein 403).
+     Bei JEDEM Release außerdem: CFG.version, SW-CACHE UND die beiden
+     `?v=`-Cache-Buster in index.html (style.css + js/main.js) hochzählen —
+     alte Handy-Caches lieferten sonst tagelang gemischte Stände aus.
   4. SSH-User sofort wieder löschen (`ssh_user_delete`), lokale Key-Dateien entfernen.
   SSH direkt aus der Sandbox geht NICHT (nur HTTPS-Proxy) — deshalb der Actions-Umweg.
   Domain-Routing: Virtualhost `cayvadisi.nesbun.de` → Ingress-Path `/` auf die
