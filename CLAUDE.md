@@ -16,7 +16,9 @@ komplett offline, DE/TR). Start: `npm start` → `http://localhost:8137`.
   NIEMALS: EffectComposer (direktes renderer.render + Kontext-AA), PMREM-Env-
   Bakes (sky.js — Hemi/Sonne kompensieren stattdessen), Schattenkarten und der
   Istanbul-Reflector (einfache Wasserfläche). Alles davon erzeugte schwarze
-  Frame-Flacker auf Adreno/Mali/iOS. Versionsbadge (CFG.version) unten rechts
+  Frame-Flacker auf Adreno/Mali/iOS. Ebenso NIEMALS `backdrop-filter` über
+  dem Canvas (v25.4, Samsung-Compositor-Bug — per CSS-Media-Query pointer:
+  coarse global deaktiviert). Versionsbadge (CFG.version) unten rechts
   auf Start-/Pausescreen zeigt, welche Version ein Gerät wirklich ausführt.
 - Sky-Sonnenscheibe NIEMALS ins Environment-PMREM backen (`showSunDisc = 0` im envSky),
   sonst Inf/NaN → komplett schwarze Szene.

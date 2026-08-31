@@ -313,9 +313,16 @@ body {
 .tc-small { width: 46px; height: 46px; font-size: 18px; }
 .tc-act { width: 72px; height: 72px; font-size: 26px; }
 
-/* v25.1: Auf Touch-Geräten wandert die Minimap nach oben links,
-   damit sie nicht auf dem Joystick liegt; Prompt größer zum Antippen. */
+/* v25.4: KEIN backdrop-filter über dem WebGL-Canvas auf Touch-Geräten —
+   Samsung/Android-Compositor hat einen bekannten Bug, bei dem Milchglas-
+   Effekte über WebGL schwarze Frame-Blitze erzeugen (S24: Flackern blieb,
+   selbst als alle 3D-Effekte aus waren → Ursache liegt ÜBER dem Canvas). */
 @media (pointer: coarse) {
+  * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .world-marker span { filter: none !important; }
   #minimap { left: 12px; bottom: auto; top: 64px; width: 120px; height: 120px; }
   #interact-prompt { font-size: 17px; padding: 12px 18px; }
 }
