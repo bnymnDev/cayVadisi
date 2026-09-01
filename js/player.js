@@ -110,7 +110,9 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
     onLockChange: null,
     touchMove: { x: 0, y: 0 },   // virtueller Joystick (-1..1)
     touchSens: 1,                // v26: Kamera-Empfindlichkeit (Pausenmenü)
-    touchAuto: false,            // v26: Auto-Lauf (Doppeltipp auf den Joystick)
+    touchAuto: false,            // v26: Auto-Lauf (Doppeltipp/🏃/NumLock)
+    autoTarget: null,            // v26.2: Autopilot-Ziel (Auto-Pflücken)
+    lastManual: false,           // v26.2: wurde diese Frame manuell gesteuert?
 
     setEnabled(v) { enabled = v; if (!v) keys.clear(); },
 
@@ -159,7 +161,26 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
         wish.add(fwd);   // v26: Auto-Lauf geradeaus
       }
       const wants = wish.lengthSq() > 0;
-      if (wants) wish.normalize().multiplyScalar(speed);
+      api.lastManual = wants;
+      // v26.2: Rückwärts (S) beendet den Auto-Lauf — wie in WoW
+      if (api.touchAuto && (keys.has('KeyS') || keys.has('ArrowDown'))) api.touchAuto = false;
+      // v26.2: Autopilot — läuft aufs Ziel zu, Kamera dreht sanft mit;
+      // jede manuelle Eingabe bricht ab
+      if (api.autoTarget) {
+        if (wants) api.autoTarget = null;
+        else {
+          const adx = api.autoTarget.x - pos.x, adz = api.autoTarget.z - pos.z;
+          const ad = Math.hypot(adx, adz);
+          if (ad > 0.05) {
+            wish.set(adx / ad, 0, adz / ad);
+            const targetYaw = Math.atan2(-adx, -adz);
+            let dyaw = targetYaw - euler.y;
+            dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
+            euler.y += dyaw * Math.min(1, dt * 5);
+          }
+        }
+      }
+      if (wish.lengthSq() > 0) wish.normalize().multiplyScalar(speed);
 
       vel.x = lerp(vel.x, wish.x, Math.min(1, dt * 9));
       vel.z = lerp(vel.z, wish.z, Math.min(1, dt * 9));

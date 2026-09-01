@@ -4062,6 +4062,21 @@ export function createGame(ctx, mods) {
   // solange ein Busch im Blick ist und man stehen bleibt.
   let touchStart = null, touchT0 = 0;
   let touchAutoPick = false;
+  // v26.2: WoW-Style Auto-Pflücken — Figur läuft selbst von Busch zu Busch
+  let autoFarm = false, autoFarmPick = false, autoFarmScan = 0;
+  function toggleAutoFarm() {
+    autoFarm = !autoFarm;
+    autoFarmPick = false;
+    if (!autoFarm) player.autoTarget = null;
+    else audio.pickDone();
+    ui.toast(t(autoFarm ? 'autoFarmOn' : 'autoFarmOff'), autoFarm, 4500);
+    return autoFarm;
+  }
+  function stopAutoFarm(msgKey) {
+    autoFarm = false; autoFarmPick = false;
+    player.autoTarget = null;
+    if (msgKey) ui.toast(t(msgKey), msgKey === 'autoFarmFull', 6000);
+  }
   window.addEventListener('touchstart', (e) => {
     if (!running || paused || ui.overlayOpen() || vehicles.driving) return;
     if (e.target && e.target.closest && e.target.closest('.tc')) return;   // Touch-Controls ignorieren
@@ -4255,6 +4270,10 @@ export function createGame(ctx, mods) {
         leaveDolmus();
       }
       return;
+    }
+    if (e.code === 'NumLock' && running && !paused && !vehicles.driving && !boat.driving) {
+      player.touchAuto = !player.touchAuto;
+      ui.toast(t(player.touchAuto ? 'autoRunOn' : 'autoRunOff'), player.touchAuto, 3000);
     }
     if (e.code === 'KeyE' && running && !paused && !ui.overlayOpen()) doInteract();
     if (e.code === 'KeyH' && vehicles.driving) audio.horn(vehicles.driving);
@@ -4724,6 +4743,46 @@ export function createGame(ctx, mods) {
     }
     ui.setSpeed(null);
 
+    // v26.2: Auto-Pflücken — zum nächsten reifen Busch laufen und ernten
+    autoFarmPick = false;
+    if (autoFarm) {
+      const cap = basketCapacity(CFG);
+      if (state.basketKg >= cap - 0.01) stopAutoFarm('autoFarmFull');
+      else if (player.lastManual) stopAutoFarm(null);   // manuelles Eingreifen
+      else {
+        autoFarmScan -= dt;
+        if (autoFarmScan <= 0 || !player.autoTarget) {
+          autoFarmScan = 0.4;
+          const near = tea.nearestRipe(player.pos.x, player.pos.z, CFG.autoFarm ? CFG.autoFarm.radius : 22);
+          if (!near) stopAutoFarm('autoFarmNone');
+          else {
+            const d = Math.hypot(near.x - player.pos.x, near.z - player.pos.z);
+            if (d > 2.1) player.autoTarget = { x: near.x, z: near.z };
+            else {
+              player.autoTarget = null;
+              player.look(Math.atan2(-(near.x - player.pos.x), -(near.z - player.pos.z)), -0.55);
+              autoFarmPick = true;
+            }
+          }
+        } else if (!player.autoTarget) {
+          autoFarmPick = true;
+        }
+        // dicht am Ziel: stehen bleiben und pflücken
+        if (player.autoTarget) {
+          const d2 = Math.hypot(player.autoTarget.x - player.pos.x, player.autoTarget.z - player.pos.z);
+          if (d2 <= 2.1) {
+            player.look(Math.atan2(-(player.autoTarget.x - player.pos.x), -(player.autoTarget.z - player.pos.z)), -0.55);
+            player.autoTarget = null;
+            autoFarmPick = true;
+          }
+        } else if (!autoFarmPick) {
+          autoFarmPick = true;   // stehend weiterpflücken, bis der Scan neu zielt
+        }
+      }
+    }
+    ui.setTcState('farm', autoFarm);
+    ui.setTcState('run', player.touchAuto);
+
     // Pflück-Ziel suchen
     camera.getWorldDirection(camDir);
     pickTarget = tea.findTarget(camera.position, camDir);
@@ -4731,7 +4790,7 @@ export function createGame(ctx, mods) {
 
     // v26: Auto-Pflücken endet beim Losgehen oder wenn kein Busch mehr da ist
     if (touchAutoPick && (player.moving || (!picking && pickTarget < 0))) touchAutoPick = false;
-    if (picking && (mouseDown || touchAutoPick) && pickTarget >= 0) {
+    if (picking && (mouseDown || touchAutoPick || autoFarmPick) && pickTarget >= 0) {
       let need = (state.upgrades.shears ? CFG.tea.pickTimeShears : CFG.tea.pickTime)
         * (CFG.roles[state.role] || CFG.roles.farmer).pickFactor;
       if (state.survival && (state.hunger < CFG.survival.lowThreshold || state.energy < CFG.survival.lowThreshold)) {
@@ -4740,7 +4799,7 @@ export function createGame(ctx, mods) {
       pickProgress += dt / need;
       if (Math.random() < dt * 9) audio.pickTick();
       if (pickProgress >= 1) finishPick();
-    } else if ((mouseDown || touchAutoPick) && pickTarget >= 0 && !picking) {
+    } else if ((mouseDown || touchAutoPick || autoFarmPick) && pickTarget >= 0 && !picking) {
       beginPick();
     } else {
       pickProgress = 0;
@@ -4866,6 +4925,7 @@ export function createGame(ctx, mods) {
     doSeasonFest, buyKemence, buskResult, arcade2Result, ghostKey, ghostVisit,
     cookDish, doTrick, touchStone, claimRiddle,
     boardDolmus, leaveDolmus, buyFlowers, buyRadyo, setRadyoProgram,
+    toggleAutoFarm,
     inviteBuddy, konakEnter, konakExit,
     get motoRaceTime() { return motoRace ? motoRace.t : -1; },
     setFrozen(v) { frozen = v; },

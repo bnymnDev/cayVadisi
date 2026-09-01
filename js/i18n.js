@@ -712,6 +712,13 @@ const STRINGS = {
     camSens: 'Kamera-Empfindlichkeit',
     fullscreen: '⛶ Vollbild',
     rotateHint: '🔄 Tipp: Im Querformat (Handy drehen) + Vollbild spielt es sich am besten!',
+    // ---- v26.2: WoW-Style Automatik ----
+    autoRunOn: '🏃 Auto-Lauf an — S oder Joystick-Griff beendet ihn.',
+    autoRunOff: '🏃 Auto-Lauf aus.',
+    autoFarmOn: '🍃 Auto-Pflücken an — deine Figur erntet von Busch zu Busch. Joystick beendet es.',
+    autoFarmOff: '🍃 Auto-Pflücken aus.',
+    autoFarmFull: '🧺 Korb voll — Auto-Pflücken beendet. Ab zur Annahmestelle!',
+    autoFarmNone: '🍃 Kein reifer Busch in der Nähe — Auto-Pflücken beendet.',
 
     // ---- v5: Story — Dede-Çayı ----
     stContinue: 'Weiter',
@@ -1955,6 +1962,13 @@ const STRINGS = {
     camSens: 'Kamera hassasiyeti',
     fullscreen: '⛶ Tam ekran',
     rotateHint: '🔄 İpucu: Yatay modda (telefonu çevir) + tam ekranda en iyi oynanır!',
+    // ---- v26.2 ----
+    autoRunOn: '🏃 Otomatik koşu açık — S veya joystick bitirir.',
+    autoRunOff: '🏃 Otomatik koşu kapalı.',
+    autoFarmOn: '🍃 Otomatik toplama açık — karakterin çalıdan çalıya toplar. Joystick bitirir.',
+    autoFarmOff: '🍃 Otomatik toplama kapalı.',
+    autoFarmFull: '🧺 Sepet dolu — otomatik toplama bitti. Teslim yerine!',
+    autoFarmNone: '🍃 Yakında olgun çalı yok — otomatik toplama bitti.',
 
     // ---- v5: Hikâye — Dede Çayı ----
     stContinue: 'Devam',
@@ -3137,6 +3151,13 @@ const STRINGS = {
     camSens: 'Camera sensitivity',
     fullscreen: '⛶ Fullscreen',
     rotateHint: '🔄 Tip: Landscape mode (rotate your phone) + fullscreen plays best!',
+    // ---- v26.2 ----
+    autoRunOn: '🏃 Auto-run on — S or grabbing the joystick stops it.',
+    autoRunOff: '🏃 Auto-run off.',
+    autoFarmOn: '🍃 Auto-picking on — your character harvests bush to bush. Joystick stops it.',
+    autoFarmOff: '🍃 Auto-picking off.',
+    autoFarmFull: '🧺 Basket full — auto-picking stopped. Off to the delivery point!',
+    autoFarmNone: '🍃 No ripe bush nearby — auto-picking stopped.',
     stContinue: 'Continue',
     stIcon_letter: '✉️', stTitle_letter: 'Grandfather\'s letter',
     stText_letter: '"Evlat, if you\'re reading this, the valley is yours. Pick your first 10 kilos — then you\'ll understand why I never left. Something waits for you in the old factory." Your first 10 kg are in. +250 ₺ from Dede\'s envelope.',
