@@ -237,7 +237,7 @@ export const state = {
   hist: { stocks: {}, earned: [] },
 
   // Einstellungen
-  settings: { lang: 'de', sound: true, quality: 'auto', eco: 'auto', speed: 1, cb: false, bot: { fish: true, reserve: 400, crop: 'auto' } }
+  settings: { lang: 'de', sound: true, quality: 'auto', eco: 'auto', speed: 1, cb: false, pickSpeed: 1, bot: { fish: true, reserve: 400, crop: 'auto' } }
 };
 
 // v7: New-Game+-Preisbonus (multipliziert alle Verkäufe)
@@ -352,6 +352,7 @@ export function load() {
     state.settings.speed = state.settings.speed ?? 1;
     state.settings.cb = state.settings.cb ?? false;
     if (!state.settings.bot) state.settings.bot = { fish: true, reserve: 400, crop: 'auto' };
+    state.settings.pickSpeed = state.settings.pickSpeed || 1;
     state.workers = d.workers ?? 0;
     Object.assign(state.animals, d.animals || {});
     state.plots = Array.isArray(d.plots) ? d.plots : [];

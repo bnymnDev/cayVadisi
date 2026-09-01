@@ -2933,6 +2933,15 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // v29: nächste freie Parzelle direkt aus dem Betriebs-Panel kaufen (Mobil)
+  function buyNextParcel() {
+    for (let i = 0; i < CFG.parcels.spots.length; i++) {
+      if (!state.parcels[i]) return buyParcel(i);
+    }
+    audio.deny();
+    return false;
+  }
+
   function rivalClaimParcel() {
     const P = CFG.parcels;
     const free = [];
@@ -4721,9 +4730,28 @@ export function createGame(ctx, mods) {
       pendingOffline = Math.round(h * (OF.perHourBase + state.workers * OF.perWorker));
     }
   }
+  // v29: Stadt-Ausbaustufe aus dem Gesamtverdienst
+  function cityStage() {
+    const T = CFG.growth.thresholds;
+    let st = 0;
+    for (let i = 0; i < T.length; i++) if ((state.totalEarned || 0) >= T[i]) st = i;
+    return st;
+  }
+  let cityStageLast = cityStage();
+  let cityStageT = 0;
   let waterRescueT = 0;   // v28.1: Wasser-Rettung läuft sicher im Spiel-Update
   function update(dt, elapsed) {
     if (!running || paused || frozen) return;
+    cityStageT -= dt;
+    if (cityStageT <= 0) {
+      cityStageT = 3;
+      const cs = cityStage();
+      if (cs > cityStageLast) {
+        cityStageLast = cs;
+        ui.toast(t('cityStage' + cs), true, 11000);
+        audio.pickDone();
+      }
+    }
     waterRescueT -= dt;
     if (waterRescueT <= 0) {
       waterRescueT = 1;
@@ -5147,7 +5175,7 @@ export function createGame(ctx, mods) {
           // --- pflücken / warten ---
           autoFarmScan -= dt;
           if (autoFarmScan <= 0) {
-            autoFarmScan = 0.4;
+            autoFarmScan = 0.25;   // v29: flotterer Busch-Wechsel
             let near = tea.nearestRipe(player.pos.x, player.pos.z, 26);
             if (near && autoSkip && state.timeSec < autoSkip.until
                 && Math.hypot(near.x - autoSkip.x, near.z - autoSkip.z) < 0.6) {
@@ -5193,6 +5221,7 @@ export function createGame(ctx, mods) {
         }
       }
     }
+    player.noTeaCollide = autoFarm;   // v29: im Bot-Modus durch Büsche laufen
     ui.setTcState('farm', autoFarm && !botFull);
     ui.setTcState('bot', botFull);
     ui.setTcState('run', player.touchAuto);
@@ -5210,7 +5239,7 @@ export function createGame(ctx, mods) {
       if (state.survival && (state.hunger < CFG.survival.lowThreshold || state.energy < CFG.survival.lowThreshold)) {
         need *= 1.4;
       }
-      pickProgress += dt / need;
+      pickProgress += dt / need * (state.settings.pickSpeed || 1);   // v29: ⚡ Pflücktempo
       if (Math.random() < dt * 9) audio.pickTick();
       if (pickProgress >= 1) finishPick();
     } else if ((mouseDown || touchAutoPick || autoFarmPick) && pickTarget >= 0 && !picking) {
@@ -5328,7 +5357,7 @@ export function createGame(ctx, mods) {
     karsikoyPrice, sellKarsikoy, macResult, floodHit,
     buyOrchard, setLogi, spawnHeliJob,
     planPhotoMission, photoTaken, buyGulet, startMeister, meisterResult,
-    buyLine, buyParcel, buildRailway, shovelScoop, buyStall, stallStock,
+    buyLine, buyParcel, buyNextParcel, buildRailway, shovelScoop, buyStall, stallStock,
     stallCycleFactor, stallCustomer, enterBeeCup, buyQueen, bookCampaign,
     featureOn, checkUnlocks, favorTalk, buyBranch, branchHire, branchMode, taxiValley2,
     hireCirak, trainCirak, story4Sell, story4Refuse, story4Finale,

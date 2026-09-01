@@ -681,6 +681,20 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   Arbeitstage zählten nie hoch. Wird beim Laden repariert; außerdem gibt es
   jetzt 5 Arbeiter-Level (bis 35 % schnelleres Pflücken statt 16 %).
 
+### Stadt-Wachstum & flüssigerer Bot (v29)
+- **Pflücktempo ×1/×2/×3** im Pausenmenü einstellbar — gilt für Hand und Bot.
+- **Durch Büsche laufen:** Im Auto-Farm-Modus kollidiert der Spieler nicht
+  mehr mit Teebüschen — kein Hakeln mehr auf dem Feld.
+- **Parzellen mobil kaufbar:** Im Betrieb→Arbeiter-Tab gibt es jetzt einen
+  Dükkan-Knopf und einen direkten „Parzelle kaufen"-Knopf.
+- **NPC-Verkehr:** Autos pendeln auf der Landstraße und tanken bei
+  Vadi Petrol (wenn gebaut) — je größer die Stadt, desto mehr Verkehr.
+- **Ausbaustufen Köy → Kasaba → Şehir → Metropol:** Ab 20 000 / 60 000 /
+  150 000 ₺ Gesamtverdienst wachsen Häuserringe und beleuchtete
+  Hochhäuser um die Stadt; jede Stufe wird mit Toast gefeiert.
+- **İstanbul-Skyline:** Wohnblocks mit beleuchteten Fenstern hinter dem
+  Kai — Istanbul sieht jetzt nach Großstadt aus.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

@@ -1,6 +1,6 @@
 // Balancing & Welt-Konstanten
 export const CFG = {
-  version: '28.2',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
+  version: '29',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
   seed: 1453,
 
   // Welt
@@ -846,6 +846,15 @@ export const CFG = {
     cost: 9000, perCustomer: 35,
     customerEvery: 34,                        // ~Sekunden zwischen Kunden-Autos
     werkstattCost: 4000, werkstattPerDay: 80  // Anbau: NPC-Reparaturen/Tag
+  },
+
+  // ---- v29: Stadt-Ausbaustufen & NPC-Verkehr ----
+  growth: {
+    thresholds: [0, 20000, 60000, 150000]   // Köy → Kasaba → Şehir → Metropole (Gesamtverdienst)
+  },
+  traffic: {
+    carsBase: 2, perStage: 1, maxCars: 6,
+    speed: 9, x0: 6, x1: 150, laneA: -101.2, laneB: -104.2
   },
 
   // ---- v20: Immobilien-Flipping ----
