@@ -358,6 +358,18 @@ export function createTeaField(ctx, terrain) {
       }
     },
 
+    // v26.2: nächster pflückbarer Busch (reif oder überständig) im Umkreis
+    nearestRipe(px, pz, maxR = 20) {
+      let best = -1, bd = maxR * maxR;
+      for (let i = 0; i < count; i++) {
+        if (!active[i] || states[i] === ST_GROW) continue;
+        const dx = px - positions[i * 3], dz = pz - positions[i * 3 + 2];
+        const d2 = dx * dx + dz * dz;
+        if (d2 < bd) { bd = d2; best = i; }
+      }
+      return best < 0 ? null : { x: positions[best * 3], z: positions[best * 3 + 2] };
+    },
+
     countRipe() {
       let n = 0;
       for (let i = 0; i < count; i++) if (active[i] && states[i] !== ST_GROW) n++;

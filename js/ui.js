@@ -2897,6 +2897,13 @@ export function createUI(ctx, hooks) {
       api.refreshWealth();
     },
 
+    // v26.2: Zustands-Anzeige der Auto-Buttons (🏃/🍃)
+    setTcState(kind, on) {
+      if (!ctx.isTouch) return;
+      const b = $(kind === 'run' ? 'tbtn-run' : 'tbtn-farm');
+      if (b) b.classList.toggle('tc-on', !!on);
+    },
+
     // ---------- v2: Touch-Steuerung verdrahten ----------
     bindTouch(player, vehicles, boat, getGame) {
       // v26: dynamischer Joystick — er erscheint dort, wo der Daumen in der
@@ -2995,6 +3002,15 @@ export function createUI(ctx, hooks) {
         if (g && g.running && !g.paused && !api.overlayOpen()) g.doInteract();
       });
 
+      // v26.2: WoW-Style Auto-Lauf & Auto-Pflücken
+      bindTap('tbtn-run', () => {
+        player.touchAuto = !player.touchAuto;
+        api.setTcState('run', player.touchAuto);
+      });
+      bindTap('tbtn-farm', () => {
+        const g = getGame && getGame();
+        if (g && g.running && !g.paused) api.setTcState('farm', g.toggleAutoFarm());
+      });
       // v26: Schnellzugriffe einklappbar
       bindTap('tbtn-more', () => $('tc-actions-list').classList.toggle('hidden'));
       // v26: Minimap antippen = vergrößern
