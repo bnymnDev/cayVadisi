@@ -741,6 +741,8 @@ const STRINGS = {
     chartSrcTea: 'Einnahmen Tee',
     chartSrcFish: 'Einnahmen Fisch',
     chartSrcVeg: 'Einnahmen Hof & Ernte',
+    rescueBtn: '🏠 Zurück zum Feld (Notfall)',
+    rescueDone: '🏠 Uff! Zurück am Teefeld — weiter geht\u2019s.',
 
     // ---- v5: Story — Dede-Çayı ----
     stContinue: 'Weiter',
@@ -2013,6 +2015,8 @@ const STRINGS = {
     chartSrcTea: 'Gelir: Çay',
     chartSrcFish: 'Gelir: Balık',
     chartSrcVeg: 'Gelir: Çiftlik & Hasat',
+    rescueBtn: '🏠 Tarlaya dön (acil durum)',
+    rescueDone: '🏠 Oh be! Çay tarlasına geri döndün — devam.',
 
     // ---- v5: Hikâye — Dede Çayı ----
     stContinue: 'Devam',
@@ -3224,6 +3228,8 @@ const STRINGS = {
     chartSrcTea: 'Income: tea',
     chartSrcFish: 'Income: fish',
     chartSrcVeg: 'Income: farm & harvest',
+    rescueBtn: '🏠 Back to the field (emergency)',
+    rescueDone: '🏠 Phew! Back at the tea field — carry on.',
     stContinue: 'Continue',
     stIcon_letter: '✉️', stTitle_letter: 'Grandfather\'s letter',
     stText_letter: '"Evlat, if you\'re reading this, the valley is yours. Pick your first 10 kilos — then you\'ll understand why I never left. Something waits for you in the old factory." Your first 10 kg are in. +250 ₺ from Dede\'s envelope.',
