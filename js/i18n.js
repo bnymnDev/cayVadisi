@@ -708,6 +708,10 @@ const STRINGS = {
     gfxGrass: 'Gras',
     gfxDirect: 'Render-Pfad (A=Puffer, B=direkt)',
     gfxChars: '3D-Figuren (Skelett-Animation)',
+    // ---- v26: Mobil-Komfort ----
+    camSens: 'Kamera-Empfindlichkeit',
+    fullscreen: '⛶ Vollbild',
+    rotateHint: '🔄 Tipp: Im Querformat (Handy drehen) + Vollbild spielt es sich am besten!',
 
     // ---- v5: Story — Dede-Çayı ----
     stContinue: 'Weiter',
@@ -1947,6 +1951,10 @@ const STRINGS = {
     gfxGrass: 'Çimen',
     gfxDirect: 'Çizim yolu (A=tampon, B=doğrudan)',
     gfxChars: '3B karakterler (iskelet animasyonu)',
+    // ---- v26 ----
+    camSens: 'Kamera hassasiyeti',
+    fullscreen: '⛶ Tam ekran',
+    rotateHint: '🔄 İpucu: Yatay modda (telefonu çevir) + tam ekranda en iyi oynanır!',
 
     // ---- v5: Hikâye — Dede Çayı ----
     stContinue: 'Devam',
@@ -3125,6 +3133,10 @@ const STRINGS = {
     gfxGrass: 'Grass',
     gfxDirect: 'Render path (A=buffer, B=direct)',
     gfxChars: '3D characters (skeletal animation)',
+    // ---- v26 ----
+    camSens: 'Camera sensitivity',
+    fullscreen: '⛶ Fullscreen',
+    rotateHint: '🔄 Tip: Landscape mode (rotate your phone) + fullscreen plays best!',
     stContinue: 'Continue',
     stIcon_letter: '✉️', stTitle_letter: 'Grandfather\'s letter',
     stText_letter: '"Evlat, if you\'re reading this, the valley is yours. Pick your first 10 kilos — then you\'ll understand why I never left. Something waits for you in the old factory." Your first 10 kg are in. +250 ₺ from Dede\'s envelope.',

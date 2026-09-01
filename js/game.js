@@ -969,6 +969,7 @@ export function createGame(ctx, mods) {
     tea.targetPos(pickTarget, v3);
     particles.burst(v3, state.upgrades.shears ? 18 : 11, camera.position);
     audio.pickDone();
+    if (ctx.isTouch && navigator.vibrate) navigator.vibrate(12);   // v26: Haptik
     ui.pickPopup(v3, kg, res.late);
 
     // v16: Pflück-EXP + Lucky Picks (Chance wächst mit dem Level)
@@ -1079,6 +1080,7 @@ export function createGame(ctx, mods) {
       audio.orderDone();
     }
     if (!silent) audio.sell();
+    if (ctx.isTouch && navigator.vibrate) navigator.vibrate([20, 40, 20]);   // v26: Haptik
     checkWealth();
     ui.refreshBasket();
     ui.refreshMoney();
@@ -4055,22 +4057,32 @@ export function createGame(ctx, mods) {
     if (e.button === 0) { mouseDown = false; picking = false; pickProgress = 0; }
   });
 
-  // Touch: Finger halten = pflücken, Finger ziehen = umsehen (Abbruch)
-  let touchStart = null;
+  // Touch: Finger halten = pflücken, Finger ziehen = umsehen (Abbruch).
+  // v26: kurzer Tipp auf einen Busch startet Auto-Pflücken — läuft weiter,
+  // solange ein Busch im Blick ist und man stehen bleibt.
+  let touchStart = null, touchT0 = 0;
+  let touchAutoPick = false;
   window.addEventListener('touchstart', (e) => {
     if (!running || paused || ui.overlayOpen() || vehicles.driving) return;
     if (e.target && e.target.closest && e.target.closest('.tc')) return;   // Touch-Controls ignorieren
     if (e.touches.length !== 1) return;
-    touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, moved: false };
+    touchT0 = performance.now();
     mouseDown = true;
   }, { passive: true });
   window.addEventListener('touchmove', (e) => {
     if (!touchStart || e.touches.length !== 1) return;
     const dx = e.touches[0].clientX - touchStart.x;
     const dy = e.touches[0].clientY - touchStart.y;
-    if (dx * dx + dy * dy > 12 * 12) { mouseDown = false; picking = false; pickProgress = 0; }
+    if (dx * dx + dy * dy > 12 * 12) {
+      touchStart.moved = true;
+      mouseDown = false; picking = false; pickProgress = 0;
+    }
   }, { passive: true });
   window.addEventListener('touchend', () => {
+    if (touchStart && !touchStart.moved && performance.now() - touchT0 < 380 && pickTarget >= 0) {
+      touchAutoPick = true;   // v26: Tipp = Auto-Pflücken an
+    }
     touchStart = null; mouseDown = false; picking = false; pickProgress = 0;
   }, { passive: true });
 
@@ -4717,7 +4729,9 @@ export function createGame(ctx, mods) {
     pickTarget = tea.findTarget(camera.position, camDir);
     ui.setCrosshairActive(pickTarget >= 0);
 
-    if (picking && mouseDown && pickTarget >= 0) {
+    // v26: Auto-Pflücken endet beim Losgehen oder wenn kein Busch mehr da ist
+    if (touchAutoPick && (player.moving || (!picking && pickTarget < 0))) touchAutoPick = false;
+    if (picking && (mouseDown || touchAutoPick) && pickTarget >= 0) {
       let need = (state.upgrades.shears ? CFG.tea.pickTimeShears : CFG.tea.pickTime)
         * (CFG.roles[state.role] || CFG.roles.farmer).pickFactor;
       if (state.survival && (state.hunger < CFG.survival.lowThreshold || state.energy < CFG.survival.lowThreshold)) {
@@ -4726,7 +4740,7 @@ export function createGame(ctx, mods) {
       pickProgress += dt / need;
       if (Math.random() < dt * 9) audio.pickTick();
       if (pickProgress >= 1) finishPick();
-    } else if (mouseDown && pickTarget >= 0 && !picking) {
+    } else if ((mouseDown || touchAutoPick) && pickTarget >= 0 && !picking) {
       beginPick();
     } else {
       pickProgress = 0;

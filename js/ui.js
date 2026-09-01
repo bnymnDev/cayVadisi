@@ -12,6 +12,7 @@ import { xpLevel, maxLevel, nextLevelAt, workerMax, luckyChance, megaChance, rar
 const $ = (id) => document.getElementById(id);
 
 export function createUI(ctx, hooks) {
+  let uiPlayerRef = null;   // v26: für Kamera-Empfindlichkeit aus dem Pausenmenü
   const els = {
     start: $('start-screen'), hud: $('hud'), shop: $('shop-screen'),
     pause: $('pause-screen'), day: $('day-screen'), season: $('season-screen'),
@@ -103,6 +104,18 @@ export function createUI(ctx, hooks) {
       els.basketFill.style.width = clamp(state.basketKg / cap * 100, 0, 100) + '%';
       els.basketFill.classList.toggle('full', full);
       els.basketQuality.textContent = state.basketKg > 0 ? `${t('quality2')}: ${q} %` : '';
+      // v26: Mobil — Korb-Füllstand als goldener Ring um die Aktionstaste
+      if (ctx.isTouch) {
+        const act = $('tbtn-act'), kgEl = $('act-kg');
+        if (act) {
+          const pct = clamp(state.basketKg / cap * 100, 0, 100);
+          act.style.background = `conic-gradient(rgba(216,178,58,0.85) ${pct}%, rgba(15,22,17,0.45) ${pct}%)`;
+        }
+        if (kgEl) {
+          kgEl.classList.toggle('hidden', state.basketKg < 0.05);
+          kgEl.textContent = `🧺 ${fmtKg(state.basketKg, state.settings.lang)} kg`;
+        }
+      }
     },
     refreshOrder() {
       const done = state.orderRewarded;
@@ -121,8 +134,12 @@ export function createUI(ctx, hooks) {
       els.ring.setAttribute('stroke', p > 0 ? 'rgba(180,240,140,.95)' : 'rgba(255,255,255,.9)');
     },
     setPrompt(text, action) {
+      if (ctx.isTouch) {
+        const act = $('tbtn-act');
+        if (act) act.classList.toggle('act-on', !!text);
+      }
       if (!text) { hide(els.prompt); els.prompt.onclick = null; return; }
-      els.prompt.innerHTML = '<b>E</b>' + text;
+      els.prompt.innerHTML = ctx.isTouch ? text : '<b>E</b>' + text;
       els.prompt.onclick = action || null;
       show(els.prompt);
     },
@@ -2826,13 +2843,15 @@ export function createUI(ctx, hooks) {
       $('btn-lang').textContent = { de: 'Deutsch', tr: 'Türkçe', en: 'English' }[getLang()];
       // v25.3: Grafik-Diagnose nur auf Touch-Geräten anbieten
       if (ctx.isTouch) {
+        $('touch-rows').classList.remove('hidden');
+        $('btn-sens').textContent = '×' + (state.settings.touchSens || 1);
         $('gfx-diag').classList.remove('hidden');
         const g = ctx.gfx || {};
         $('btn-gfx-sky').textContent = g.simpleSky ? t('off') : t('on');
         $('btn-gfx-ocean').textContent = g.noOcean ? t('off') : t('on');
         $('btn-gfx-grass').textContent = g.noGrass ? t('off') : t('on');
         $('btn-gfx-direct').textContent = g.directRender ? 'B' : 'A';
-        $('btn-gfx-chars').textContent = g.richChars ? t('on') : t('off');
+        $('btn-gfx-chars').textContent = g.noChars ? t('off') : t('on');
       }
       show(els.pause);
     },
@@ -2880,45 +2899,59 @@ export function createUI(ctx, hooks) {
 
     // ---------- v2: Touch-Steuerung verdrahten ----------
     bindTouch(player, vehicles, boat, getGame) {
-      const joy = $('joystick'), knob = $('joystick-knob');
-      let joyId = null;
-      const R = 46;
+      // v26: dynamischer Joystick — er erscheint dort, wo der Daumen in der
+      // linken Zone aufsetzt; Doppeltipp = Auto-Lauf, neuer Griff beendet ihn.
+      const joy = $('joystick'), knob = $('joystick-knob'), zone = $('joy-zone');
+      let joyId = null, cx = 0, cy = 0, lastTap = 0;
+      const R = 56;
       function setKnob(dx, dy) {
         knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
       }
+      function apply(nx, ny) {
+        if (vehicles.driving) { vehicles.touchSteer = nx; }
+        else if (boat && boat.driving) { boat.touchSteer = nx; }
+        else { player.touchMove.x = nx; player.touchMove.y = ny; }
+      }
       function handle(e) {
         for (const tch of e.changedTouches) {
-          if (joyId !== null && tch.identifier !== joyId) continue;
-          const r = joy.getBoundingClientRect();
-          let dx = tch.clientX - (r.left + r.width / 2);
-          let dy = tch.clientY - (r.top + r.height / 2);
+          if (joyId === null || tch.identifier !== joyId) continue;
+          let dx = tch.clientX - cx, dy = tch.clientY - cy;
           const d = Math.hypot(dx, dy);
           if (d > R) { dx *= R / d; dy *= R / d; }
           setKnob(dx, dy);
-          const nx = dx / R, ny = dy / R;
-          if (vehicles.driving) { vehicles.touchSteer = nx; }
-          else if (boat && boat.driving) { boat.touchSteer = nx; }
-          else { player.touchMove.x = nx; player.touchMove.y = ny; }
+          apply(dx / R, dy / R);
         }
       }
-      joy.addEventListener('touchstart', (e) => {
-        if (joyId === null) joyId = e.changedTouches[0].identifier;
-        handle(e);
+      zone.addEventListener('touchstart', (e) => {
+        if (joyId !== null) return;
+        const tch = e.changedTouches[0];
+        joyId = tch.identifier;
+        cx = tch.clientX; cy = tch.clientY;
+        const now = performance.now();
+        if (player.touchAuto) player.touchAuto = false;      // Griff beendet Auto-Lauf
+        else if (now - lastTap < 320) player.touchAuto = true;   // Doppeltipp
+        lastTap = now;
+        joy.style.left = (cx - joy.offsetWidth / 2) + 'px';
+        joy.style.top = (cy - joy.offsetHeight / 2) + 'px';
+        joy.style.bottom = 'auto';
+        joy.classList.add('active');
+        setKnob(0, 0);
         e.preventDefault();
       }, { passive: false });
-      joy.addEventListener('touchmove', (e) => { handle(e); e.preventDefault(); }, { passive: false });
+      zone.addEventListener('touchmove', (e) => { handle(e); e.preventDefault(); }, { passive: false });
       const reset = (e) => {
         for (const tch of e.changedTouches) {
           if (tch.identifier !== joyId) continue;
           joyId = null;
           setKnob(0, 0);
+          joy.classList.remove('active');
           player.touchMove.x = 0; player.touchMove.y = 0;
           vehicles.touchSteer = 0;
           if (boat) boat.touchSteer = 0;
         }
       };
-      joy.addEventListener('touchend', reset);
-      joy.addEventListener('touchcancel', reset);
+      zone.addEventListener('touchend', reset);
+      zone.addEventListener('touchcancel', reset);
 
       // Gas / Bremse (nur beim Fahren sichtbar)
       const bindPedal = (id, val) => {
@@ -2961,6 +2994,28 @@ export function createUI(ctx, hooks) {
         const g = getGame && getGame();
         if (g && g.running && !g.paused && !api.overlayOpen()) g.doInteract();
       });
+
+      // v26: Schnellzugriffe einklappbar
+      bindTap('tbtn-more', () => $('tc-actions-list').classList.toggle('hidden'));
+      // v26: Minimap antippen = vergrößern
+      const mm = document.getElementById('minimap');
+      if (mm) mm.addEventListener('touchstart', (e) => { mm.classList.toggle('big'); e.preventDefault(); }, { passive: false });
+      // v26: Wisch nach unten schließt das Telefon
+      let phY = null;
+      els.phone.addEventListener('touchstart', (e) => { phY = e.touches[0].clientY; }, { passive: true });
+      els.phone.addEventListener('touchmove', (e) => {
+        if (phY === null) return;
+        if (e.touches[0].clientY - phY > 110) {
+          phY = null;
+          api.hideOverlays();
+          const g = getGame && getGame();
+          if (g && g.running) g.pause(false);
+        }
+      }, { passive: true });
+      els.phone.addEventListener('touchend', () => { phY = null; }, { passive: true });
+      // v26: Kamera-Empfindlichkeit anwenden
+      player.touchSens = state.settings.touchSens || 1;
+      uiPlayerRef = player;
     }
   };
 
@@ -3166,7 +3221,20 @@ export function createUI(ctx, hooks) {
   gfxToggle('btn-gfx-ocean', 'noOcean');
   gfxToggle('btn-gfx-grass', 'noGrass');
   gfxToggle('btn-gfx-direct', 'directRender');
-  gfxToggle('btn-gfx-chars', 'richChars');
+  gfxToggle('btn-gfx-chars', 'noChars');
+  // v26: Kamera-Empfindlichkeit & Vollbild
+  $('btn-sens').addEventListener('click', (e) => {
+    const order = [0.7, 1, 1.3];
+    const next = order[(order.indexOf(state.settings.touchSens || 1) + 1) % order.length];
+    state.settings.touchSens = next;
+    if (uiPlayerRef) uiPlayerRef.touchSens = next;
+    e.target.textContent = '×' + next;
+    save();
+  });
+  $('btn-fullscreen').addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen().catch(() => {});
+  });
   $('btn-cb').addEventListener('click', (e) => {
     state.settings.cb = !state.settings.cb;
     document.body.classList.toggle('cb-mode', state.settings.cb);

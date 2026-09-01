@@ -20,8 +20,8 @@ export function createAnimals3d(ctx) {
 
   const lib = {
     load() {
-      // v25.6: siehe chars.js — geriggte Tiere auf Touch standardmäßig aus
-      if (ctx.isTouch && !(ctx.gfx && ctx.gfx.richChars)) return Promise.resolve([]);
+      // v26: siehe chars.js — Standard an, 'noChars' schaltet ab
+      if (ctx.isTouch && ctx.gfx && ctx.gfx.noChars) return Promise.resolve([]);
       return Promise.all(Object.entries(DEFS).map(([kind, def]) => new Promise((res) => {
         loader.load(BASE + def.file, (gltf) => {
           const box = new THREE.Box3().setFromObject(gltf.scene);
