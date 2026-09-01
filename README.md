@@ -711,6 +711,17 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   näher und tiefer — das eigene Auto ist groß im Bild statt eine Briefmarke;
   Fahrzeuge werden zudem nie mehr vom Frustum-Culling verschluckt.
 
+### Fabrik-Ausbau (v30.1)
+- **Nacht-Prognose:** Das Fabrik-Panel zeigt vorab, was die Linien heute Nacht
+  schaffen (Linien → Pakete, Rohtee- und Energiekosten).
+- **⚙️ Sonderschicht:** Die Linien lassen sich einmal pro Tag sofort laufen —
+  Pakete erscheinen direkt, statt bis zum nächsten Morgen zu warten.
+- **🪨 Kohle direkt kaufen** (5er-Sack, 275 ₺) — billiger als die Stromkosten
+  von 90 ₺ je Linie und Nacht.
+- **💰 Pakete direkt verkaufen** in der Fabrik, ohne Weg zum Supermarkt.
+- **Fix:** „Heute produziert" zählte die Produktionslinien überhaupt nicht mit
+  (nur die Arbeiter-Ernte) und stand deshalb immer auf 0 📦.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

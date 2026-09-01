@@ -1,6 +1,6 @@
 // Balancing & Welt-Konstanten
 export const CFG = {
-  version: '30',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
+  version: '30.1',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
   seed: 1453,
 
   // Welt
@@ -144,7 +144,9 @@ export const CFG = {
     x: -70, z: -112, ry: 0.5,
     packFactor: 1.9,        // Paketwert vs. Rohtee
     energyCoal: 1,          // Kohle pro Produktionstag …
-    energyCost: 90          // … sonst Stromkosten
+    energyCost: 90,         // … sonst Stromkosten
+    coalPrice: 55,          // v30.1: Kohle direkt in der Fabrik kaufen
+    coalLot: 5              // v30.1: Kohle wird im 5er-Sack gekauft
   },
   supermarket: { x: 132, z: -88, ry: -2.6, retailFactor: 1.15 },
   export: {

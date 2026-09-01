@@ -392,6 +392,7 @@ export function createGame(ctx, mods) {
           state.money -= rawCost;
           state.daySpent += rawCost;
           state.inventory.tea_pack += packs;
+          state.packedToday += packs;             // v30.1: Linien zählen mit
           if (state.factoryLog) state.factoryLog.made += packs;
           lines.push({ k: 'sumLines', v: '+' + packs + ' 📦', sub: '−' + fmtMoney(rawCost, L) });
         } else {
@@ -2961,6 +2962,49 @@ export function createGame(ctx, mods) {
     return true;
   }
 
+  // v30.1: Was die Linien heute Nacht schaffen — für die Panel-Prognose
+  function lineForecast() {
+    const F2 = CFG.factory2;
+    const n = state.factoryLines;
+    if (!state.factory || n <= 0) return null;
+    const packs = n * F2.packsPerLine;
+    const coalNeed = n * F2.coalPerLine;
+    const haveCoal = Math.floor(state.inventory.coal) >= coalNeed;
+    const energy = haveCoal ? 0 : CFG.factory.energyCost * n;
+    return { lines: n, packs, coalNeed, haveCoal, energy, cost: packs * F2.rawPerPack + energy };
+  }
+
+  // v30.1: Sonderschicht — die Linien laufen sofort, einmal pro Tag
+  function runShift() {
+    const f = lineForecast();
+    if (!f) { audio.deny(); return false; }
+    if (state.shiftDay === state.day) { audio.deny(); ui.toast(t('shiftDone'), false, 6000); return false; }
+    if (state.money < f.cost) { audio.deny(); ui.toast(t('shiftNoMoney'), false, 6000); return false; }
+    if (f.haveCoal) state.inventory.coal -= f.coalNeed;
+    state.money -= f.cost;
+    state.daySpent += f.cost;
+    state.inventory.tea_pack += f.packs;
+    state.packedToday += f.packs;
+    state.shiftDay = state.day;
+    audio.tierUp();
+    ui.toast(t('shiftRun', f.packs, fmtMoney(f.cost, state.settings.lang)), true, 8000);
+    checkWealth(); ui.refreshMoney(); save();
+    return true;
+  }
+
+  // v30.1: Kohle direkt in der Fabrik kaufen (billiger als Stromkosten)
+  function buyCoal() {
+    const F = CFG.factory;
+    const cost = F.coalPrice * F.coalLot;
+    if (state.money < cost) { audio.deny(); return false; }
+    state.money -= cost;
+    state.daySpent += cost;
+    state.inventory.coal += F.coalLot;
+    audio.buy();
+    ui.refreshMoney(); save();
+    return true;
+  }
+
   // --- Land-Grab: Parzellen ---
   // v30: Rivalen-Parzellen lassen sich abkaufen (Aufpreis; Çırak Lv2 verhandelt mit)
   function parcelCost(i) {
@@ -5416,7 +5460,7 @@ export function createGame(ctx, mods) {
     hireWorker, fireWorker, buyAnimal, plantCrop, harvestPlot, sellProduct, buyVehicle,
     doInteract, checkWealth,
     travelTo, canTravel, buyTravelGood, sellAtCity, cityPrice,
-    buyFactory, packBasket, sellSuper, fulfillExport,
+    buyFactory, packBasket, sellSuper, fulfillExport, lineForecast, runShift, buyCoal,
     setIdentity, marry, haveChild, buyProperty, tradeStock, sellBlack, famBonus,
     canFlyIstanbul, flyIstanbul, istanbulPrice, sellIstanbul, flyAlmanya,
     buyHomeUpgrade, setRole, buyFood, speedMul,

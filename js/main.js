@@ -565,6 +565,9 @@ function wireHooks() {
   hooks.buyFactory = () => game.buyFactory();
   hooks.packBasket = () => game.packBasket();
   hooks.sellSuper = (n) => game.sellSuper(n);
+  hooks.lineForecast = () => game.lineForecast();
+  hooks.runShift = () => game.runShift();
+  hooks.buyCoal = () => game.buyCoal();
   hooks.fulfillExport = (i) => game.fulfillExport(i);
   hooks.setIdentity = (n, l, o) => game.setIdentity(n, l, o);
   hooks.marry = () => game.marry();
