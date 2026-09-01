@@ -33,7 +33,9 @@ export function createChars(ctx) {
     // GPUs explodierende Riesen-Dreiecke (S24-Screenshot). Auf Touch laufen
     // deshalb standardmäßig die prozeduralen Figuren; das Diagnose-Panel
     // („3D-Figuren") kann die GLB-Modelle wieder aktivieren.
-    if (ctx.isTouch && !(ctx.gfx && ctx.gfx.richChars)) { resolve(false); return; }
+    // v26: Die Spieße kamen vom Terrain-Index, nicht vom Skinning — GLBs
+    // laufen wieder standardmäßig; 'noChars' im Diagnose-Panel schaltet ab.
+    if (ctx.isTouch && ctx.gfx && ctx.gfx.noChars) { resolve(false); return; }
     new GLTFLoader(ctx.loadingManager).load(BASE + 'human.glb', (gltf) => {
       root = gltf.scene;
       clips = gltf.animations;

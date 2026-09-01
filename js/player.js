@@ -81,8 +81,8 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
       const dx = t.clientX - lookX, dy = t.clientY - lookY;
       lookMoved += Math.abs(dx) + Math.abs(dy);
       if (lookMoved > 7) {
-        euler.y -= dx * 0.0042;
-        euler.x = clamp(euler.x - dy * 0.0042, -1.45, 1.45);
+        euler.y -= dx * 0.0042 * api.touchSens;
+        euler.x = clamp(euler.x - dy * 0.0042 * api.touchSens, -1.45, 1.45);
       }
       lookX = t.clientX; lookY = t.clientY;
     }
@@ -109,6 +109,8 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
     running: false,
     onLockChange: null,
     touchMove: { x: 0, y: 0 },   // virtueller Joystick (-1..1)
+    touchSens: 1,                // v26: Kamera-Empfindlichkeit (Pausenmenü)
+    touchAuto: false,            // v26: Auto-Lauf (Doppeltipp auf den Joystick)
 
     setEnabled(v) { enabled = v; if (!v) keys.clear(); },
 
@@ -153,6 +155,8 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
         wish.addScaledVector(fwd, -tm.y);
         wish.addScaledVector(right, tm.x);
         if (tm.x * tm.x + tm.y * tm.y > 0.8) speed *= P.runFactor;
+      } else if (api.touchAuto) {
+        wish.add(fwd);   // v26: Auto-Lauf geradeaus
       }
       const wants = wish.lengthSq() > 0;
       if (wants) wish.normalize().multiplyScalar(speed);

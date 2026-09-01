@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Çay Vadisi — Teetal am Schwarzen Meer</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍃</text></svg>">
-<link rel="stylesheet" href="css/style.css?v=25.8">
+<link rel="stylesheet" href="css/style.css?v=26.0">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e4d33">
 <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
@@ -123,14 +123,19 @@
 
   <!-- Touch-Steuerung (nur auf Touch-Geräten sichtbar) -->
   <div id="touch-controls" class="hidden">
+    <div id="joy-zone" class="tc"></div>
     <div id="joystick" class="tc"><div id="joystick-knob"></div></div>
     <div id="tc-actions" class="tc">
-      <button id="tbtn-phone" class="tc-btn tc-small">📱</button>
-      <button id="tbtn-map" class="tc-btn tc-small">🗺️</button>
-      <button id="tbtn-menu" class="tc-btn tc-small">🎒</button>
-      <button id="tbtn-pause" class="tc-btn tc-small">⏸</button>
+      <button id="tbtn-more" class="tc-btn tc-small">☰</button>
+      <div id="tc-actions-list" class="hidden">
+        <button id="tbtn-phone" class="tc-btn tc-small">📱</button>
+        <button id="tbtn-map" class="tc-btn tc-small">🗺️</button>
+        <button id="tbtn-menu" class="tc-btn tc-small">🎒</button>
+        <button id="tbtn-pause" class="tc-btn tc-small">⏸</button>
+      </div>
     </div>
     <div id="touch-buttons" class="tc">
+      <div id="act-kg" class="hidden"></div>
       <button id="tbtn-act" class="tc-btn tc-act">✋</button>
       <button id="tbtn-brake" class="tc-btn hidden">▼</button>
       <button id="tbtn-gas" class="tc-btn hidden">▲</button>
@@ -327,6 +332,10 @@
       <span data-i18n="language"></span>
       <button id="btn-lang" class="toggle-btn"></button>
     </div>
+    <div id="touch-rows" class="hidden">
+      <div class="pause-row"><span data-i18n="camSens"></span><button id="btn-sens" class="toggle-btn"></button></div>
+      <button id="btn-fullscreen" class="big-btn ghost" data-i18n="fullscreen"></button>
+    </div>
     <div id="gfx-diag" class="hidden">
       <div class="section-info" data-i18n="gfxHint"></div>
       <div class="pause-row"><span data-i18n="gfxSky"></span><button id="btn-gfx-sky" class="toggle-btn"></button></div>
@@ -379,6 +388,6 @@
 
 <div id="vignette"></div>
 
-<script type="module" src="js/main.js?v=25.8"></script>
+<script type="module" src="js/main.js?v=26.0"></script>
 </body>
 </html>

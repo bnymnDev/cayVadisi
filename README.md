@@ -617,6 +617,24 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   🗺️ Karte, 🎒 Verwaltung und ⏸ Pause; die Minimap wandert auf dem Handy
   nach oben, weg vom Joystick.
 
+### Mobil-Komfort (v26)
+- **Flacker-Ursache endgültig gefixt (v25.8):** Das Terrain nutzte als einzige
+  Geometrie einen 32-Bit-Index-Buffer — auf Samsung-GPUs entstehen daraus
+  schwarze Dreiecks-Spieße. Mobil rendert jetzt mit 16-Bit-Index.
+- **Dynamischer Joystick:** erscheint dort, wo der Daumen aufsetzt;
+  **Doppeltipp = Auto-Lauf** (nächster Griff beendet ihn).
+- **Tipp-Pflücken:** kurzer Tipp auf einen Busch startet Auto-Pflücken,
+  solange man stehen bleibt und Büsche im Blick sind.
+- **Neue Aktionstaste:** pulsiert, wenn etwas benutzbar ist, und zeigt den
+  Korb-Füllstand als goldenen Ring (+ kg-Anzeige).
+- **Aufgeräumtes HUD:** kompakte Toasts oben, Minimap mit Tipp-Zoom,
+  Schnellzugriffe hinter ☰ einklappbar.
+- **Querformat & Vollbild:** Layout passt sich der Drehung an, Vollbild-Knopf
+  im Pausenmenü, einmaliger Querformat-Hinweis.
+- **Kamera-Empfindlichkeit** (×0,7/×1/×1,3) im Pausenmenü, **Vibration** bei
+  Pflücken/Verkauf, Wisch nach unten schließt das Telefon.
+- 3D-Figuren laufen auf Mobil wieder (waren unschuldig am Flackern).
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

@@ -899,6 +899,16 @@ if (!autoTuneOn) applyQuality(state.settings.quality);
 else applyQuality(isTouch ? 'low' : 'high');   // Mobil: klein anfangen, hochtunen
 let emaDt = 1 / 60, tuneTimer = 0;
 
+// v26: einmaliger Hinweis — Querformat + Vollbild spielt sich am besten
+if (isTouch && matchMedia('(orientation: portrait)').matches) {
+  try {
+    if (!localStorage.getItem('cayvadisi_rot_hint')) {
+      localStorage.setItem('cayvadisi_rot_hint', '1');
+      setTimeout(() => { if (window.__started) ui.toast(t('rotateHint'), false, 9000); }, 15000);
+    }
+  } catch (e) { /* egal */ }
+}
+
 // ---------- Debug-API (für Tests) ----------
 window.__game = {
   state, player, sky, camera, renderer, composer, scene, THREE, ctx,
