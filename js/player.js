@@ -20,6 +20,7 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
   let airY = 0, vy = 0, jumpCd = 0;
   let groundEye = pos.y;
   let landDip = 0;   // v28: kleiner Kamera-Knicks bei der Landung
+  let waterChkT = 0; // v28.1: Wer im Wasser strandet, wird ans Ufer gerettet
   let wantLock = false;    // Spiel möchte PointerLock (First-Person aktiv)
   let relockTimer = 0;     // Auto-Retry: Chrome blockt Lock ~1,3 s nach jedem Exit
   let relockTries = 0;
@@ -215,6 +216,35 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
         if (terrain.heightAt(nx, pos.z) > 0.35) pos.x = nx;
         if (terrain.heightAt(pos.x, nz) > 0.35) pos.z = nz;
         api.hitWater = true;
+      }
+
+      // v28.1: Rettung — steht der Spieler IM Wasser (z. B. nach einem
+      // schlechten Teleport), zurück ans nächste Ufer statt für immer fest
+      waterChkT -= dt;
+      if (waterChkT <= 0) {
+        waterChkT = 1;
+        const inWater = terrain.heightAt(pos.x, pos.z) <= 0.35;
+        // eingeschlossen: rundum (2,5 m) nur Wasser — Sandbank-Falle
+        let trapped = true;
+        if (!inWater) {
+          for (let a = 0; a < 8 && trapped; a++) {
+            const ang = (a / 8) * Math.PI * 2;
+            if (terrain.heightAt(pos.x + Math.cos(ang) * 2.5, pos.z + Math.sin(ang) * 2.5) > 0.35) trapped = false;
+          }
+        }
+        if (inWater || trapped) {
+          outer: for (let r = 4; r <= 80; r += 4) {
+            for (let a = 0; a < 14; a++) {
+              const ang = (a / 14) * Math.PI * 2;
+              const lx = pos.x + Math.cos(ang) * r, lz = pos.z + Math.sin(ang) * r;
+              if (terrain.heightAt(lx, lz) > 0.7
+                  && terrain.heightAt(lx + 2, lz) > 0.5 && terrain.heightAt(lx, lz + 2) > 0.5) {
+                api.teleport(lx, lz);
+                break outer;
+              }
+            }
+          }
+        }
       }
 
       // Weltgrenzen

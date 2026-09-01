@@ -4202,17 +4202,42 @@ export function createGame(ctx, mods) {
     const r = (state.settings.bot || {}).reserve;
     return r === 0 ? 0 : (r || CFG.bot.moneyReserve);
   }
+  // v28.1: sicheren Landepunkt an Land suchen (nie im Wasser absetzen!)
+  function landNear(tx, tz) {
+    if (terrain.heightAt(tx, tz) > 0.7) return { x: tx, z: tz };
+    for (let r = 3; r <= 40; r += 3) {
+      for (let a = 0; a < 10; a++) {
+        const ang = (a / 10) * Math.PI * 2;
+        const lx = tx + Math.cos(ang) * r, lz = tz + Math.sin(ang) * r;
+        if (terrain.heightAt(lx, lz) > 0.7) return { x: lx, z: lz };
+      }
+    }
+    return { x: CFG.player.spawn.x, z: CFG.player.spawn.z };
+  }
   // v28: weite Wege nimmt der Bot den Dolmuş (Fahrpreis statt Fußmarsch)
   function botTravel(tx, tz) {
     if (distTo(tx, tz) > CFG.bot.dolmusMinDist && state.money >= CFG.bot.dolmusFare + botReserve()) {
       state.money -= CFG.bot.dolmusFare;
       state.daySpent += CFG.bot.dolmusFare;
-      player.teleport(tx + 3, tz + 3);
+      const L = landNear(tx + 3, tz + 3);   // v28.1: Steg & Co. liegen am Wasser
+      player.teleport(L.x, L.z);
       ui.refreshMoney();
       ui.toast(t('botDolmus'), true, 5500);
       return true;
     }
     return false;
+  }
+  // v28.1: Notfall-Knopf — zurück zum Feld, egal wo man festhängt
+  function rescueHome() {
+    stopAutoFarm(null);
+    if (vehicles.driving) { vehicles.exit(); audio.engineStop(); }
+    if (boat.driving) boat.exit();
+    player.autoTarget = null;
+    player.teleport(CFG.player.spawn.x, CFG.player.spawn.z);
+    ui.hideOverlays();
+    pause(false);
+    ui.toast(t('rescueDone'), true, 6000);
+    save();
   }
   // v28: Wegenetz — Zwischenknoten nehmen, wenn er den Weg kaum verlängert
   function botNextHop(tx, tz) {
@@ -4606,8 +4631,6 @@ export function createGame(ctx, mods) {
         if (hi >= 0 && !(state._hugged || {})[hi] && !(state._favors || {})[hi]) return { id: 'hug', data: hi };
       }
     }
-    if (state.dog && mods.dog && Math.hypot(player.pos.x - mods.dog.pos.x, player.pos.z - mods.dog.pos.z) < CFG.interactDist + 1
-        && Object.keys(state.dogTricks).length < 3) return { id: 'dogtrain' };
     if (!motoRace && mods.motorace && mods.motorace.nearStart(player.pos.x, player.pos.z)) return { id: 'motorace' };
     if (mods.planetree) {
       if (mods.planetree.onPlatform(player.pos.x, player.pos.z)) {
@@ -4682,6 +4705,10 @@ export function createGame(ctx, mods) {
     if (featureOn('tavla') && distTo(CFG.city.x + 12, CFG.city.z - 4) < CFG.interactDist) return { id: 'tavla' };
     if (state.hives < CFG.yayla.maxHives
         && distTo(CFG.yayla.x + 6, CFG.yayla.z + 2) < CFG.interactDist + 2) return { id: 'hive' };
+    // v28.1: Kangal-Ausbildung zuletzt — der Hund folgt überallhin und darf
+    // keine anderen Interaktionen (Fabrik, Markt, Türen …) verdecken
+    if (state.dog && mods.dog && Math.hypot(player.pos.x - mods.dog.pos.x, player.pos.z - mods.dog.pos.z) < CFG.interactDist - 1
+        && Object.keys(state.dogTricks).length < 3) return { id: 'dogtrain' };
     return null;
   }
 
@@ -4696,8 +4723,21 @@ export function createGame(ctx, mods) {
       pendingOffline = Math.round(h * (OF.perHourBase + state.workers * OF.perWorker));
     }
   }
+  let waterRescueT = 0;   // v28.1: Wasser-Rettung läuft sicher im Spiel-Update
   function update(dt, elapsed) {
     if (!running || paused || frozen) return;
+    waterRescueT -= dt;
+    if (waterRescueT <= 0) {
+      waterRescueT = 1;
+      if (!boat.driving && !istanbulMode
+          && !(mods.heli && mods.heli.driving) && !(mods.gulet && mods.gulet.touring)
+          && !(mods.diving && mods.diving.active) && !(mods.sled && mods.sled.riding)
+          && terrain.heightAt(player.pos.x, player.pos.z) <= 0.35) {
+        const L = landNear(player.pos.x, player.pos.z);
+        player.teleport(L.x, L.z);
+        ui.toast(t('rescueDone'), true, 5000);
+      }
+    }
     if (pendingOffline > 0) {
       const g = Math.round(pendingOffline * (1 + 0.1 * botLevel()));
       pendingOffline = 0;
@@ -5303,6 +5343,7 @@ export function createGame(ctx, mods) {
     boardDolmus, leaveDolmus, buyFlowers, buyRadyo, setRadyoProgram,
     toggleAutoFarm,
     toggleBot,
+    rescueHome,
     inviteBuddy, konakEnter, konakExit,
     get motoRaceTime() { return motoRace ? motoRace.t : -1; },
     setFrozen(v) { frozen = v; },

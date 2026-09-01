@@ -539,6 +539,7 @@ function wireHooks() {
   hooks.sellValue = () => game.sellValue();
   hooks.buyUpgrade = (id) => game.buyUpgrade(id);
   hooks.doSell = () => game.doSell();
+  hooks.rescueHome = () => game.rescueHome();
   hooks.closeShop = () => { ui.hideOverlays(); game.pause(false); };
   hooks.plantCrop = (id) => game.plantCrop(id);
   hooks.buyAnimal = (id) => game.buyAnimal(id);
@@ -911,7 +912,7 @@ if (isTouch && matchMedia('(orientation: portrait)').matches) {
 
 // ---------- Debug-API (für Tests) ----------
 window.__game = {
-  state, player, sky, camera, renderer, composer, scene, THREE, ctx,
+  state, player, sky, camera, renderer, composer, scene, THREE, ctx, terrain,
   tea: teaField, ui,
   get game() { return game; },
   get props() { return propsApi; },

@@ -3280,6 +3280,7 @@ export function createUI(ctx, hooks) {
       refreshBotRows(); hooks.saveNow && hooks.saveNow();
     });
     refreshBotRows();
+    $('btn-rescue').addEventListener('click', () => { if (hooks.rescueHome) hooks.rescueHome(); });
   }
   $('btn-sens').addEventListener('click', (e) => {
     const order = [0.7, 1, 1.3];
