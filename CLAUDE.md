@@ -28,6 +28,12 @@ komplett offline, DE/TR). Start: `npm start` → `http://localhost:8137`.
 - Spielstand: `localStorage` (`cayvadisi_save_v2`), `state.js` migriert ältere Stände.
 - Tests: headless Playwright gegen `http://127.0.0.1:8137` (localhost kann im Proxy-Setup
   hängen), Debug-API `window.__game` (`sim()` = Logik ohne Rendern, `shot()` = Canvas-JPEG).
+- **Release-Tempo (v27-Lektion):** Der SwiftShader-Boot kostet 2–4 min — deshalb pro
+  Release nur EIN kombinierter Kurztest (alle Asserts in einem Browser-Boot, sim-lastig,
+  kurze Timeouts). Deploy-Workflow (Secrets, ohne Inputs) direkt nach dem Merge starten
+  und den einen Live-Check (`curl sw.js | grep CACHE`) erst nach ~45 s machen — nicht
+  pollen. Hintergrund-Tasks mit EINEM Warte-Kommando (`while pgrep …; do sleep 10; done`)
+  statt vieler kurzer Sleeps.
 
 ## Roadmap / Merker
 - **Multiplayer (Koop im Tal): vom Nutzer gewünscht, bewusst NOCH NICHT eingebaut.**
