@@ -345,6 +345,25 @@ export function createIstanbul(ctx, terrain) {
   // Höhen-Zone erst jetzt registrieren (Terrain-Mesh & Minimap sind gebaut)
   terrain.addHeightZone(Z);
 
+  // v29: Skyline-Hintergrund — Wohnblocks mit beleuchteten Fenstern hinter
+  // dem Kai, damit Istanbul nach Großstadt aussieht (nur Kulisse, keine Kollider).
+  {
+    let sseed = 4217;
+    const srnd = () => { sseed = (sseed * 16807) % 2147483647; return sseed / 2147483647; };
+    const addBlock = (x, z) => {
+      const bh = 5 + srnd() * 13, bw = 4 + srnd() * 3;
+      const tex = windowTexture(64, 128, 4, 9, '#4d545c', '#ffd98a');
+      const m = new THREE.Mesh(
+        new THREE.BoxGeometry(bw, bh, bw),
+        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.22 }));
+      m.position.set(x, Math.max(terrain.heightAt(x, z), Z.h) + bh / 2, z);
+      m.rotation.y = (srnd() - 0.5) * 0.4;
+      g.add(m);
+    };
+    for (let x = Z.x0 - 6; x <= Z.x1 + 8; x += 8 + srnd() * 5) addBlock(x, Z.z1 + 9 + srnd() * 10);
+    for (let z = Z.z0; z <= Z.z1; z += 9 + srnd() * 4) addBlock(Z.x0 - 10 - srnd() * 8, z);
+  }
+
   return {
     colliders,
     inZone(x, z) { return x >= Z.x0 && x <= Z.x1 && z >= Z.z0 && z <= Z.z1; },

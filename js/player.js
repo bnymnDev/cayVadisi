@@ -121,6 +121,7 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
     autoTarget: null,            // v26.2: Autopilot-Ziel (Auto-Pflücken)
     lastManual: false,           // v26.2: wurde diese Frame manuell gesteuert?
     get airborne() { return airY > 0.25; },   // v27: in der Luft?
+    noTeaCollide: false,   // v29: Bot-Modus ignoriert Busch-Kollision
 
     // v27: Sprung — über Büsche hinweg (Kollision setzt in der Luft aus)
     jump() {
@@ -262,7 +263,7 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
       landDip = Math.max(0, landDip - dt * 0.5);
 
       // Kollisionen: Büsche + Requisiten — in der Luft geht's über die Büsche
-      if (airY <= 0.25) teaCollide(pos, P.radius);
+      if (airY <= 0.25 && !api.noTeaCollide) teaCollide(pos, P.radius);
       for (const c of getColliders()) {
         const dx = pos.x - c.x, dz = pos.z - c.z;
         const rr = c.r + P.radius;

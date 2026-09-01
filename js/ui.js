@@ -2693,6 +2693,12 @@ export function createUI(ctx, hooks) {
           </div>
           <button id="btn-cirak" class="big-btn ghost">🎓 ${state.cirak ? t('cirakStatus', state.cirak.level) : t('cirakHireBtn')}</button>
           ${state.dog ? `<button id="btn-dog" class="big-btn ghost">🐕 ${t('dogMenuBtn', Object.keys(state.dogTricks).length)}</button>` : ''}
+          <button id="btn-dukkan" class="big-btn ghost">🛒 ${t('dukkanBtn')}</button>
+          ${(() => { const total = CFG.parcels.spots.length;
+            let owned = 0, taken = 0;
+            for (let i = 0; i < total; i++) { if (state.parcels[i] === 'me') owned++; if (state.parcels[i]) taken++; }
+            return `<button id="btn-parcel" class="big-btn ghost" ${taken < total && state.money >= CFG.parcels.price ? '' : 'disabled'}>
+              🏞️ ${t('parcelBuyBtn', owned, total, fmtMoney(CFG.parcels.price, L))}</button>`; })()}
           ${state.workerData.map((wd, i) => {
             let lvl = 0;
             for (let li = 0; li < CFG.workerLevelDays.length; li++) if ((wd.days || 0) >= CFG.workerLevelDays[li]) lvl = li;
@@ -2709,6 +2715,8 @@ export function createUI(ctx, hooks) {
         $('btn-cirak').addEventListener('click', () => { api.hideOverlays(); api.showCirak(); });
         const db = $('btn-dog');
         if (db) db.addEventListener('click', () => { api.hideOverlays(); api.showDog(); });
+        $('btn-dukkan').addEventListener('click', () => { api.hideOverlays(); api.showShop(); });
+        $('btn-parcel').addEventListener('click', () => { if (hooks.buyNextParcel && hooks.buyNextParcel()) api.renderManage(); });
         $('btn-fire').addEventListener('click', () => { if (hooks.fireWorker()) api.renderManage(); });
         const sb = $('btn-sofor');
         if (sb) sb.addEventListener('click', () => { if (hooks.promoteSofor()) api.renderManage(); });
@@ -3263,6 +3271,15 @@ export function createUI(ctx, hooks) {
   const botSet = () => state.settings.bot || (state.settings.bot = { fish: true, reserve: 400, crop: 'auto' });
   const refreshBotRows = () => {
     const B = botSet();
+    if ($('btn-pickspeed')) {
+      const refreshPS = () => { $('btn-pickspeed').textContent = '×' + (state.settings.pickSpeed || 1); };
+      $('btn-pickspeed').addEventListener('click', () => {
+        const steps = [1, 2, 3];
+        state.settings.pickSpeed = steps[(steps.indexOf(state.settings.pickSpeed || 1) + 1) % steps.length];
+        refreshPS();
+      });
+      refreshPS();
+    }
     if ($('btn-bot-fish')) {
       $('btn-bot-fish').textContent = B.fish !== false ? '✔' : '✖';
       $('btn-bot-reserve').textContent = (B.reserve ?? 400) + ' ₺';

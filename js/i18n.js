@@ -744,6 +744,12 @@ const STRINGS = {
     rescueBtn: '🏠 Zurück zum Feld (Notfall)',
     rescueDone: '🏠 Uff! Zurück am Teefeld — weiter geht\u2019s.',
     dogMenuBtn: (n) => `Kangal ausbilden · ${n}/3 Tricks`,
+    pickSpeedLabel: '⚡ Pflücktempo',
+    dukkanBtn: 'Dükkan öffnen (Ausrüstung & Parzellen)',
+    parcelBuyBtn: (o, n, pr) => `Parzelle kaufen · ${o}/${n} · ${pr}`,
+    cityStage1: '🏘️ Das Dorf ist zur KASABA gewachsen — neue Häuser und mehr Verkehr!',
+    cityStage2: '🏙️ Die Kasaba ist jetzt eine ŞEHİR — Wohnblocks und volle Straßen!',
+    cityStage3: '🌆 METROPOLE! Hochhäuser leuchten über dem Tal — dein Imperium hat eine Skyline.',
 
     // ---- v5: Story — Dede-Çayı ----
     stContinue: 'Weiter',
@@ -2019,6 +2025,12 @@ const STRINGS = {
     rescueBtn: '🏠 Tarlaya dön (acil durum)',
     rescueDone: '🏠 Oh be! Çay tarlasına geri döndün — devam.',
     dogMenuBtn: (n) => `Kangal eğit · ${n}/3 numara`,
+    pickSpeedLabel: '⚡ Toplama hızı',
+    dukkanBtn: 'Dükkanı aç (ekipman & parseller)',
+    parcelBuyBtn: (o, n, pr) => `Parsel al · ${o}/${n} · ${pr}`,
+    cityStage1: '🏘️ Köy KASABA oldu — yeni evler, daha çok trafik!',
+    cityStage2: '🏙️ Kasaba artık ŞEHİR — apartmanlar ve dolu yollar!',
+    cityStage3: '🌆 METROPOL! Gökdelenler vadinin üzerinde parlıyor.',
 
     // ---- v5: Hikâye — Dede Çayı ----
     stContinue: 'Devam',
@@ -3233,6 +3245,12 @@ const STRINGS = {
     rescueBtn: '🏠 Back to the field (emergency)',
     rescueDone: '🏠 Phew! Back at the tea field — carry on.',
     dogMenuBtn: (n) => `Train Kangal · ${n}/3 tricks`,
+    pickSpeedLabel: '⚡ Picking speed',
+    dukkanBtn: 'Open shop (gear & parcels)',
+    parcelBuyBtn: (o, n, pr) => `Buy parcel · ${o}/${n} · ${pr}`,
+    cityStage1: '🏘️ The village grew into a KASABA — new houses and more traffic!',
+    cityStage2: '🏙️ The kasaba is now a CITY — apartment blocks and busy roads!',
+    cityStage3: '🌆 METROPOLIS! Towers light up above the valley.',
     stContinue: 'Continue',
     stIcon_letter: '✉️', stTitle_letter: 'Grandfather\'s letter',
     stText_letter: '"Evlat, if you\'re reading this, the valley is yours. Pick your first 10 kilos — then you\'ll understand why I never left. Something waits for you in the old factory." Your first 10 kg are in. +250 ₺ from Dede\'s envelope.',
