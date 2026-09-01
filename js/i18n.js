@@ -723,6 +723,12 @@ const STRINGS = {
     autoFarmWait: '🌱 Feld leergepflückt — deine Figur wartet, bis Triebe nachwachsen.',
     autoFarmHome: '🌙 Feierabend — deine Figur geht nach Hause schlafen und macht morgen weiter.',
     autoFarmSleep: '😴 Gute Nacht! Morgen früh geht das Pflücken automatisch weiter.',
+    botOn: '🤖 Vali-Bot AN — er pflückt, erntet, angelt, verkauft und schläft von selbst. Jede Eingabe stoppt ihn.',
+    botOff: '🤖 Vali-Bot aus.',
+    botFish: '🎣 Der Bot angelt am Steg …',
+    botMarket: (sum) => `🧺 Bot: Waren für ${sum} auf dem Pazar verkauft.`,
+    botTrip: '☕ Der Bot gönnt sich einen kleinen Ausflug ins Städtchen.',
+    botShopping: '🛍️ Der Bot hat sich neue Ausrüstung gekauft.',
 
     // ---- v5: Story — Dede-Çayı ----
     stContinue: 'Weiter',
@@ -1977,6 +1983,12 @@ const STRINGS = {
     autoFarmWait: '🌱 Tarla toplandı — karakterin filizlerin büyümesini bekliyor.',
     autoFarmHome: '🌙 Paydos — karakterin eve gidip uyuyor, yarın devam.',
     autoFarmSleep: '😴 İyi geceler! Sabah toplama otomatik devam edecek.',
+    botOn: '🤖 Vali-Bot AÇIK — kendi kendine toplar, hasat eder, balık tutar, satar ve uyur. Her giriş onu durdurur.',
+    botOff: '🤖 Vali-Bot kapalı.',
+    botFish: '🎣 Bot iskelede balık tutuyor …',
+    botMarket: (sum) => `🧺 Bot: Pazarda ${sum} değerinde ürün satıldı.`,
+    botTrip: '☕ Bot kasabaya küçük bir gezi yapıyor.',
+    botShopping: '🛍️ Bot kendine yeni ekipman aldı.',
 
     // ---- v5: Hikâye — Dede Çayı ----
     stContinue: 'Devam',
@@ -3170,6 +3182,12 @@ const STRINGS = {
     autoFarmWait: '🌱 Field picked clean — your character waits for shoots to regrow.',
     autoFarmHome: '🌙 Closing time — your character heads home to sleep and continues tomorrow.',
     autoFarmSleep: '😴 Good night! Picking continues automatically in the morning.',
+    botOn: '🤖 Vali-Bot ON — it picks, harvests, fishes, sells and sleeps on its own. Any input stops it.',
+    botOff: '🤖 Vali-Bot off.',
+    botFish: '🎣 The bot is fishing at the pier …',
+    botMarket: (sum) => `🧺 Bot: sold goods worth ${sum} at the market.`,
+    botTrip: '☕ The bot is taking a little trip to town.',
+    botShopping: '🛍️ The bot bought itself new gear.',
     stContinue: 'Continue',
     stIcon_letter: '✉️', stTitle_letter: 'Grandfather\'s letter',
     stText_letter: '"Evlat, if you\'re reading this, the valley is yours. Pick your first 10 kilos — then you\'ll understand why I never left. Something waits for you in the old factory." Your first 10 kg are in. +250 ₺ from Dede\'s envelope.',
