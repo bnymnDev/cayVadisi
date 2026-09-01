@@ -635,6 +635,19 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   Pflücken/Verkauf, Wisch nach unten schließt das Telefon.
 - 3D-Figuren laufen auf Mobil wieder (waren unschuldig am Flackern).
 
+### Auto-Farm „Gelddruckmaschine" (v26.2/26.3)
+- **WoW-Style Auto-Lauf** (Doppeltipp bzw. NumLock) und **Auto-Pflücken**
+  über den 🌿-Knopf: Der Spieler sucht selbstständig reife Büsche.
+- **Vollautomatischer Tagesablauf (v26.3):** pflücken → Korb voll →
+  zur Annahmestelle laufen und verkaufen → weiterpflücken; ist das Feld
+  leer, wird auf nachwachsende Triebe gewartet; ab dem Abend geht es
+  nach Hause ins Bett, und am nächsten Morgen läuft alles von selbst
+  weiter — auch nach einem Mitternachts-Kollaps. Im Winter macht die
+  Automatik Pause.
+- **Anti-Steckenbleiben:** bleibt der Autopilot zwischen Büschen hängen,
+  weicht er seitlich aus; unerreichbare Büsche werden zeitweise gemieden.
+- Jede manuelle Eingabe beendet die Automatik sofort.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

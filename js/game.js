@@ -4062,11 +4062,19 @@ export function createGame(ctx, mods) {
   // solange ein Busch im Blick ist und man stehen bleibt.
   let touchStart = null, touchT0 = 0;
   let touchAutoPick = false;
-  // v26.2: WoW-Style Auto-Pflücken — Figur läuft selbst von Busch zu Busch
+  // v26.2/26.3: WoW-Style Auto-Pflücken — vollautomatischer Tagesablauf:
+  // pflücken → Korb voll: verkaufen → Feld leer: warten (Triebe wachsen nach)
+  // → Abend: schlafen → neuer Tag: weiter. Anti-Steckenbleiben inklusive.
   let autoFarm = false, autoFarmPick = false, autoFarmScan = 0;
+  let autoFarmMode = 'pick';          // pick | sell | sleep
+  let autoTargetIsBush = false;
+  let autoStuckT = 0, autoLastX = 0, autoLastZ = 0, autoDetour = 0;
+  let autoSkip = null, autoWaitToast = false;
   function toggleAutoFarm() {
     autoFarm = !autoFarm;
     autoFarmPick = false;
+    autoFarmMode = 'pick';
+    autoStuckT = 0; autoDetour = 0; autoSkip = null; autoWaitToast = false;
     if (!autoFarm) player.autoTarget = null;
     else audio.pickDone();
     ui.toast(t(autoFarm ? 'autoFarmOn' : 'autoFarmOff'), autoFarm, 4500);
@@ -4076,6 +4084,19 @@ export function createGame(ctx, mods) {
     autoFarm = false; autoFarmPick = false;
     player.autoTarget = null;
     if (msgKey) ui.toast(t(msgKey), msgKey === 'autoFarmFull', 6000);
+  }
+  // v26.3: nach endDay() (Schlaf ODER Mitternachts-Kollaps) automatisch in den
+  // nächsten Tag weiterlaufen, solange Auto-Farm aktiv ist
+  function autoFarmResume() {
+    if (state.seasonOver) { stopAutoFarm(null); return; }
+    setTimeout(() => {
+      if (!autoFarm || running) return;
+      ui.hideOverlays();
+      nextDay();
+      autoFarmMode = 'pick'; autoFarmScan = 0; autoWaitToast = false;
+      autoStuckT = 0; autoDetour = 0; autoSkip = null;
+      player.autoTarget = null; autoTargetIsBush = false;
+    }, 3500);
   }
   window.addEventListener('touchstart', (e) => {
     if (!running || paused || ui.overlayOpen() || vehicles.driving) return;
@@ -4512,6 +4533,7 @@ export function createGame(ctx, mods) {
     if (state.timeSec >= CFG.dayLengthSec + nightLen) {
       ui.toast(t('nightCollapse'), false, 7000);
       endDay();
+      if (autoFarm) autoFarmResume();   // v26.3: Gelddruckmaschine läuft weiter
       return;
     }
     if (state.timeSec >= CFG.dayLengthSec && !state._nightToast) {
@@ -4743,40 +4765,110 @@ export function createGame(ctx, mods) {
     }
     ui.setSpeed(null);
 
-    // v26.2: Auto-Pflücken — zum nächsten reifen Busch laufen und ernten
+    // v26.3: Auto-Pflücken 2.0 — Zustandsmaschine mit Verkauf, Warten,
+    // Schlafen und Anti-Steckenbleiben
     autoFarmPick = false;
     if (autoFarm) {
       const cap = basketCapacity(CFG);
-      if (state.basketKg >= cap - 0.01) stopAutoFarm('autoFarmFull');
-      else if (player.lastManual) stopAutoFarm(null);   // manuelles Eingreifen
+      if (player.lastManual) stopAutoFarm(null);   // manuelles Eingreifen beendet alles
       else {
-        autoFarmScan -= dt;
-        if (autoFarmScan <= 0 || !player.autoTarget) {
-          autoFarmScan = 0.4;
-          const near = tea.nearestRipe(player.pos.x, player.pos.z, CFG.autoFarm ? CFG.autoFarm.radius : 22);
-          if (!near) stopAutoFarm('autoFarmNone');
-          else {
-            const d = Math.hypot(near.x - player.pos.x, near.z - player.pos.z);
-            if (d > 2.1) player.autoTarget = { x: near.x, z: near.z };
-            else {
+        // --- Steckenbleiben erkennen: Ziel da, aber kaum Bewegung ---
+        if (player.autoTarget) {
+          const moved = Math.hypot(player.pos.x - autoLastX, player.pos.z - autoLastZ);
+          if (moved < dt * 0.5) autoStuckT += dt;
+          else autoStuckT = Math.max(0, autoStuckT - dt * 2);
+          if (autoStuckT > 1.1) {
+            autoStuckT = 0;
+            autoDetour += 1;
+            if (autoDetour >= 3 && autoTargetIsBush) {
+              // Busch unerreichbar: eine Weile meiden, anderen nehmen
+              autoSkip = { x: player.autoTarget.x, z: player.autoTarget.z, until: state.timeSec + 25 };
+              autoDetour = 0;
               player.autoTarget = null;
-              player.look(Math.atan2(-(near.x - player.pos.x), -(near.z - player.pos.z)), -0.55);
+              autoFarmScan = 0;
+            } else {
+              // seitlicher Ausweich-Wegpunkt um das Hindernis herum
+              const ddx = player.autoTarget.x - player.pos.x;
+              const ddz = player.autoTarget.z - player.pos.z;
+              const dd = Math.hypot(ddx, ddz) || 1;
+              const side = (autoDetour % 2 ? 1 : -1) * 2.2;
+              player.autoTarget = {
+                x: player.pos.x + (ddx / dd) * 1.4 - (ddz / dd) * side,
+                z: player.pos.z + (ddz / dd) * 1.4 + (ddx / dd) * side
+              };
+              autoTargetIsBush = false;
+            }
+          }
+        } else { autoStuckT = 0; }
+        autoLastX = player.pos.x; autoLastZ = player.pos.z;
+
+        if (autoFarmMode === 'sell') {
+          // --- Korb zur Annahmestelle bringen und verkaufen ---
+          if (distTo(CFG.hut.x, CFG.hut.z) < CFG.interactDist + 2.5) {
+            player.autoTarget = null; autoTargetIsBush = false; autoDetour = 0;
+            if (state.basketKg > 0.01) doSell();
+            autoFarmMode = 'pick'; autoFarmScan = 0;
+          } else if (!player.autoTarget || autoTargetIsBush) {
+            player.autoTarget = { x: CFG.hut.x + 1.5, z: CFG.hut.z + 1.5 };
+            autoTargetIsBush = false;
+          }
+        } else if (autoFarmMode === 'sleep') {
+          // --- nach Hause und schlafen, morgens automatisch weiter ---
+          if (distTo(CFG.home.x, CFG.home.z) < CFG.interactDist + 1.5) {
+            player.autoTarget = null; autoTargetIsBush = false; autoDetour = 0;
+            ui.toast(t('autoFarmSleep'), true, 6000);
+            endDay();
+            autoFarmResume();
+          } else if (!player.autoTarget || autoTargetIsBush) {
+            player.autoTarget = { x: CFG.home.x + 1, z: CFG.home.z + 1 };
+            autoTargetIsBush = false;
+          }
+        } else if (state.basketKg >= cap - 0.01) {
+          autoFarmMode = 'sell';
+          player.autoTarget = null; autoTargetIsBush = false; autoDetour = 0;
+          ui.toast(t('autoFarmSell'), true, 6000);
+        } else {
+          // --- pflücken / warten ---
+          autoFarmScan -= dt;
+          if (autoFarmScan <= 0) {
+            autoFarmScan = 0.4;
+            let near = tea.nearestRipe(player.pos.x, player.pos.z, 26);
+            if (near && autoSkip && state.timeSec < autoSkip.until
+                && Math.hypot(near.x - autoSkip.x, near.z - autoSkip.z) < 0.6) {
+              near = tea.nearestRipe(autoSkip.x + 5, autoSkip.z + 5, 26);
+            }
+            if (!near) {
+              player.autoTarget = null; autoTargetIsBush = false;
+              if (season() === 2) stopAutoFarm('autoFarmNone');           // Winterruhe
+              else if (sky.hour >= 17.5) {
+                if (state.basketKg > 0.5) { autoFarmMode = 'sell'; }     // Rest noch verkaufen
+                else { autoFarmMode = 'sleep'; ui.toast(t('autoFarmHome'), true, 7000); }
+              } else if (!autoWaitToast) {
+                autoWaitToast = true;
+                ui.toast(t('autoFarmWait'), false, 7000);
+              }
+            } else {
+              autoWaitToast = false;
+              const d = Math.hypot(near.x - player.pos.x, near.z - player.pos.z);
+              if (d > 2.3) { player.autoTarget = { x: near.x, z: near.z }; autoTargetIsBush = true; }
+              else {
+                player.autoTarget = null; autoTargetIsBush = false; autoDetour = 0;
+                player.look(Math.atan2(-(near.x - player.pos.x), -(near.z - player.pos.z)), -0.55);
+                autoFarmPick = true;
+              }
+            }
+          } else if (!player.autoTarget) {
+            autoFarmPick = true;   // zwischen Scans stehend weiterpflücken
+          }
+          // dicht am Busch-Ziel: stehen bleiben und pflücken
+          if (player.autoTarget && autoTargetIsBush) {
+            const d2 = Math.hypot(player.autoTarget.x - player.pos.x, player.autoTarget.z - player.pos.z);
+            if (d2 <= 2.3) {
+              player.look(Math.atan2(-(player.autoTarget.x - player.pos.x), -(player.autoTarget.z - player.pos.z)), -0.55);
+              player.autoTarget = null; autoTargetIsBush = false; autoDetour = 0;
               autoFarmPick = true;
             }
           }
-        } else if (!player.autoTarget) {
-          autoFarmPick = true;
-        }
-        // dicht am Ziel: stehen bleiben und pflücken
-        if (player.autoTarget) {
-          const d2 = Math.hypot(player.autoTarget.x - player.pos.x, player.autoTarget.z - player.pos.z);
-          if (d2 <= 2.1) {
-            player.look(Math.atan2(-(player.autoTarget.x - player.pos.x), -(player.autoTarget.z - player.pos.z)), -0.55);
-            player.autoTarget = null;
-            autoFarmPick = true;
-          }
-        } else if (!autoFarmPick) {
-          autoFarmPick = true;   // stehend weiterpflücken, bis der Scan neu zielt
         }
       }
     }
