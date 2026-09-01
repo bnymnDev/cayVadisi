@@ -107,6 +107,7 @@ export const state = {
   // v17: Imperium sichtbar
   factoryLines: 0,                 // Produktionslinien in der Fabrik (0..5)
   factoryLog: null,                // v30: { made, sold } der letzten Nacht
+  shiftDay: 0,                     // v30.1: Tag der letzten Sonderschicht
   kahya: false,                    // v30: Kâhya-Modus — Çırak führt den Betrieb
   kahyaReport: null,               // v30: { earned, harv, planted, ex } der letzten Nacht
   parcels: [],                     // Parzellen: null|'me'|'kemal'|'saban'|'nurten'
@@ -319,7 +320,7 @@ export function save() {
     kemalPressure: s.kemalPressure, falcon: s.falcon, bridge: s.bridge,
     xp: s.xp,
     factoryLines: s.factoryLines, parcels: s.parcels, railway: s.railway,
-    factoryLog: s.factoryLog, kahya: s.kahya, kahyaReport: s.kahyaReport,
+    factoryLog: s.factoryLog, kahya: s.kahya, kahyaReport: s.kahyaReport, shiftDay: s.shiftDay,
     landslide: s.landslide, stall: s.stall, queen: s.queen,
     beeCupWins: s.beeCupWins, billboards: s.billboards, campaign: s.campaign,
     featureUnlocks: s.featureUnlocks, branch: s.branch, npcRel: s.npcRel, favorsDone: s.favorsDone,
@@ -466,6 +467,7 @@ export function load() {
     state.factoryLines = d.factoryLines ?? 0;
     state.parcels = Array.isArray(d.parcels) ? d.parcels : [];
     state.factoryLog = d.factoryLog ?? null;
+    state.shiftDay = d.shiftDay ?? 0;
     state.kahya = !!d.kahya;
     state.kahyaReport = d.kahyaReport ?? null;
     state.railway = d.railway ?? false;

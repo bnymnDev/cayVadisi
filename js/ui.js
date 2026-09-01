@@ -2123,6 +2123,17 @@ export function createUI(ctx, hooks) {
           ${state.factoryLog && state.factoryLines > 0 ? `<div class="section-info">${state.factoryLog.made > 0
             ? t('factoryNight', state.factoryLog.made, state.factoryLog.sold)
             : t('factoryNightOff')}</div>` : ''}
+          ${(() => { const f = hooks.lineForecast ? hooks.lineForecast() : null;
+            if (!f) return '';
+            const energy = f.haveCoal ? `${f.coalNeed} 🪨` : `${fmtMoney(f.energy, L)} ⚡`;
+            return `<div class="section-info">${t('factoryForecast', f.lines, f.packs, fmtMoney(f.cost, L), energy)}</div>
+              <div class="btn-row">
+                <button id="btn-shift" class="big-btn" ${state.shiftDay !== state.day && state.money >= f.cost ? '' : 'disabled'}>
+                  ⚙️ ${t('shiftBtn', f.packs)}</button>
+                <button id="btn-coal" class="big-btn ghost" ${state.money >= CFG.factory.coalPrice * CFG.factory.coalLot ? '' : 'disabled'}>
+                  🪨 ${t('coalBuyBtn', CFG.factory.coalLot, fmtMoney(CFG.factory.coalPrice * CFG.factory.coalLot, L))}</button>
+              </div>`; })()}
+          ${packs > 0 ? `<button id="btn-sell-packs" class="big-btn ghost">💰 ${t('sellPacksBtn', packs)}</button>` : ''}
           <button id="btn-pack" class="big-btn" ${canPack ? '' : 'disabled'}>
             ${t('packNow', Math.floor(state.basketKg))}</button>
           <h3>${t('styleTitle')}</h3>
@@ -2162,6 +2173,12 @@ export function createUI(ctx, hooks) {
         if (ln) ln.addEventListener('click', () => { if (hooks.buyLine()) api.renderFactory(); });
         const cp = $('btn-campaign');
         if (cp) cp.addEventListener('click', () => { if (hooks.bookCampaign()) api.renderFactory(); });
+        const sh = $('btn-shift');
+        if (sh) sh.addEventListener('click', () => { if (hooks.runShift()) api.renderFactory(); });
+        const co = $('btn-coal');
+        if (co) co.addEventListener('click', () => { if (hooks.buyCoal()) api.renderFactory(); });
+        const sp = $('btn-sell-packs');
+        if (sp) sp.addEventListener('click', () => { if (hooks.sellSuper(Math.floor(state.inventory.tea_pack))) api.renderFactory(); });
       }
       const exp = $('export-list');
       exp.innerHTML = '';
