@@ -294,6 +294,8 @@ export function createGame(ctx, mods) {
     // ---- Abend-Abrechnung ----
     const L = state.settings.lang;
     const lines = [];
+    const _packs0 = state.packsSold;                       // v30: Nachtverkäufe fürs Fabrik-Log
+    if (state.factory) state.factoryLog = { made: 0, sold: 0 };
     // Arbeiter-Ernte: mit Fabrik zu Marken-Paketen verarbeiten, sonst roh verkaufen
     if (state.workerKg > 0.01) {
       if (state.factory) {
@@ -390,6 +392,7 @@ export function createGame(ctx, mods) {
           state.money -= rawCost;
           state.daySpent += rawCost;
           state.inventory.tea_pack += packs;
+          if (state.factoryLog) state.factoryLog.made += packs;
           lines.push({ k: 'sumLines', v: '+' + packs + ' 📦', sub: '−' + fmtMoney(rawCost, L) });
         } else {
           lines.push({ k: 'sumLinesOff', v: '0 📦' });
@@ -405,6 +408,46 @@ export function createGame(ctx, mods) {
         const rent = myParcels * CFG.parcels.rentPerDay;
         state.money += rent; state.dayEarned += rent; state.totalEarned += rent;
         lines.push({ k: 'sumRent', v: '+' + fmtMoney(rent, L), sub: myParcels + ' 🚩' });
+      }
+    }
+    // v30: Kâhya-Modus — der Çırak führt den Betrieb über Nacht:
+    // ernten, neu pflanzen, Hofprodukte verkaufen, expandieren (Parzellen,
+    // Fabriklinien, Arbeiter). Die Reserve bleibt immer in der Kasse.
+    if (state.kahya && state.cirak) {
+      const K = CFG.kahya;
+      let harv = 0, planted = 0, sold = 0;
+      for (let i = 0; i < state.plots.length; i++) {
+        const p = state.plots[i];
+        if (p && p.daysLeft <= 0) {
+          state.inventory[p.type] += CFG.crops[p.type].yield;
+          state.plots[i] = null; harv++;
+        }
+      }
+      const fav = CFG.crops[state.settings.botCrop] ? state.settings.botCrop : 'corn';
+      while (state.money - K.reserve > seedPrice(fav)) {
+        const idx = state.plots.findIndex((q) => !q);
+        if (idx < 0) break;
+        state.money -= seedPrice(fav); state.daySpent += seedPrice(fav);
+        state.plots[idx] = { type: fav, daysLeft: CFG.crops[fav].days };
+        planted++;
+      }
+      if (harv || planted) farm.refreshPlots();
+      for (const id of Object.keys(CFG.products)) {
+        if (id === 'tea_pack' || id === 'coal') continue;
+        const n = Math.floor(state.inventory[id] || 0);
+        if (n > 0) sold += sellProduct(id, n);
+      }
+      const ex = [];
+      const pInfo = nextParcelInfo();
+      if (pInfo && state.money - K.reserve > pInfo.cost && buyNextParcel()) ex.push('🚩');
+      const F2k = CFG.factory2;
+      if (state.factory && state.factoryLines < F2k.lineCosts.length
+          && state.money - K.reserve > F2k.lineCosts[state.factoryLines] && buyLine()) ex.push('🏭');
+      if (state.workers < workerMax() && state.money - K.reserve > CFG.workers.hireCost && hireWorker()) ex.push('👷');
+      state.kahyaReport = { earned: Math.round(sold), harv, planted, ex };
+      if (sold > 0 || harv || planted || ex.length) {
+        lines.push({ k: 'sumKahya', v: '+' + fmtMoney(Math.round(sold), L),
+          sub: '🌾' + harv + ' · 🌱' + planted + (ex.length ? ' · ' + ex.join('') : '') });
       }
     }
     // v17: die Teebahn bringt abends Kohle aus Zonguldak
@@ -749,6 +792,7 @@ export function createGame(ctx, mods) {
       if (state.botReports.length > 7) state.botReports.shift();
     }
     state._botFishDay = 0;
+    if (state.factoryLog) state.factoryLog.sold = state.packsSold - _packs0;
     ui.showDaySummary(lines);
     save();
   }
@@ -2918,28 +2962,59 @@ export function createGame(ctx, mods) {
   }
 
   // --- Land-Grab: Parzellen ---
-  function buyParcel(i) {
+  // v30: Rivalen-Parzellen lassen sich abkaufen (Aufpreis; Çırak Lv2 verhandelt mit)
+  function parcelCost(i) {
     const P = CFG.parcels;
-    if (state.parcels[i]) { audio.deny(); return false; }
-    if (state.money < P.price) { audio.deny(); return false; }
-    state.money -= P.price;
-    state.daySpent += P.price;
+    const o = state.parcels[i];
+    if (!o) return P.price;
+    if (o === 'me') return 0;
+    let m = P.buybackMul;
+    if (state.cirak && state.cirak.level >= 2) m -= 0.2;
+    return Math.round(P.price * m);
+  }
+
+  function nextParcelInfo() {
+    let firstRival = -1;
+    for (let i = 0; i < CFG.parcels.spots.length; i++) {
+      const o = state.parcels[i];
+      if (!o) return { idx: i, cost: CFG.parcels.price, buyback: false };
+      if (o !== 'me' && firstRival < 0) firstRival = i;
+    }
+    if (firstRival >= 0) return { idx: firstRival, cost: parcelCost(firstRival), buyback: true };
+    return null;
+  }
+
+  function buyParcel(i) {
+    const owner = state.parcels[i];
+    if (owner === 'me') { audio.deny(); return false; }
+    const cost = parcelCost(i);
+    if (state.money < cost) { audio.deny(); return false; }
+    state.money -= cost;
+    state.daySpent += cost;
     state.parcels[i] = 'me';
     if (mods.parcels) mods.parcels.sync();
     addRep(1);
     audio.cash();
-    ui.toast(t('parcelBought'), true, 6000);
+    ui.toast(owner ? t('parcelBuyback', t('rival_' + owner)) : t('parcelBought'), true, 6000);
     checkWealth(); ui.refreshMoney(); save();
     return true;
   }
 
-  // v29: nächste freie Parzelle direkt aus dem Betriebs-Panel kaufen (Mobil)
+  // v29/v30: nächste Parzelle (frei oder vom Rivalen) aus dem Betriebs-Panel
   function buyNextParcel() {
-    for (let i = 0; i < CFG.parcels.spots.length; i++) {
-      if (!state.parcels[i]) return buyParcel(i);
-    }
-    audio.deny();
-    return false;
+    const info = nextParcelInfo();
+    if (!info) { audio.deny(); return false; }
+    return buyParcel(info.idx);
+  }
+
+  // v30: Kâhya-Modus umschalten (alles an den Çırak delegieren)
+  function toggleKahya() {
+    if (!state.cirak) { audio.deny(); ui.toast(t('kahyaNeed'), false, 7000); return false; }
+    state.kahya = !state.kahya;
+    audio.cash();
+    ui.toast(t(state.kahya ? 'kahyaOn' : 'kahyaOff'), state.kahya, 7000);
+    save();
+    return true;
   }
 
   function rivalClaimParcel() {
@@ -4572,7 +4647,7 @@ export function createGame(ctx, mods) {
     if (mods.landslide && mods.landslide.near(player.pos.x, player.pos.z)) return { id: 'landslide' };
     if (mods.parcels) {
       const pi = mods.parcels.near(player.pos.x, player.pos.z);
-      if (pi >= 0 && !state.parcels[pi]) return { id: 'parcel', data: pi };
+      if (pi >= 0 && state.parcels[pi] !== 'me') return { id: 'parcel', data: pi };   // v30: auch Rückkauf an der Fahne
     }
     if (mods.railway && mods.railway.nearSign(player.pos.x, player.pos.z)) return { id: 'railbuild' };
     if (mods.stall && mods.stall.near(player.pos.x, player.pos.z)) {
@@ -5357,7 +5432,7 @@ export function createGame(ctx, mods) {
     karsikoyPrice, sellKarsikoy, macResult, floodHit,
     buyOrchard, setLogi, spawnHeliJob,
     planPhotoMission, photoTaken, buyGulet, startMeister, meisterResult,
-    buyLine, buyParcel, buyNextParcel, buildRailway, shovelScoop, buyStall, stallStock,
+    buyLine, buyParcel, buyNextParcel, nextParcelInfo, toggleKahya, buildRailway, shovelScoop, buyStall, stallStock,
     stallCycleFactor, stallCustomer, enterBeeCup, buyQueen, bookCampaign,
     featureOn, checkUnlocks, favorTalk, buyBranch, branchHire, branchMode, taxiValley2,
     hireCirak, trainCirak, story4Sell, story4Refuse, story4Finale,

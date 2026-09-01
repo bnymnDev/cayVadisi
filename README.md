@@ -695,6 +695,22 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
 - **İstanbul-Skyline:** Wohnblocks mit beleuchteten Fenstern hinter dem
   Kai — Istanbul sieht jetzt nach Großstadt aus.
 
+### Kâhya-Delegation & Imperium (v30)
+- **🎩 Kâhya-Modus:** Mit einem Çırak lässt sich der ganze Betrieb delegieren —
+  er erntet nachts die Felder, pflanzt neu, verkauft Milch/Eier/Gemüse/Fisch,
+  kauft Parzellen und Fabriklinien, stellt Arbeiter ein. Morgens klingelt nur
+  die Kasse (Rapport im Betriebs-Panel); jederzeit manuell übersteuerbar.
+- **Parzellen-Rückkauf:** Haben Kemal & Co. Parzellen weggeschnappt, ist der
+  Kaufknopf nicht mehr ausgegraut — Rückkauf mit Aufpreis (×1,8), ein Çırak
+  ab Level 2 verhandelt den Preis runter (×1,6). Auch direkt an der Fahne.
+- **Fabrik transparenter & größer:** Nacht-Protokoll im Fabrik-Panel zeigt,
+  wie viele Pakete produziert und über Nacht verkauft wurden (vorher stand
+  dort scheinbar „0 Pakete", weil Şoför/Export alles sofort verkauften);
+  Ausbau jetzt bis **5 Produktionslinien** (42 000 / 65 000 ₺).
+- **Auto sichtbar auf dem Handy:** Im Hochformat fährt die Verfolgerkamera
+  näher und tiefer — das eigene Auto ist groß im Bild statt eine Briefmarke;
+  Fahrzeuge werden zudem nie mehr vom Frustum-Culling verschluckt.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

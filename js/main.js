@@ -546,6 +546,8 @@ function wireHooks() {
   hooks.doSell = () => game.doSell();
   hooks.rescueHome = () => game.rescueHome();
   hooks.buyNextParcel = () => game.buyNextParcel();
+  hooks.nextParcelInfo = () => game.nextParcelInfo();
+  hooks.toggleKahya = () => game.toggleKahya();
   hooks.closeShop = () => { ui.hideOverlays(); game.pause(false); };
   hooks.plantCrop = (id) => game.plantCrop(id);
   hooks.buyAnimal = (id) => game.buyAnimal(id);
