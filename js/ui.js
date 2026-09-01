@@ -2120,6 +2120,9 @@ export function createUI(ctx, hooks) {
             <div>🏷️ ${t('yourLabel')} <b>${state.label || 'ÇAY VADİSİ'}</b></div>
             <div>${t('packedToday')} <b>${state.packedToday} 📦</b></div>
           </div>
+          ${state.factoryLog && state.factoryLines > 0 ? `<div class="section-info">${state.factoryLog.made > 0
+            ? t('factoryNight', state.factoryLog.made, state.factoryLog.sold)
+            : t('factoryNightOff')}</div>` : ''}
           <button id="btn-pack" class="big-btn" ${canPack ? '' : 'disabled'}>
             ${t('packNow', Math.floor(state.basketKg))}</button>
           <h3>${t('styleTitle')}</h3>
@@ -2695,10 +2698,14 @@ export function createUI(ctx, hooks) {
           ${state.dog ? `<button id="btn-dog" class="big-btn ghost">🐕 ${t('dogMenuBtn', Object.keys(state.dogTricks).length)}</button>` : ''}
           <button id="btn-dukkan" class="big-btn ghost">🛒 ${t('dukkanBtn')}</button>
           ${(() => { const total = CFG.parcels.spots.length;
-            let owned = 0, taken = 0;
-            for (let i = 0; i < total; i++) { if (state.parcels[i] === 'me') owned++; if (state.parcels[i]) taken++; }
-            return `<button id="btn-parcel" class="big-btn ghost" ${taken < total && state.money >= CFG.parcels.price ? '' : 'disabled'}>
-              🏞️ ${t('parcelBuyBtn', owned, total, fmtMoney(CFG.parcels.price, L))}</button>`; })()}
+            let owned = 0;
+            for (let i = 0; i < total; i++) if (state.parcels[i] === 'me') owned++;
+            const info = hooks.nextParcelInfo ? hooks.nextParcelInfo() : null;
+            if (!info) return `<button class="big-btn ghost" disabled>🚩 ${t('parcelAllOwned', owned, total)}</button>`;
+            return `<button id="btn-parcel" class="big-btn ghost" ${state.money >= info.cost ? '' : 'disabled'}>
+              ${info.buyback ? '🤝' : '🏞️'} ${t(info.buyback ? 'parcelBuybackBtn' : 'parcelBuyBtn', owned, total, fmtMoney(info.cost, L))}</button>`; })()}
+          ${state.cirak ? `<button id="btn-kahya" class="big-btn ${state.kahya ? '' : 'ghost'}">🎩 ${t(state.kahya ? 'kahyaOn' : 'kahyaOff')}</button>` : `<div class="section-info">🎩 ${t('kahyaNeed')}</div>`}
+          ${state.kahya && state.kahyaReport ? `<div class="section-info">${t('kahyaReport', fmtMoney(state.kahyaReport.earned, L), state.kahyaReport.harv, state.kahyaReport.planted)}</div>` : ''}
           ${state.workerData.map((wd, i) => {
             let lvl = 0;
             for (let li = 0; li < CFG.workerLevelDays.length; li++) if ((wd.days || 0) >= CFG.workerLevelDays[li]) lvl = li;
@@ -2716,7 +2723,8 @@ export function createUI(ctx, hooks) {
         const db = $('btn-dog');
         if (db) db.addEventListener('click', () => { api.hideOverlays(); api.showDog(); });
         $('btn-dukkan').addEventListener('click', () => { api.hideOverlays(); api.showShop(); });
-        $('btn-parcel').addEventListener('click', () => { if (hooks.buyNextParcel && hooks.buyNextParcel()) api.renderManage(); });
+        if ($('btn-parcel')) $('btn-parcel').addEventListener('click', () => { if (hooks.buyNextParcel && hooks.buyNextParcel()) api.renderManage(); });
+        if ($('btn-kahya')) $('btn-kahya').addEventListener('click', () => { if (hooks.toggleKahya && hooks.toggleKahya()) api.renderManage(); });
         $('btn-fire').addEventListener('click', () => { if (hooks.fireWorker()) api.renderManage(); });
         const sb = $('btn-sofor');
         if (sb) sb.addEventListener('click', () => { if (hooks.promoteSofor()) api.renderManage(); });

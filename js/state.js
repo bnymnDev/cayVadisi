@@ -105,7 +105,10 @@ export const state = {
   xp: { pick: 0, fish: 0, trade: 0 },
 
   // v17: Imperium sichtbar
-  factoryLines: 0,                 // Produktionslinien in der Fabrik (0..3)
+  factoryLines: 0,                 // Produktionslinien in der Fabrik (0..5)
+  factoryLog: null,                // v30: { made, sold } der letzten Nacht
+  kahya: false,                    // v30: Kâhya-Modus — Çırak führt den Betrieb
+  kahyaReport: null,               // v30: { earned, harv, planted, ex } der letzten Nacht
   parcels: [],                     // Parzellen: null|'me'|'kemal'|'saban'|'nurten'
   railway: false,                  // Teebahn gebaut
   landslide: null,                 // { left } solange die Straße blockiert ist
@@ -316,6 +319,7 @@ export function save() {
     kemalPressure: s.kemalPressure, falcon: s.falcon, bridge: s.bridge,
     xp: s.xp,
     factoryLines: s.factoryLines, parcels: s.parcels, railway: s.railway,
+    factoryLog: s.factoryLog, kahya: s.kahya, kahyaReport: s.kahyaReport,
     landslide: s.landslide, stall: s.stall, queen: s.queen,
     beeCupWins: s.beeCupWins, billboards: s.billboards, campaign: s.campaign,
     featureUnlocks: s.featureUnlocks, branch: s.branch, npcRel: s.npcRel, favorsDone: s.favorsDone,
@@ -461,6 +465,9 @@ export function load() {
     state.xp = { pick: 0, fish: 0, trade: 0, ...(d.xp || {}) };
     state.factoryLines = d.factoryLines ?? 0;
     state.parcels = Array.isArray(d.parcels) ? d.parcels : [];
+    state.factoryLog = d.factoryLog ?? null;
+    state.kahya = !!d.kahya;
+    state.kahyaReport = d.kahyaReport ?? null;
     state.railway = d.railway ?? false;
     state.landslide = d.landslide ?? null;
     state.stall = d.stall ?? null;

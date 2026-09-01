@@ -293,6 +293,7 @@ export function createVehicles(ctx, terrain, player, getColliders) {
         };
         parts.group.position.set(p.x, terrain.heightAt(p.x, p.z), p.z);
         parts.group.rotation.y = fleet[id].yaw;
+        parts.group.traverse((o) => { o.frustumCulled = false; });   // v30: nie wegculled (Mobil-Sichtbarkeit)
         scene.add(parts.group);
         // Traktor bekommt seinen Anhänger
         if (id === 'tractor') {
@@ -524,12 +525,15 @@ export function createVehicles(ctx, terrain, player, getColliders) {
       // Spieler "sitzt" im Fahrzeug (für Audio-Distanzen etc.)
       player.pos.set(f.x, y + 1.4, f.z);
 
-      // Chase-Cam
-      const dist = driving === 'lux' ? 7.5 : driving === 'tractor' ? 9.5 : 6.5;
-      camTarget.set(f.x, y + 1.6, f.z);
+      // Chase-Cam — v30: im Hochformat näher und tiefer, sonst ist das
+      // eigene Auto auf dem Handy nur eine Briefmarke am Horizont
+      const portrait = innerHeight > innerWidth * 1.05;
+      let dist = driving === 'lux' ? 7.5 : driving === 'tractor' ? 9.5 : 6.5;
+      if (portrait) dist *= 0.66;
+      camTarget.set(f.x, y + (portrait ? 1.0 : 1.6), f.z);
       camPos.set(
         f.x - Math.sin(f.yaw) * dist,
-        y + 3.0 + Math.abs(f.v) * 0.02,
+        y + (portrait ? 2.1 : 3.0) + Math.abs(f.v) * 0.02,
         f.z - Math.cos(f.yaw) * dist
       );
       camera.position.lerp(camPos, Math.min(1, dt * 5));

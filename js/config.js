@@ -1,6 +1,6 @@
 // Balancing & Welt-Konstanten
 export const CFG = {
-  version: '29',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
+  version: '30',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
   seed: 1453,
 
   // Welt
@@ -848,6 +848,9 @@ export const CFG = {
     werkstattCost: 4000, werkstattPerDay: 80  // Anbau: NPC-Reparaturen/Tag
   },
 
+  // ---- v30: Kâhya-Modus — so viel bleibt immer in der Kasse ----
+  kahya: { reserve: 1200 },
+
   // ---- v29: Stadt-Ausbaustufen & NPC-Verkehr ----
   growth: {
     thresholds: [0, 20000, 60000, 150000]   // Köy → Kasaba → Şehir → Metropole (Gesamtverdienst)
@@ -945,7 +948,7 @@ export const CFG = {
 
   // ---- v17: Imperium sichtbar ----
   factory2: {                               // Produktionslinien in der Anbauhalle
-    lineCosts: [8000, 15000, 26000],        // Linie 1..3
+    lineCosts: [8000, 15000, 26000, 42000, 65000],   // v30: Linie 1..5
     packsPerLine: 6,                        // Pakete pro Linie und Nacht
     rawPerPack: 30,                         // Einkauf Rohtee je Paket (Geld)
     coalPerLine: 1                          // Kohle je Linie und Nacht
@@ -957,6 +960,7 @@ export const CFG = {
       { x: -28, z: 112 }, { x: 72, z: 112 }
     ],
     price: 2600, rentPerDay: 70,
+    buybackMul: 1.8,                        // v30: Rückkauf vom Rivalen (Çırak Lv2 verhandelt −0.2)
     rivalEveryDays: 2,                      // alle N Tage schnappt sich ein Rivale eine
     rivals: { kemal: 0xc0392b, saban: 0xd68a2e, nurten: 0x7d3fa8 },
     meColor: 0x2f9e44
