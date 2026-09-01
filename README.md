@@ -648,6 +648,20 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
   weicht er seitlich aus; unerreichbare Büsche werden zeitweise gemieden.
 - Jede manuelle Eingabe beendet die Automatik sofort.
 
+### Springen & Vali-Bot (v27)
+- **Springen:** Leertaste bzw. 🦘-Taste auf Touch. Im Sprung geht es **über
+  Teebüsche hinweg** — und der Autopilot springt selbst: Bleibt er hängen,
+  hüpft er erst über den Busch, bevor er seitlich ausweicht.
+- **Vali-Bot (🤖):** die Vollautomatik über das Pflücken hinaus. Der Bot
+  pflückt und verkauft Tee, erntet die Gemüsebeete und pflanzt nach,
+  kauft sich eine Angel und angelt nachmittags am Bootssteg, verkauft
+  Fang und Ernte auf dem Kasaba-Pazar, kauft sinnvolle Ausrüstung
+  (Stiefel, Korb-Upgrades), gönnt sich einmal am Tag einen Ausflug ins
+  Städtchen — und geht abends schlafen, um am nächsten Morgen von selbst
+  weiterzumachen. Im Winter angelt er, statt zu pflücken.
+- Jede manuelle Eingabe stoppt den Bot sofort; 🍃 bleibt die reine
+  Pflück-Automatik.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

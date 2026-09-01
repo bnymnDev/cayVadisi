@@ -16,6 +16,9 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
   let dragging = false;
   let bobPhase = 0;
   let enabled = false;
+  // v27: Springen — airY = Höhe über Boden, groundEye = geglättete Augenhöhe
+  let airY = 0, vy = 0, jumpCd = 0;
+  let groundEye = pos.y;
   let wantLock = false;    // Spiel möchte PointerLock (First-Person aktiv)
   let relockTimer = 0;     // Auto-Retry: Chrome blockt Lock ~1,3 s nach jedem Exit
   let relockTries = 0;
@@ -96,6 +99,8 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
     keys.add(e.code);
+    // v27: Leertaste springt (und darf die Seite nicht scrollen)
+    if (e.code === 'Space' && enabled) { e.preventDefault(); api.jump(); }
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
   window.addEventListener('blur', () => keys.clear());
@@ -113,6 +118,15 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
     touchAuto: false,            // v26: Auto-Lauf (Doppeltipp/🏃/NumLock)
     autoTarget: null,            // v26.2: Autopilot-Ziel (Auto-Pflücken)
     lastManual: false,           // v26.2: wurde diese Frame manuell gesteuert?
+    get airborne() { return airY > 0.25; },   // v27: in der Luft?
+
+    // v27: Sprung — über Büsche hinweg (Kollision setzt in der Luft aus)
+    jump() {
+      if (!enabled || airY > 0.02 || jumpCd > 0) return false;
+      vy = P.jumpVel || 5.6;
+      jumpCd = 0.3;
+      return true;
+    },
 
     setEnabled(v) { enabled = v; if (!v) keys.clear(); },
 
@@ -130,7 +144,9 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
     // für Tests / Debug
     teleport(x, z) {
       pos.x = x; pos.z = z;
-      pos.y = terrain.heightAt(x, z) + P.eyeHeight;
+      airY = 0; vy = 0;
+      groundEye = terrain.heightAt(x, z) + P.eyeHeight;
+      pos.y = groundEye;
     },
     look(yaw, pitch) { euler.y = yaw; euler.x = clamp(pitch, -1.45, 1.45); },
 
@@ -203,8 +219,16 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
       const px = clamp(pos.x, -B, B), pz = clamp(pos.z, -B, B);
       if (px !== pos.x || pz !== pos.z) { pos.x = px; pos.z = pz; api.hitBoundary = true; }
 
-      // Kollisionen: Büsche + Requisiten
-      teaCollide(pos, P.radius);
+      // v27: Sprung-Physik (Höhe über Boden, Schwerkraft)
+      jumpCd = Math.max(0, jumpCd - dt);
+      if (airY > 0 || vy > 0) {
+        vy -= (P.gravity || 15) * dt;
+        airY += vy * dt;
+        if (airY <= 0) { airY = 0; vy = 0; }
+      }
+
+      // Kollisionen: Büsche + Requisiten — in der Luft geht's über die Büsche
+      if (airY <= 0.25) teaCollide(pos, P.radius);
       for (const c of getColliders()) {
         const dx = pos.x - c.x, dz = pos.z - c.z;
         const rr = c.r + P.radius;
@@ -217,9 +241,10 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
         }
       }
 
-      // Höhe folgen
+      // Höhe folgen (+ Sprunghöhe obendrauf)
       const groundY = terrain.heightAt(pos.x, pos.z) + P.eyeHeight;
-      pos.y = lerp(pos.y, groundY, Math.min(1, dt * 11));
+      groundEye = lerp(groundEye, groundY, Math.min(1, dt * 11));
+      pos.y = groundEye + airY;
 
       // Head-Bob & FOV
       const speedNow = Math.hypot(vel.x, vel.z);

@@ -4075,15 +4075,83 @@ export function createGame(ctx, mods) {
     autoFarmPick = false;
     autoFarmMode = 'pick';
     autoStuckT = 0; autoDetour = 0; autoSkip = null; autoWaitToast = false;
-    if (!autoFarm) player.autoTarget = null;
+    if (!autoFarm) { player.autoTarget = null; botFull = false; }
     else audio.pickDone();
     ui.toast(t(autoFarm ? 'autoFarmOn' : 'autoFarmOff'), autoFarm, 4500);
     return autoFarm;
   }
   function stopAutoFarm(msgKey) {
-    autoFarm = false; autoFarmPick = false;
+    autoFarm = false; autoFarmPick = false; botFull = false;
     player.autoTarget = null;
     if (msgKey) ui.toast(t(msgKey), msgKey === 'autoFarmFull', 6000);
+  }
+
+  // v27: Vali-Bot — kompletter Tagesablauf: Tee pflücken & verkaufen, Beete
+  // ernten/bepflanzen, angeln, Markt-Verkauf, Anschaffungen, Ausflug, Schlaf.
+  let botFull = false;
+  let botFishT = 0, botFishN = 0, botTripDay = 0, botTripT = 0;
+  const BOT_SELL = ['hamsi', 'lufer', 'kalkan', 'levrek', 'kofana', 'mersin',
+    'corn', 'tomato', 'cabbage', 'hazel', 'straw', 'walnut', 'egg', 'milk', 'wool', 'honey'];
+  function toggleBot() {
+    botFull = !botFull;
+    autoFarm = botFull;
+    autoFarmPick = false;
+    autoFarmMode = 'pick'; autoFarmScan = 0;
+    autoStuckT = 0; autoDetour = 0; autoSkip = null; autoWaitToast = false;
+    botFishN = 0; botTripT = 0;
+    player.autoTarget = null;
+    if (botFull) audio.pickDone();
+    ui.toast(t(botFull ? 'botOn' : 'botOff'), botFull, 6500);
+    return botFull;
+  }
+  function botSellWorth() {
+    let sum = 0;
+    for (const id of BOT_SELL) {
+      const n = Math.floor(state.inventory[id] || 0);
+      if (n > 0) sum += n * CFG.products[id].sell * (state.marketMul[id] || 1);
+    }
+    return sum;
+  }
+  function botPlotsCenter() {
+    const P = CFG.farm.plots;
+    return { x: P.x0 + (P.cols * P.w + (P.cols - 1) * P.gap) / 2,
+             z: P.z0 + (P.rows * P.d + (P.rows - 1) * P.gap) / 2 };
+  }
+  function botFarmworkWorth() {
+    if (state.plots.some(p => p && p.daysLeft <= 0)) return true;
+    return CFG.seasonCycle.cropGrowth[season()] > 0 && state.plots.some(p => !p)
+      && state.money >= seedPrice('corn') + CFG.bot.moneyReserve;
+  }
+  function botFarmChores() {
+    for (let i = 0; i < state.plots.length; i++) {
+      if (state.plots[i] && state.plots[i].daysLeft <= 0) harvestPlot(i);
+    }
+    if (CFG.seasonCycle.cropGrowth[season()] > 0) {
+      while (state.plots.some(p => !p)) {
+        const type = state.money > 4000 + CFG.bot.moneyReserve ? 'hazel'
+          : (state.money > 1200 + CFG.bot.moneyReserve ? 'tomato' : 'corn');
+        if (state.money < seedPrice(type) + CFG.bot.moneyReserve) break;
+        if (!plantCrop(type)) break;
+      }
+    }
+  }
+  function botShopping() {
+    let bought = 0;
+    const R = CFG.bot.moneyReserve;
+    if (!state.rod && state.money >= CFG.fishing.rodCost + R && buyRod()) bought++;
+    for (const id of ['boots', 'basket1', 'basket2']) {
+      if (!state.upgrades[id] && CFG.upgrades[id]
+          && state.money >= CFG.upgrades[id].cost + R && buyUpgrade(id)) bought++;
+    }
+    if (bought > 0) ui.toast(t('botShopping'), true, 6000);
+  }
+  function botPlan() {
+    if (botFarmworkWorth()) return 'farmwork';
+    if (featureOn('market') && botSellWorth() >= CFG.bot.marketMinWorth) return 'market';
+    if (sky.hour < CFG.bot.fishUntilHour
+        && (state.rod || state.money >= CFG.fishing.rodCost + CFG.bot.moneyReserve)) return 'fish';
+    if (botTripDay !== state.day) return 'trip';
+    return null;
   }
   // v26.3: nach endDay() (Schlaf ODER Mitternachts-Kollaps) automatisch in den
   // nächsten Tag weiterlaufen, solange Auto-Farm aktiv ist
@@ -4777,6 +4845,8 @@ export function createGame(ctx, mods) {
           const moved = Math.hypot(player.pos.x - autoLastX, player.pos.z - autoLastZ);
           if (moved < dt * 0.5) autoStuckT += dt;
           else autoStuckT = Math.max(0, autoStuckT - dt * 2);
+          // v27: erst über den Busch springen, erst wenn das nicht hilft ausweichen
+          if (autoStuckT > 0.4 && !player.airborne) player.jump();
           if (autoStuckT > 1.1) {
             autoStuckT = 0;
             autoDetour += 1;
@@ -4787,20 +4857,36 @@ export function createGame(ctx, mods) {
               player.autoTarget = null;
               autoFarmScan = 0;
             } else {
-              // seitlicher Ausweich-Wegpunkt um das Hindernis herum
+              // seitlicher Ausweich-Wegpunkt um das Hindernis herum — wird mit
+              // jedem Fehlversuch breiter (v27: große Requisiten umkurven)
               const ddx = player.autoTarget.x - player.pos.x;
               const ddz = player.autoTarget.z - player.pos.z;
               const dd = Math.hypot(ddx, ddz) || 1;
-              const side = (autoDetour % 2 ? 1 : -1) * 2.2;
+              const side = (autoDetour % 2 ? 1 : -1) * (2.2 + Math.min(6, autoDetour) * 0.9);
               player.autoTarget = {
                 x: player.pos.x + (ddx / dd) * 1.4 - (ddz / dd) * side,
-                z: player.pos.z + (ddz / dd) * 1.4 + (ddx / dd) * side
+                z: player.pos.z + (ddz / dd) * 1.4 + (ddx / dd) * side,
+                wp: true
               };
               autoTargetIsBush = false;
             }
           }
         } else { autoStuckT = 0; }
         autoLastX = player.pos.x; autoLastZ = player.pos.z;
+
+        // v27: erreichte Ausweich-Wegpunkte freigeben — sonst bleibt der
+        // Spieler dort für immer stehen und das echte Ziel wird nie neu gesetzt
+        if (player.autoTarget && player.autoTarget.wp
+            && Math.hypot(player.autoTarget.x - player.pos.x, player.autoTarget.z - player.pos.z) < 1.3) {
+          player.autoTarget = null;
+        }
+
+        // v27: Bot-Aktivitäten enden am Abend — zurück zu Verkauf/Schlaf
+        if (botFull && sky.hour >= 17.5
+            && ['farmwork', 'fish', 'market', 'trip'].includes(autoFarmMode)) {
+          autoFarmMode = 'pick'; autoFarmScan = 0;
+          player.autoTarget = null; autoTargetIsBush = false;
+        }
 
         if (autoFarmMode === 'sell') {
           // --- Korb zur Annahmestelle bringen und verkaufen ---
@@ -4823,6 +4909,81 @@ export function createGame(ctx, mods) {
             player.autoTarget = { x: CFG.home.x + 1, z: CFG.home.z + 1 };
             autoTargetIsBush = false;
           }
+        } else if (autoFarmMode === 'farmwork') {
+          // --- v27: Beete ernten und nachpflanzen ---
+          const c = botPlotsCenter();
+          if (distTo(c.x, c.z) < 7) {
+            player.autoTarget = null; autoTargetIsBush = false; autoDetour = 0;
+            botFarmChores();
+            autoFarmMode = 'pick'; autoFarmScan = 0;
+          } else if (!player.autoTarget || autoTargetIsBush) {
+            player.autoTarget = { x: c.x, z: c.z }; autoTargetIsBush = false;
+          }
+        } else if (autoFarmMode === 'fish') {
+          // --- v27: am Ufer beim Bootssteg angeln ---
+          const S = CFG.bot.fishSpot;
+          if (distTo(S.x, S.z) < 10 || player.hitWater) {
+            player.hitWater = false;
+            player.autoTarget = null; autoTargetIsBush = false; autoDetour = 0;
+            if (!state.rod && !buyRod()) {           // ohne Rute kein Angeln
+              autoFarmMode = 'pick'; autoFarmScan = 0;
+              return;
+            }
+            player.look(Math.atan2(-(CFG.boat.dock.x - player.pos.x), -(CFG.boat.dock.z - player.pos.z)), -0.2);
+            botFishT -= dt;
+            if (botFishT <= 0) {
+              botFishT = CFG.bot.fishEverySec * (0.8 + Math.random() * 0.5);
+              const r = Math.random();
+              let id = 'hamsi', acc = 0;
+              for (const [fid, f] of Object.entries(CFG.fishing.fish)) {
+                acc += f.p;
+                if (r <= acc) { id = fid; break; }
+              }
+              state.inventory[id] = (state.inventory[id] || 0) + 1;
+              state.fishCaught += 1;
+              gainXp('fish', CFG.xp.fishPer[id] || 4);
+              botFishN += 1;
+              audio.harvest();
+              if (botFishN % 4 === 1) ui.toast(t('botFish'), true, 4500);
+            }
+            if (botFishN >= CFG.bot.fishMaxPerTrip || sky.hour >= CFG.bot.fishUntilHour) {
+              botFishN = 0;
+              autoFarmMode = 'pick'; autoFarmScan = 0;
+            }
+          } else if (!player.autoTarget || autoTargetIsBush) {
+            player.hitWater = false;
+            player.autoTarget = { x: S.x, z: S.z }; autoTargetIsBush = false;
+          }
+        } else if (autoFarmMode === 'market') {
+          // --- v27: Fang & Ernte auf dem Kasaba-Pazar verkaufen, dann shoppen ---
+          const M = CFG.city.market;
+          if (distTo(M.x, M.z) < CFG.interactDist + 3) {
+            player.autoTarget = null; autoTargetIsBush = false; autoDetour = 0;
+            let sum = 0;
+            for (const id of BOT_SELL) {
+              const n = Math.floor(state.inventory[id] || 0);
+              if (n > 0) sum += sellProduct(id, n);
+            }
+            if (sum > 0) ui.toast(t('botMarket', fmtMoney(sum, state.settings.lang)), true, 7000);
+            botShopping();
+            autoFarmMode = 'pick'; autoFarmScan = 0;
+          } else if (!player.autoTarget || autoTargetIsBush) {
+            player.autoTarget = { x: M.x + 2, z: M.z + 2 }; autoTargetIsBush = false;
+          }
+        } else if (autoFarmMode === 'trip') {
+          // --- v27: kleiner Ausflug ins Städtchen (einmal am Tag) ---
+          const T = CFG.bot.tripSpot;
+          if (distTo(T.x, T.z) < 6) {
+            player.autoTarget = null; autoTargetIsBush = false; autoDetour = 0;
+            if (botTripT === 0) ui.toast(t('botTrip'), true, 7000);
+            botTripT += dt;
+            if (botTripT >= CFG.bot.tripSec) {
+              botTripT = 0; botTripDay = state.day;
+              autoFarmMode = 'pick'; autoFarmScan = 0;
+            }
+          } else if (!player.autoTarget || autoTargetIsBush) {
+            player.autoTarget = { x: T.x, z: T.z }; autoTargetIsBush = false;
+          }
         } else if (state.basketKg >= cap - 0.01) {
           autoFarmMode = 'sell';
           player.autoTarget = null; autoTargetIsBush = false; autoDetour = 0;
@@ -4839,11 +5000,16 @@ export function createGame(ctx, mods) {
             }
             if (!near) {
               player.autoTarget = null; autoTargetIsBush = false;
-              if (season() === 2) stopAutoFarm('autoFarmNone');           // Winterruhe
-              else if (sky.hour >= 17.5) {
+              if (sky.hour >= 17.5) {
                 if (state.basketKg > 0.5) { autoFarmMode = 'sell'; }     // Rest noch verkaufen
                 else { autoFarmMode = 'sleep'; ui.toast(t('autoFarmHome'), true, 7000); }
-              } else if (!autoWaitToast) {
+              } else if (botFull) {
+                // v27: Vali-Bot sucht sich die nächste Aufgabe
+                const next = botPlan();
+                if (next) { autoFarmMode = next; autoWaitToast = false; }
+                else if (!autoWaitToast) { autoWaitToast = true; ui.toast(t('autoFarmWait'), false, 7000); }
+              } else if (season() === 2) stopAutoFarm('autoFarmNone');   // Winterruhe (reine Pflück-Automatik)
+              else if (!autoWaitToast) {
                 autoWaitToast = true;
                 ui.toast(t('autoFarmWait'), false, 7000);
               }
@@ -4872,7 +5038,8 @@ export function createGame(ctx, mods) {
         }
       }
     }
-    ui.setTcState('farm', autoFarm);
+    ui.setTcState('farm', autoFarm && !botFull);
+    ui.setTcState('bot', botFull);
     ui.setTcState('run', player.touchAuto);
 
     // Pflück-Ziel suchen
@@ -5018,6 +5185,7 @@ export function createGame(ctx, mods) {
     cookDish, doTrick, touchStone, claimRiddle,
     boardDolmus, leaveDolmus, buyFlowers, buyRadyo, setRadyoProgram,
     toggleAutoFarm,
+    toggleBot,
     inviteBuddy, konakEnter, konakExit,
     get motoRaceTime() { return motoRace ? motoRace.t : -1; },
     setFrozen(v) { frozen = v; },

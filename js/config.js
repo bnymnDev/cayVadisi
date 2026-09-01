@@ -1,6 +1,6 @@
 // Balancing & Welt-Konstanten
 export const CFG = {
-  version: '26.3',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
+  version: '27',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
   seed: 1453,
 
   // Welt
@@ -649,7 +649,20 @@ export const CFG = {
   player: {
     eyeHeight: 1.7, radius: 0.55,
     speed: 4.3, runFactor: 1.42, bootsFactor: 1.3,
+    jumpVel: 5.6, gravity: 15,          // v27: Sprung (reicht über Teebüsche)
     spawn: { x: 14, z: -98 }
+  },
+
+  // ---- v27: Vali-Bot (Voll-Automatik) ----
+  bot: {
+    fishSpot: { x: 112, z: -146 },      // Ufer am Bootssteg
+    fishEverySec: 7,                    // ~1 Fang alle 7 s
+    fishMaxPerTrip: 15,
+    fishUntilHour: 16.5,
+    marketMinWorth: 300,                // Markt-Gang lohnt ab diesem Warenwert
+    moneyReserve: 400,                  // bleibt immer in der Kasse
+    tripSpot: { x: 116, z: -100 },      // Çayevi-Ecke in der Stadt
+    tripSec: 18
   },
 
   // Orte

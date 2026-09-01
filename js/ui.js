@@ -2900,7 +2900,7 @@ export function createUI(ctx, hooks) {
     // v26.2: Zustands-Anzeige der Auto-Buttons (🏃/🍃)
     setTcState(kind, on) {
       if (!ctx.isTouch) return;
-      const b = $(kind === 'run' ? 'tbtn-run' : 'tbtn-farm');
+      const b = $(kind === 'run' ? 'tbtn-run' : kind === 'bot' ? 'tbtn-bot' : 'tbtn-farm');
       if (b) b.classList.toggle('tc-on', !!on);
     },
 
@@ -3010,6 +3010,12 @@ export function createUI(ctx, hooks) {
       bindTap('tbtn-farm', () => {
         const g = getGame && getGame();
         if (g && g.running && !g.paused) api.setTcState('farm', g.toggleAutoFarm());
+      });
+      // v27: Springen & Vali-Bot
+      bindTap('tbtn-jump', () => player.jump && player.jump());
+      bindTap('tbtn-bot', () => {
+        const g = getGame && getGame();
+        if (g && g.running && !g.paused) api.setTcState('bot', g.toggleBot());
       });
       // v26: Schnellzugriffe einklappbar
       bindTap('tbtn-more', () => $('tc-actions-list').classList.toggle('hidden'));
