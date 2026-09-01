@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
     inputs:
       ssh_key:
-        description: 'Temporärer Deploy-Key (OpenSSH private key)'
-        required: true
+        description: 'Deploy-Key (leer = Repo-Secret DEPLOY_SSH_KEY)'
+        required: false
       ssh_user:
-        description: 'Mittwald-SSH-Username (z. B. ssh-xxxxxx)'
-        required: true
+        description: 'Mittwald-SSH-User (leer = Repo-Secret DEPLOY_SSH_USER)'
+        required: false
       target:
         description: 'Zielverzeichnis auf dem Webspace'
         required: false
@@ -22,8 +22,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Rsync zum Webspace
         env:
-          KEY: ${{ inputs.ssh_key }}
-          SSHUSER: ${{ inputs.ssh_user }}
+          KEY: ${{ inputs.ssh_key || secrets.DEPLOY_SSH_KEY }}
+          SSHUSER: ${{ inputs.ssh_user || secrets.DEPLOY_SSH_USER }}
           TARGET: ${{ inputs.target }}
         run: |
           mkdir -p ~/.ssh

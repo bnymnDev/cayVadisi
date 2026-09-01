@@ -37,6 +37,10 @@ komplett offline, DE/TR). Start: `npm start` → `http://localhost:8137`.
   `/home/p-ng6rad/html/cayvadisi-php-k0qxx`). Das PIN-Gate (js/gate.js, PIN cay1453)
   ist auf `*.nesbun.de` scharf.
 - **Deploy-Verfahren (nach JEDEM Release durchführen, vom Nutzer gewünscht):**
+  0. BEVORZUGT (ohne Mittwald-MCP): Workflow einfach OHNE Inputs starten —
+     er nutzt dann die Repo-Secrets `DEPLOY_SSH_KEY`/`DEPLOY_SSH_USER`
+     (30-Tage-User, den der Nutzer als Secret hinterlegt hat). Nur wenn die
+     Secrets fehlen/abgelaufen sind, weiter mit Schritt 1.
   1. Mittwald-MCP: temporären SSH-User anlegen (`ssh_user_create`, publicKey frisch
      generieren — Node crypto, openssh-key-v1-Format —, `expires: 2d`).
   2. GitHub-Actions-Workflow `.github/workflows/deploy-nesbun.yml` per
