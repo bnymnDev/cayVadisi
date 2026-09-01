@@ -722,6 +722,25 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
 - **Fix:** „Heute produziert" zählte die Produktionslinien überhaupt nicht mit
   (nur die Arbeiter-Ernte) und stand deshalb immer auf 0 📦.
 
+### Zeitraffer, Kâhya 2.0, Dashboard, Filialen, Stadtleben (v31)
+- **⏩ Zeitraffer ×2/×4** (Knopf unten rechts auf dem Handy, sonst im
+  Pausenmenü): mehrere Sim-Schritte pro Frame, nur der letzte rendert —
+  mit Vali-Bot und Kâhya vergehen Tage in Minuten.
+- **Kâhya 2.0:** Tagesplan mit Häkchen (Ernten, Pflanzen, Verkaufen,
+  Parzellen, Linien, Einstellen) und einstellbarer Reserve (600–6 000 ₺);
+  der Kâhya läuft tagsüber sichtbar über den Hof (Beete, Stall, Alım Yeri).
+- **Imperium-Dashboard** (Telefon → Imperium): Bilanz der letzten 7 Tage,
+  Ø-Einnahmen/-Ausgaben und Prognose „Şehir in N Tagen".
+- **Filialen:** İstanbul-Kiosk (sichtbar am Bosporus-Kai, wächst mit 3
+  Stufen bis zum Neon-Laden) und Zonguldak-Laden — tägliche Einnahmen.
+- **Stadtleben nach Stufe:** Laternen ab Kasaba, Fußgänger ab Şehir,
+  blinkende Neonreklamen an den Hochhäusern der Metropol; prozedurales
+  Stadt-Ambiente (Grundrauschen, Hupen) in Stadtnähe.
+- **„Yenilikler":** nach jedem Update ein Hinweis, was neu ist.
+- **Bot-Kamera:** ruhige Verfolgerkamera und weichere Kurven, solange der
+  Bot läuft; das Pflücken zielt dabei aus der Spieler-Blickrichtung statt
+  aus der Kamera.
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,

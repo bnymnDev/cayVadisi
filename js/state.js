@@ -110,6 +110,10 @@ export const state = {
   shiftDay: 0,                     // v30.1: Tag der letzten Sonderschicht
   kahya: false,                    // v30: Kâhya-Modus — Çırak führt den Betrieb
   kahyaReport: null,               // v30: { earned, harv, planted, ex } der letzten Nacht
+  kahyaPlan: { harvest: true, plant: true, sell: true, parcels: true, lines: true, hire: true },   // v31
+  kahyaReserve: 1200,              // v31: einstellbare Reserve
+  dayHist: [],                     // v31: Tagesbilanzen fürs Dashboard (max 14)
+  shops: { istanbul: 0, zonguldak: 0 },   // v31: Filialen-Stufen
   parcels: [],                     // Parzellen: null|'me'|'kemal'|'saban'|'nurten'
   railway: false,                  // Teebahn gebaut
   landslide: null,                 // { left } solange die Straße blockiert ist
@@ -321,6 +325,7 @@ export function save() {
     xp: s.xp,
     factoryLines: s.factoryLines, parcels: s.parcels, railway: s.railway,
     factoryLog: s.factoryLog, kahya: s.kahya, kahyaReport: s.kahyaReport, shiftDay: s.shiftDay,
+    kahyaPlan: s.kahyaPlan, kahyaReserve: s.kahyaReserve, dayHist: s.dayHist, shops: s.shops,
     landslide: s.landslide, stall: s.stall, queen: s.queen,
     beeCupWins: s.beeCupWins, billboards: s.billboards, campaign: s.campaign,
     featureUnlocks: s.featureUnlocks, branch: s.branch, npcRel: s.npcRel, favorsDone: s.favorsDone,
@@ -468,6 +473,10 @@ export function load() {
     state.parcels = Array.isArray(d.parcels) ? d.parcels : [];
     state.factoryLog = d.factoryLog ?? null;
     state.shiftDay = d.shiftDay ?? 0;
+    state.kahyaPlan = { harvest: true, plant: true, sell: true, parcels: true, lines: true, hire: true, ...(d.kahyaPlan || {}) };
+    state.kahyaReserve = d.kahyaReserve ?? 1200;
+    state.dayHist = Array.isArray(d.dayHist) ? d.dayHist : [];
+    state.shops = { istanbul: 0, zonguldak: 0, ...(d.shops || {}) };
     state.kahya = !!d.kahya;
     state.kahyaReport = d.kahyaReport ?? null;
     state.railway = d.railway ?? false;

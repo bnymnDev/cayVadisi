@@ -20,6 +20,7 @@ import { createFarm } from './world/farm.js';
 import { createCity } from './world/city.js';
 import { createTraffic } from './world/traffic.js';
 import { createCityGrowth } from './world/citygrowth.js';
+import { createKahyaNpc } from './world/kahya.js';
 import { createVehicles } from './vehicles.js';
 import { createWorkers } from './workers.js';
 import { createPlayer } from './player.js';
@@ -196,6 +197,8 @@ let propsApi = null;
 let game = null;
 let farm = null, city = null, vehicles = null, workers = null, minimap = null, npcs = null, extras = null;
 let traffic = null, cityGrowth = null;
+let kahyaNpc = null;
+let timeScale = 1;   // v31: Zeitraffer ×1/×2/×4
 let cc0 = null, airport = null, avatar = null, events = null;
 let boat = null, story = null, achievements = null, radio = null, yaylaApi = null;
 let dog = null, istanbul = null, wildlife = null, race = null, sled = null;
@@ -268,7 +271,8 @@ createProps(ctx, terrain).then(async (p) => {
   farm = createFarm(ctx, terrain, p.mats, animals3d);
   city = createCity(ctx, terrain, p.mats);
   traffic = createTraffic(ctx, terrain);
-  cityGrowth = createCityGrowth(ctx, terrain, allColliders);
+  cityGrowth = createCityGrowth(ctx, terrain, allColliders, chars);
+  kahyaNpc = createKahyaNpc(ctx, terrain, chars);
   vehicles = createVehicles(ctx, terrain, player, () => allColliders);
   workers = createWorkers(ctx, terrain, teaField, particles, chars);
   extras = createExtras(ctx, terrain, p.mats);
@@ -521,9 +525,9 @@ const tpCam = new THREE.Vector3();
 const tpLook = new THREE.Vector3();
 const tpSmooth = new THREE.Vector3();
 let tpSmoothInit = false;
-function applyThirdPerson(dt) {
+function applyThirdPerson(dt, soft = false) {
   const yaw = player.euler.y, pitch = player.euler.x;
-  const dist = 4.6;
+  const dist = soft ? 5.4 : 4.6;   // v31: Bot-Kamera etwas weiter weg
   tpCam.set(
     player.pos.x + Math.sin(yaw) * Math.cos(pitch) * dist,
     player.pos.y + 1.1 - Math.sin(pitch) * dist * 0.9,
@@ -534,7 +538,7 @@ function applyThirdPerson(dt) {
   if (tpCam.y < groundY) tpCam.y = groundY;
   // eigene Glättung — player.update setzt die Kamera jeden Frame neu
   if (!tpSmoothInit) { tpSmooth.copy(tpCam); tpSmoothInit = true; }
-  tpSmooth.lerp(tpCam, Math.min(1, dt * 9));
+  tpSmooth.lerp(tpCam, Math.min(1, dt * (soft ? 3.5 : 9)));   // v31: Bot-Kamera gleitet
   camera.position.copy(tpSmooth);
   tpLook.set(player.pos.x, player.pos.y - 0.55, player.pos.z);  // Brusthöhe des Avatars
   camera.lookAt(tpLook);
@@ -548,6 +552,17 @@ function wireHooks() {
   hooks.buyNextParcel = () => game.buyNextParcel();
   hooks.nextParcelInfo = () => game.nextParcelInfo();
   hooks.toggleKahya = () => game.toggleKahya();
+  hooks.buyShop = (id) => game.buyShop(id);
+  hooks.toggleKahyaPlan = (k) => game.toggleKahyaPlan(k);
+  hooks.cycleKahyaReserve = () => game.cycleKahyaReserve();
+  hooks.timeScale = () => timeScale;
+  hooks.cycleTimeScale = () => {
+    const T = CFG.timeScales;
+    timeScale = T[(T.indexOf(timeScale) + 1) % T.length];
+    ui.setTcState('ff', timeScale > 1);
+    ui.toast(t('timeScale', timeScale), timeScale > 1, 3000);
+    return timeScale;
+  };
   hooks.closeShop = () => { ui.hideOverlays(); game.pause(false); };
   hooks.plantCrop = (id) => game.plantCrop(id);
   hooks.buyAnimal = (id) => game.buyAnimal(id);
@@ -696,6 +711,13 @@ function wireHooks() {
 
 function beginPlay(fresh) {
   window.__started = true;
+  // v31: „Yenilikler" — einmal pro Version zeigen, was neu ist
+  try {
+    if (localStorage.getItem('cayvadisi_seenVer') !== CFG.version) {
+      localStorage.setItem('cayvadisi_seenVer', CFG.version);
+      setTimeout(() => ui.showWhatsNew(), 5000);
+    }
+  } catch (e) { /* privater Modus */ }
   if (state.settings.sound) audio.ensure();
   audio.setEnabled(state.settings.sound);
   const startNow = () => {
@@ -1021,7 +1043,9 @@ function tick() {
       renderer.shadowMap.needsUpdate = true;
     }
   }
-  step(rawDt, false);
+  // v31: Zeitraffer — mehrere Sim-Schritte pro Frame, nur der letzte rendert
+  const ts = (game && game.running && !game.paused && !ui.overlayOpen()) ? timeScale : 1;
+  for (let i = 0; i < ts; i++) step(rawDt, false, i < ts - 1);
 }
 
 let menuYaw = Math.PI * 0.86;
@@ -1066,9 +1090,9 @@ function step(rawDt, manual, skipRender = false) {
   if (photoMode) updatePhoto(dt);
   else if (droneMode) updateDrone(dt);
   else if (reveal) { camera.position.copy(reveal.camCurve.getPointAt(Math.min(0.999, reveal.t / reveal.dur < 0.7 ? reveal.t / reveal.dur / 0.7 : 1))); camera.lookAt(reveal.look); }
-  else if (thirdPerson && !vehicles?.driving && !boat?.driving && playing) applyThirdPerson(dt);
+  else if ((thirdPerson || (game && game.autoFarmOn)) && !vehicles?.driving && !boat?.driving && playing) applyThirdPerson(dt, !thirdPerson);   // v31: ruhige Bot-Kamera
   if (avatar) {
-    avatar.setVisible(thirdPerson && !vehicles?.driving);
+    avatar.setVisible((thirdPerson || !!(game && game.autoFarmOn)) && !vehicles?.driving);
     avatar.update(dt);
   }
 
@@ -1100,7 +1124,8 @@ function step(rawDt, manual, skipRender = false) {
     farm.update(dt, elapsed);
     city.update(dt, elevN, sky.rainT, elapsed);
     if (traffic) traffic.update(dt);
-    if (cityGrowth) cityGrowth.update(dt);
+    if (cityGrowth) cityGrowth.update(dt, elevN, elapsed);
+    if (kahyaNpc) kahyaNpc.update(dt, sky.hour, playing);
     vehicles.update(dt, elevN, sky.rainT);
     workers.update(dt, elapsed, playing && !game.winterRest());
     npcs.update(dt, elapsed, sky.hour);
@@ -1169,7 +1194,10 @@ function step(rawDt, manual, skipRender = false) {
 
   if (game) {
     const seaDist = Math.abs(player.pos.z - (-119));
-    audio.update(dt, seaDist, wind, sky.rainT, player.moving, player.running);
+    // v31: Stadt-Ambiente wächst mit der Ausbaustufe, hörbar nur in Stadtnähe
+    const cityD = Math.hypot(player.pos.x - CFG.city.x, player.pos.z - CFG.city.z);
+    const cityLvl = cityGrowth ? (cityGrowth.stage() / 3) * Math.max(0, Math.min(1, 1 - (cityD - 30) / 80)) : 0;
+    audio.update(dt, seaDist, wind, sky.rainT, player.moving, player.running, cityLvl);
   }
 
   hudTimer += dt;

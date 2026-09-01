@@ -189,6 +189,17 @@ export function createUI(ctx, hooks) {
       setTimeout(() => el.remove(), 1150);
     },
 
+    // v31: „Yenilikler" — was ist neu in dieser Version
+    showWhatsNew() {
+      const items = t('whatsNew');
+      if (!Array.isArray(items) || !items.length) return;
+      const el = document.createElement('div');
+      el.className = 'whatsnew';
+      el.innerHTML = `<h3>✨ ${t('whatsNewTitle', CFG.version)}</h3><ul>${items.map((s) => `<li>${s}</li>`).join('')}</ul><button class="big-btn">${t('revealOk')}</button>`;
+      el.querySelector('button').addEventListener('click', () => el.remove());
+      els.popupLayer.appendChild(el);
+    },
+
     // ---------- Overlays ----------
     overlayOpen() {
       return !els.shop.classList.contains('hidden')
@@ -500,7 +511,33 @@ export function createUI(ctx, hooks) {
               <span style="display:block;width:${pct}%;height:100%;background:#7ac74f;border-radius:3px"></span></span></div></div></div>`;
         }
         html += `<div class="section-info">${t('impStats', fmtKg(state.totalKg, L2), state.fishCaught, state.packsSold)}</div>`;
+        // v31: Bilanz der letzten 7 Tage + Prognose bis zur nächsten Stadtstufe
+        {
+          const H = (state.dayHist || []).slice(-7);
+          const avgE = H.length ? H.reduce((a, r) => a + r.e, 0) / H.length : 0;
+          const avgS = H.length ? H.reduce((a, r) => a + r.s, 0) / H.length : 0;
+          const Tn = CFG.growth.thresholds; let nextT = null, nextIdx = 0;
+          for (let i = 0; i < Tn.length; i++) if (Tn[i] > (state.totalEarned || 0)) { nextT = Tn[i]; nextIdx = i; break; }
+          const days = nextT && avgE > 0 ? Math.ceil((nextT - state.totalEarned) / avgE) : null;
+          html += `<h3>📊 ${t('dashTitle')}</h3>`;
+          if (!H.length) html += `<div class="section-info">${t('dashEmpty')}</div>`;
+          else {
+            html += `<div class="stat-list">${H.map((r) => `<div>${t('dashDay', r.d)} <b><span class="price-up">+${fmtMoney(r.e, L2)}</span> · <span class="price-down">−${fmtMoney(r.s, L2)}</span></b></div>`).join('')}</div>`;
+            html += `<div class="section-info">${t('dashAvg', fmtMoney(Math.round(avgE), L2), fmtMoney(Math.round(avgS), L2), fmtMoney(Math.round(avgE - avgS), L2))}</div>`;
+          }
+          html += `<div class="section-info">${nextT ? t('dashNext', t('cityStageName' + nextIdx), fmtMoney(nextT - state.totalEarned, L2), days != null ? t('dashDays', days) : '—') : t('dashMax')}</div>`;
+          // v31: Filialen
+          html += `<h3>🏪 ${t('shopsTitle')}</h3>`;
+          for (const id of Object.keys(CFG.shops)) {
+            const S = CFG.shops[id], lvl = (state.shops && state.shops[id]) || 0, max = lvl >= S.cost.length;
+            html += `<div class="upgrade-item"><div class="u-icon">${id === 'istanbul' ? '🌉' : '⛏️'}</div>
+              <div class="u-body"><div class="u-name">${t('shop_' + id)} ${'⭐'.repeat(lvl)}</div>
+              <div class="u-desc">${lvl ? t('shopIncome', fmtMoney(S.perDay[lvl - 1], L2)) : t('shopNone')}</div></div>
+              ${max ? '' : `<button class="shop-buy" data-id="${id}" ${state.money >= S.cost[lvl] ? '' : 'disabled'}>${fmtMoney(S.cost[lvl], L2)}</button>`}</div>`;
+          }
+        }
         body.innerHTML = html;
+        body.querySelectorAll('.shop-buy').forEach((b) => b.addEventListener('click', () => { if (hooks.buyShop && hooks.buyShop(b.dataset.id)) api.renderPhone(); }));
       } else if (app === 'piyasa') {
         const tips = hooks.marketTips();
         let html = `<div class="section-info">${t('piyasaHint')}</div>`;
@@ -2723,6 +2760,10 @@ export function createUI(ctx, hooks) {
               ${info.buyback ? '🤝' : '🏞️'} ${t(info.buyback ? 'parcelBuybackBtn' : 'parcelBuyBtn', owned, total, fmtMoney(info.cost, L))}</button>`; })()}
           ${state.cirak ? `<button id="btn-kahya" class="big-btn ${state.kahya ? '' : 'ghost'}">🎩 ${t(state.kahya ? 'kahyaOn' : 'kahyaOff')}</button>` : `<div class="section-info">🎩 ${t('kahyaNeed')}</div>`}
           ${state.kahya && state.kahyaReport ? `<div class="section-info">${t('kahyaReport', fmtMoney(state.kahyaReport.earned, L), state.kahyaReport.harv, state.kahyaReport.planted)}</div>` : ''}
+          ${state.cirak && state.kahya ? `<div class="btn-row" style="flex-wrap:wrap;gap:6px">
+            ${['harvest', 'plant', 'sell', 'parcels', 'lines', 'hire'].map((k) => `<button class="toggle-btn kp-btn ${state.kahyaPlan && state.kahyaPlan[k] === false ? 'ghost' : ''}" data-k="${k}">${t('kp_' + k)} ${state.kahyaPlan && state.kahyaPlan[k] === false ? '✗' : '✓'}</button>`).join('')}
+            <button id="btn-kreserve" class="toggle-btn">💼 ${t('kahyaReserveBtn', fmtMoney(state.kahyaReserve || 1200, L))}</button>
+          </div>` : ''}
           ${state.workerData.map((wd, i) => {
             let lvl = 0;
             for (let li = 0; li < CFG.workerLevelDays.length; li++) if ((wd.days || 0) >= CFG.workerLevelDays[li]) lvl = li;
@@ -2742,6 +2783,8 @@ export function createUI(ctx, hooks) {
         $('btn-dukkan').addEventListener('click', () => { api.hideOverlays(); api.showShop(); });
         if ($('btn-parcel')) $('btn-parcel').addEventListener('click', () => { if (hooks.buyNextParcel && hooks.buyNextParcel()) api.renderManage(); });
         if ($('btn-kahya')) $('btn-kahya').addEventListener('click', () => { if (hooks.toggleKahya && hooks.toggleKahya()) api.renderManage(); });
+        document.querySelectorAll('.kp-btn').forEach((b) => b.addEventListener('click', () => { if (hooks.toggleKahyaPlan) hooks.toggleKahyaPlan(b.dataset.k); api.renderManage(); }));
+        if ($('btn-kreserve')) $('btn-kreserve').addEventListener('click', () => { if (hooks.cycleKahyaReserve) hooks.cycleKahyaReserve(); api.renderManage(); });
         $('btn-fire').addEventListener('click', () => { if (hooks.fireWorker()) api.renderManage(); });
         const sb = $('btn-sofor');
         if (sb) sb.addEventListener('click', () => { if (hooks.promoteSofor()) api.renderManage(); });
@@ -2947,7 +2990,7 @@ export function createUI(ctx, hooks) {
     // v26.2: Zustands-Anzeige der Auto-Buttons (🏃/🍃)
     setTcState(kind, on) {
       if (!ctx.isTouch) return;
-      const b = $(kind === 'run' ? 'tbtn-run' : kind === 'bot' ? 'tbtn-bot' : 'tbtn-farm');
+      const b = $(kind === 'run' ? 'tbtn-run' : kind === 'bot' ? 'tbtn-bot' : kind === 'ff' ? 'tbtn-ff' : 'tbtn-farm');
       if (b) b.classList.toggle('tc-on', !!on);
     },
 
@@ -3064,6 +3107,7 @@ export function createUI(ctx, hooks) {
         const g = getGame && getGame();
         if (g && g.running && !g.paused) api.setTcState('bot', g.toggleBot());
       });
+      bindTap('tbtn-ff', () => { if (hooks.cycleTimeScale) hooks.cycleTimeScale(); });   // v31: Zeitraffer
       // v26: Schnellzugriffe einklappbar
       bindTap('tbtn-more', () => $('tc-actions-list').classList.toggle('hidden'));
       // v26: Minimap antippen = vergrößern
@@ -3296,6 +3340,11 @@ export function createUI(ctx, hooks) {
   const botSet = () => state.settings.bot || (state.settings.bot = { fish: true, reserve: 400, crop: 'auto' });
   const refreshBotRows = () => {
     const B = botSet();
+    if ($('btn-timescale')) {   // v31: Zeitraffer im Pausenmenü
+      const refreshTS = () => { $('btn-timescale').textContent = '×' + (hooks.timeScale ? hooks.timeScale() : 1); };
+      $('btn-timescale').addEventListener('click', () => { if (hooks.cycleTimeScale) hooks.cycleTimeScale(); refreshTS(); });
+      refreshTS();
+    }
     if ($('btn-pickspeed')) {
       const refreshPS = () => { $('btn-pickspeed').textContent = '×' + (state.settings.pickSpeed || 1); };
       $('btn-pickspeed').addEventListener('click', () => {

@@ -197,7 +197,7 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
             const targetYaw = Math.atan2(-adx, -adz);
             let dyaw = targetYaw - euler.y;
             dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
-            euler.y += dyaw * Math.min(1, dt * 5);
+            euler.y += dyaw * Math.min(1, dt * 3.2);   // v31: weichere Kurven im Bot-Lauf
           }
         }
       }

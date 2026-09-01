@@ -9,6 +9,8 @@ export function createAudio() {
   let enabled = true;
   let started = false;
   let gullTimer = 6;
+  let hornTimer = 5;   // v31: Stadt-Hupen
+  let city = null;     // v31: Stadt-Grundrauschen
 
   function noiseBuffer(ac, seconds = 2, brown = false) {
     const len = Math.floor(ac.sampleRate * seconds);
@@ -61,6 +63,7 @@ export function createAudio() {
 
     wind = loopNoise(false, 'bandpass', 480, 0.45, 0.02);
     rain = loopNoise(false, 'highpass', 1600, 0.4, 0.0);
+    city = loopNoise(true, 'lowpass', 420, 0.6, 0.0);   // v31
 
     started = true;
   }
@@ -103,7 +106,7 @@ export function createAudio() {
       if (v && ac && ac.state === 'suspended') ac.resume();
     },
 
-    update(dt, seaDist, windStrength, rainT, playerMoving, running) {
+    update(dt, seaDist, windStrength, rainT, playerMoving, running, cityLvl = 0) {
       if (!started) return;
       if (ac.state === 'suspended') return;
       // Meer: lauter nahe der Küste
@@ -111,6 +114,13 @@ export function createAudio() {
       sea.amp.gain.setTargetAtTime(seaVol, ac.currentTime, 0.4);
       wind.g.gain.setTargetAtTime(0.015 + windStrength * 0.05, ac.currentTime, 0.6);
       rain.g.gain.setTargetAtTime(rainT * 0.16, ac.currentTime, 0.5);
+      // v31: Stadt-Ambiente (Grundrauschen + gelegentliche Hupen) je nach Ausbaustufe & Nähe
+      if (city) city.g.gain.setTargetAtTime(cityLvl * 0.09, ac.currentTime, 0.8);
+      hornTimer -= dt;
+      if (hornTimer <= 0) {
+        hornTimer = 6 + Math.random() * 12;
+        if (cityLvl > 0.25 && Math.random() < cityLvl) blip(300 + Math.random() * 120, 0.22, 'square', 0.035 * cityLvl);
+      }
 
       // Möwen gelegentlich, nahe Meer
       gullTimer -= dt;
