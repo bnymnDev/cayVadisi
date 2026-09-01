@@ -19,6 +19,7 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
   // v27: Springen — airY = Höhe über Boden, groundEye = geglättete Augenhöhe
   let airY = 0, vy = 0, jumpCd = 0;
   let groundEye = pos.y;
+  let landDip = 0;   // v28: kleiner Kamera-Knicks bei der Landung
   let wantLock = false;    // Spiel möchte PointerLock (First-Person aktiv)
   let relockTimer = 0;     // Auto-Retry: Chrome blockt Lock ~1,3 s nach jedem Exit
   let relockTries = 0;
@@ -125,8 +126,10 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
       if (!enabled || airY > 0.02 || jumpCd > 0) return false;
       vy = P.jumpVel || 5.6;
       jumpCd = 0.3;
+      if (api.onJump) api.onJump();   // v28: Sound + Zähler im Spiel
       return true;
     },
+    onJump: null,
 
     setEnabled(v) { enabled = v; if (!v) keys.clear(); },
 
@@ -224,8 +227,9 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
       if (airY > 0 || vy > 0) {
         vy -= (P.gravity || 15) * dt;
         airY += vy * dt;
-        if (airY <= 0) { airY = 0; vy = 0; }
+        if (airY <= 0) { airY = 0; if (vy < -2.5) landDip = 0.12; vy = 0; }   // v28: Lande-Knicks
       }
+      landDip = Math.max(0, landDip - dt * 0.5);
 
       // Kollisionen: Büsche + Requisiten — in der Luft geht's über die Büsche
       if (airY <= 0.25) teaCollide(pos, P.radius);
@@ -251,7 +255,8 @@ export function createPlayer(ctx, terrain, getColliders, teaCollide) {
       api.moving = speedNow > 0.4;
       api.running = run && api.moving;
       if (api.moving) bobPhase += dt * (run ? 11.5 : 8.2);
-      const bob = Math.sin(bobPhase) * 0.035 * Math.min(1, speedNow / 4);
+      const bob = Math.sin(bobPhase) * 0.035 * Math.min(1, speedNow / 4)
+        - Math.sin(Math.min(1, landDip / 0.12) * Math.PI) * 0.09;   // v28: Landung federt
 
       camera.position.set(pos.x, pos.y + bob, pos.z);
       camera.quaternion.setFromEuler(euler);

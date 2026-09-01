@@ -266,6 +266,7 @@ export function createAudio() {
       });
     },
     harvest() { noiseBurst(1200, 0.8, 0.12, 0.14); blip(440, 0.12, 'triangle', 0.08, 0.05); },
+    jump() { blip(500, 0.08, 'sine', 0.1); blip(740, 0.07, 'sine', 0.07, 0.05); },   // v28
     // v7: Kangal-Bellen — zwei kurze, tiefe "Woff"s
     bark() {
       if (!started) return;

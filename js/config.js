@@ -1,6 +1,6 @@
 // Balancing & Welt-Konstanten
 export const CFG = {
-  version: '27',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
+  version: '28',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
   seed: 1453,
 
   // Welt
@@ -276,8 +276,8 @@ export const CFG = {
 
   // ---- v6: Arbeiter-Persönlichkeiten ----
   workerNames: ['Ali', 'Hasan', 'Fatma', 'Ayşe', 'Mehmet', 'Zeynep', 'Mustafa', 'Emine'],
-  workerLevelDays: [0, 3, 8],          // Arbeitstage bis Level 1/2/3
-  workerLevelFactor: [1, 0.92, 0.84],  // Pflückzeit-Faktor je Level
+  workerLevelDays: [0, 3, 8, 15, 25],  // v28: Arbeitstage bis Level 1..5 (mehr Progression)
+  workerLevelFactor: [1, 0.9, 0.8, 0.72, 0.65],  // v28: Pflückzeit-Faktor je Level (bis 35 % schneller)
   soforCost: 800,                      // Beförderung: verkauft Arbeiter-Tee zu 100 %
 
   // ---- v6: Tee-Sorten (Fabrik-Produktionslinien) ----
@@ -662,7 +662,15 @@ export const CFG = {
     marketMinWorth: 300,                // Markt-Gang lohnt ab diesem Warenwert
     moneyReserve: 400,                  // bleibt immer in der Kasse
     tripSpot: { x: 116, z: -100 },      // Çayevi-Ecke in der Stadt
-    tripSec: 18
+    tripSec: 18,
+    // v28: Dolmuş für weite Wege, Wegenetz-Knoten, Bot-Level, Offline-Verdienst
+    dolmusFare: 25, dolmusMinDist: 60,
+    navNodes: [
+      { x: 0, z: -110 }, { x: -27, z: -106 }, { x: -60, z: -100 },
+      { x: 40, z: -104 }, { x: 80, z: -100 }, { x: 104, z: -96 }, { x: 112, z: -130 }
+    ],
+    xpLevels: [0, 60, 180, 400, 800],   // Bot-Level 0..4
+    offline: { maxHours: 8, perHourBase: 160, perWorker: 35, perLevel: 20 }
   },
 
   // Orte

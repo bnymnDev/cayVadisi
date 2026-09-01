@@ -2684,6 +2684,8 @@ export function createUI(ctx, hooks) {
             ? `<div class="section-info" style="text-align:center">${t('workerCapInfo', CFG.xp.workerCaps[Math.min(CFG.xp.workerCaps.length - 1, Math.floor(xpLevel(state.xp.trade) / 2) + 1)])}</div>` : ''}
           <div class="section-info" style="text-align:center">${t('workerInfo', W.hireCost, W.wage)}</div>
           <div class="section-info" style="text-align:center">${t('workerToday', Math.round(state.workerKg * 10) / 10)}</div>
+          ${(() => { const r = state.botReports[state.botReports.length - 1]; return r
+            ? `<div class="section-info" style="text-align:center">🤖 ${t('botReportLine', r.day, r.kg, fmtMoney(r.earned, L), r.fish)}</div>` : ''; })()}
           <div class="btn-row">
             <button id="btn-hire" class="big-btn" ${state.workers >= wMax || state.money < W.hireCost ? 'disabled' : ''}>
               ${t('hireWorker')} · ${fmtMoney(W.hireCost, L)}</button>
@@ -2764,6 +2766,12 @@ export function createUI(ctx, hooks) {
         </div>
         <h3>${t('chartEarned')}</h3>
         <canvas id="chart-earned" class="spark" width="300" height="56"></canvas>
+        <div class="section-info">🍃 ${t('chartSrcTea')}</div>
+        <canvas id="chart-src-tea" class="spark" width="300" height="36"></canvas>
+        <div class="section-info">🐟 ${t('chartSrcFish')}</div>
+        <canvas id="chart-src-fish" class="spark" width="300" height="36"></canvas>
+        <div class="section-info">🥬 ${t('chartSrcVeg')}</div>
+        <canvas id="chart-src-veg" class="spark" width="300" height="36"></canvas>
         <h3>${t('repTitle')}</h3>
         <div class="section-info">${t('repInfo')}</div>
         <div class="share-bar"><div class="share-me" style="width:${state.rep}%;background:#3f6d9a"></div></div>
@@ -2777,6 +2785,9 @@ export function createUI(ctx, hooks) {
         <div class="share-bar"><div class="share-me" style="width:${share}%"></div></div>
         <div class="share-legend"><span>🏷️ ${state.label || 'ÇAY VADİSİ'}</span><span>Kemal Ağa</span></div>`;
         api.drawSpark($('chart-earned'), state.hist.earned, '#7ba24a');
+        api.drawSpark($('chart-src-tea'), state.hist.srcTea || [], '#5a8f3d');
+        api.drawSpark($('chart-src-fish'), state.hist.srcFish || [], '#3f6d9a');
+        api.drawSpark($('chart-src-veg'), state.hist.srcVeg || [], '#b0802e');
         const kb = $('btn-koop');
         if (kb) kb.addEventListener('click', () => { if (hooks.joinKoop()) api.renderManage(); });
       }
@@ -3245,6 +3256,31 @@ export function createUI(ctx, hooks) {
   gfxToggle('btn-gfx-direct', 'directRender');
   gfxToggle('btn-gfx-chars', 'noChars');
   // v26: Kamera-Empfindlichkeit & Vollbild
+  // v28: Vali-Bot-Einstellungen (Pausenmenü)
+  const botSet = () => state.settings.bot || (state.settings.bot = { fish: true, reserve: 400, crop: 'auto' });
+  const refreshBotRows = () => {
+    const B = botSet();
+    if ($('btn-bot-fish')) {
+      $('btn-bot-fish').textContent = B.fish !== false ? '✔' : '✖';
+      $('btn-bot-reserve').textContent = (B.reserve ?? 400) + ' ₺';
+      $('btn-bot-crop').textContent = B.crop === 'auto' ? '🔄' : ({ corn: '🌽', tomato: '🍅', hazel: '🌰' })[B.crop] || '🔄';
+    }
+  };
+  api.refreshBotRows = refreshBotRows;
+  if ($('btn-bot-fish')) {
+    $('btn-bot-fish').addEventListener('click', () => { const B = botSet(); B.fish = B.fish === false; refreshBotRows(); hooks.saveNow && hooks.saveNow(); });
+    $('btn-bot-reserve').addEventListener('click', () => {
+      const B = botSet(); const steps = [0, 400, 1500];
+      B.reserve = steps[(steps.indexOf(B.reserve ?? 400) + 1) % steps.length];
+      refreshBotRows(); hooks.saveNow && hooks.saveNow();
+    });
+    $('btn-bot-crop').addEventListener('click', () => {
+      const B = botSet(); const opts = ['auto', 'corn', 'tomato', 'hazel'];
+      B.crop = opts[(opts.indexOf(B.crop || 'auto') + 1) % opts.length];
+      refreshBotRows(); hooks.saveNow && hooks.saveNow();
+    });
+    refreshBotRows();
+  }
   $('btn-sens').addEventListener('click', (e) => {
     const order = [0.7, 1, 1.3];
     const next = order[(order.indexOf(state.settings.touchSens || 1) + 1) % order.length];

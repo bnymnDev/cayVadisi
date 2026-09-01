@@ -739,6 +739,16 @@ export function createGame(ctx, mods) {
       lines.push({ k: 'sumJV', v: '+' + jp + ' 📦' });
     }
     checkWealth();
+    // v28: Vali-Bot-Tagesrapport festhalten (max. 7 Tage)
+    if (state.botAuto || autoFarm) {
+      state.botReports.push({
+        day: state.day, kg: Math.round(state.dayKg * 10) / 10,
+        earned: Math.round(state.dayEarned), spent: Math.round(state.daySpent),
+        fish: state._botFishDay || 0
+      });
+      if (state.botReports.length > 7) state.botReports.shift();
+    }
+    state._botFishDay = 0;
     ui.showDaySummary(lines);
     save();
   }
@@ -845,6 +855,13 @@ export function createGame(ctx, mods) {
       }
       state.hist.earned.push(Math.round(state.dayEarned));
       if (state.hist.earned.length > H) state.hist.earned.shift();
+      // v28: Einnahmen nach Quelle für die Charts
+      for (const [key, val] of [['srcTea', state._srcTea], ['srcFish', state._srcFish], ['srcVeg', state._srcVeg]]) {
+        const arr = state.hist[key] = state.hist[key] || [];
+        arr.push(Math.round(val || 0));
+        if (arr.length > H) arr.shift();
+      }
+      state._srcTea = 0; state._srcFish = 0; state._srcVeg = 0;
     }
     regenExports();
     if (state.blackHeat > 0) state.blackHeat = Math.max(0, state.blackHeat - 1);
@@ -1061,6 +1078,7 @@ export function createGame(ctx, mods) {
   function doSell(silent = false) {
     if (state.basketKg <= 0.01) return 0;
     const sum = sellValue();
+    state._srcTea = (state._srcTea || 0) + sum;   // v28: Chart-Quelle
     state.money += sum;
     state.dayEarned += sum;
     state.totalEarned += sum;
@@ -1206,6 +1224,10 @@ export function createGame(ctx, mods) {
     // v14: Hamsi-Schwemme drückt alle Fischpreise
     if (yearEventIs('hamsi') && ['hamsi', 'lufer', 'kalkan', 'levrek', 'kofana', 'mersin'].includes(id)) price *= 0.5;
     const sum = n * price;
+    // v28: Chart-Quellen (Fisch vs. Hof vs. Tee-Produkte)
+    if (['hamsi', 'lufer', 'kalkan', 'levrek', 'kofana', 'mersin'].includes(id)) state._srcFish = (state._srcFish || 0) + sum;
+    else if (id.startsWith('tea')) state._srcTea = (state._srcTea || 0) + sum;
+    else state._srcVeg = (state._srcVeg || 0) + sum;
     gainXp('trade', CFG.xp.tradePerSale);   // v16
     state.inventory[id] -= n;
     state.money += sum;
@@ -4036,6 +4058,8 @@ export function createGame(ctx, mods) {
     if (state.survival && (state.hunger < CFG.survival.lowThreshold || state.energy < CFG.survival.lowThreshold)) {
       m *= CFG.survival.slowFactor;
     }
+    // v28: erfahrener Vali-Bot läuft schneller
+    if (autoFarm) m *= 1 + 0.04 * botLevel();
     // v25: auf der zugefrorenen Eisfläche rutscht man schneller
     if (mods.icepond && mods.icepond.onIce(player.pos.x, player.pos.z)) {
       m *= CFG.icePond.slideMul;
@@ -4082,6 +4106,7 @@ export function createGame(ctx, mods) {
   }
   function stopAutoFarm(msgKey) {
     autoFarm = false; autoFarmPick = false; botFull = false;
+    state.botAuto = false;
     player.autoTarget = null;
     if (msgKey) ui.toast(t(msgKey), msgKey === 'autoFarmFull', 6000);
   }
@@ -4099,6 +4124,8 @@ export function createGame(ctx, mods) {
     autoFarmMode = 'pick'; autoFarmScan = 0;
     autoStuckT = 0; autoDetour = 0; autoSkip = null; autoWaitToast = false;
     botFishN = 0; botTripT = 0;
+    state.botAuto = botFull;   // v28: für Offline-Verdienst merken
+    save();
     player.autoTarget = null;
     if (botFull) audio.pickDone();
     ui.toast(t(botFull ? 'botOn' : 'botOff'), botFull, 6500);
@@ -4120,7 +4147,7 @@ export function createGame(ctx, mods) {
   function botFarmworkWorth() {
     if (state.plots.some(p => p && p.daysLeft <= 0)) return true;
     return CFG.seasonCycle.cropGrowth[season()] > 0 && state.plots.some(p => !p)
-      && state.money >= seedPrice('corn') + CFG.bot.moneyReserve;
+      && state.money >= seedPrice('corn') + botReserve();
   }
   function botFarmChores() {
     for (let i = 0; i < state.plots.length; i++) {
@@ -4128,16 +4155,18 @@ export function createGame(ctx, mods) {
     }
     if (CFG.seasonCycle.cropGrowth[season()] > 0) {
       while (state.plots.some(p => !p)) {
-        const type = state.money > 4000 + CFG.bot.moneyReserve ? 'hazel'
-          : (state.money > 1200 + CFG.bot.moneyReserve ? 'tomato' : 'corn');
-        if (state.money < seedPrice(type) + CFG.bot.moneyReserve) break;
+        const pref = (state.settings.bot || {}).crop;
+        const type = (pref && pref !== 'auto' && CFG.crops[pref]) ? pref
+          : state.money > 4000 + botReserve() ? 'hazel'
+          : (state.money > 1200 + botReserve() ? 'tomato' : 'corn');
+        if (state.money < seedPrice(type) + botReserve()) break;
         if (!plantCrop(type)) break;
       }
     }
   }
   function botShopping() {
     let bought = 0;
-    const R = CFG.bot.moneyReserve;
+    const R = botReserve();
     if (!state.rod && state.money >= CFG.fishing.rodCost + R && buyRod()) bought++;
     for (const id of ['boots', 'basket1', 'basket2']) {
       if (!state.upgrades[id] && CFG.upgrades[id]
@@ -4146,12 +4175,64 @@ export function createGame(ctx, mods) {
     if (bought > 0) ui.toast(t('botShopping'), true, 6000);
   }
   function botPlan() {
+    const S = state.settings.bot || {};
     if (botFarmworkWorth()) return 'farmwork';
     if (featureOn('market') && botSellWorth() >= CFG.bot.marketMinWorth) return 'market';
-    if (sky.hour < CFG.bot.fishUntilHour
-        && (state.rod || state.money >= CFG.fishing.rodCost + CFG.bot.moneyReserve)) return 'fish';
+    if (S.fish !== false && sky.hour < CFG.bot.fishUntilHour
+        && (state.rod || state.money >= CFG.fishing.rodCost + botReserve())) return 'fish';
     if (botTripDay !== state.day) return 'trip';
     return null;
+  }
+  // v28: Bot-Level aus Erfahrung — schnelleres Laufen & Angeln je Level
+  function botLevel() {
+    let lvl = 0;
+    for (let i = 0; i < CFG.bot.xpLevels.length; i++) if (state.botXp >= CFG.bot.xpLevels[i]) lvl = i;
+    return lvl;
+  }
+  function botGainXp(n) {
+    const before = botLevel();
+    state.botXp += n;
+    const lvl = botLevel();
+    if (lvl > before) {
+      ui.toast(t('botLvlUp', lvl + 1), true, 8000);
+      audio.pickDone();
+    }
+  }
+  function botReserve() {
+    const r = (state.settings.bot || {}).reserve;
+    return r === 0 ? 0 : (r || CFG.bot.moneyReserve);
+  }
+  // v28: weite Wege nimmt der Bot den Dolmuş (Fahrpreis statt Fußmarsch)
+  function botTravel(tx, tz) {
+    if (distTo(tx, tz) > CFG.bot.dolmusMinDist && state.money >= CFG.bot.dolmusFare + botReserve()) {
+      state.money -= CFG.bot.dolmusFare;
+      state.daySpent += CFG.bot.dolmusFare;
+      player.teleport(tx + 3, tz + 3);
+      ui.refreshMoney();
+      ui.toast(t('botDolmus'), true, 5500);
+      return true;
+    }
+    return false;
+  }
+  // v28: Wegenetz — Zwischenknoten nehmen, wenn er den Weg kaum verlängert
+  function botNextHop(tx, tz) {
+    const px = player.pos.x, pz = player.pos.z;
+    const direct = Math.hypot(tx - px, tz - pz);
+    if (direct < 35) return null;
+    let best = null, bestScore = direct * 1.15;
+    for (const n of CFG.bot.navNodes) {
+      const a = Math.hypot(n.x - px, n.z - pz);
+      const b = Math.hypot(tx - n.x, tz - n.z);
+      if (a > 6 && b < direct - 8 && a + b < bestScore) { best = n; bestScore = a + b; }
+    }
+    return best;
+  }
+  // v28: Zielsetzung für Bot-Aktivitäten (Dolmuş → Wegenetz → Luftlinie)
+  function botSetTarget(tx, tz) {
+    if (botTravel(tx, tz)) return;
+    const hop = botNextHop(tx, tz);
+    player.autoTarget = hop ? { x: hop.x, z: hop.z, wp: true } : { x: tx, z: tz };
+    autoTargetIsBush = false;
   }
   // v26.3: nach endDay() (Schlaf ODER Mitternachts-Kollaps) automatisch in den
   // nächsten Tag weiterlaufen, solange Auto-Farm aktiv ist
@@ -4161,11 +4242,25 @@ export function createGame(ctx, mods) {
       if (!autoFarm || running) return;
       ui.hideOverlays();
       nextDay();
+      // v28: Morgen-Rapport des Bots
+      const rep = state.botReports[state.botReports.length - 1];
+      if (rep) ui.toast(t('botReport', rep.kg, fmtMoney(rep.earned, state.settings.lang), rep.fish), true, 11000);
       autoFarmMode = 'pick'; autoFarmScan = 0; autoWaitToast = false;
       autoStuckT = 0; autoDetour = 0; autoSkip = null;
       player.autoTarget = null; autoTargetIsBush = false;
     }, 3500);
   }
+  // v28: Sprung-Sound, Zähler & Trophäe
+  player.onJump = () => {
+    audio.jump();
+    state.jumps = (state.jumps || 0) + 1;
+    if (state.jumps === 50) {
+      state.money += 500; state.dayEarned += 500; state.totalEarned += 500;
+      ui.toast(t('jumpTrophy'), true, 9000);
+      audio.pickDone();
+      ui.refreshMoney();
+    }
+  };
   window.addEventListener('touchstart', (e) => {
     if (!running || paused || ui.overlayOpen() || vehicles.driving) return;
     if (e.target && e.target.closest && e.target.closest('.tc')) return;   // Touch-Controls ignorieren
@@ -4592,8 +4687,26 @@ export function createGame(ctx, mods) {
 
   // ---------- Haupt-Update ----------
   let frozen = false;   // v18: Reveal-Cinematic friert das Spiel ein
+  // v28: Offline-Verdienst — der Vali-Bot hat weitergearbeitet
+  let pendingOffline = 0;
+  if (state.botAuto && state._savedAt > 0) {
+    const OF = CFG.bot.offline;
+    const h = Math.min(OF.maxHours, (Date.now() - state._savedAt) / 3.6e6);
+    if (h >= 0.25) {
+      pendingOffline = Math.round(h * (OF.perHourBase + state.workers * OF.perWorker));
+    }
+  }
   function update(dt, elapsed) {
     if (!running || paused || frozen) return;
+    if (pendingOffline > 0) {
+      const g = Math.round(pendingOffline * (1 + 0.1 * botLevel()));
+      pendingOffline = 0;
+      state.money += g; state.dayEarned += g; state.totalEarned += g;
+      ui.refreshMoney();
+      ui.toast(t('botOffline', fmtMoney(g, state.settings.lang)), true, 12000);
+      audio.cash();
+      save();
+    }
 
     // Zeit (v7: nach endHour beginnt die freiwillige Nacht bis night.endHour)
     state.timeSec += dt;
@@ -4892,7 +5005,7 @@ export function createGame(ctx, mods) {
           // --- Korb zur Annahmestelle bringen und verkaufen ---
           if (distTo(CFG.hut.x, CFG.hut.z) < CFG.interactDist + 2.5) {
             player.autoTarget = null; autoTargetIsBush = false; autoDetour = 0;
-            if (state.basketKg > 0.01) doSell();
+            if (state.basketKg > 0.01) { doSell(); botGainXp(6); }
             autoFarmMode = 'pick'; autoFarmScan = 0;
           } else if (!player.autoTarget || autoTargetIsBush) {
             player.autoTarget = { x: CFG.hut.x + 1.5, z: CFG.hut.z + 1.5 };
@@ -4915,9 +5028,10 @@ export function createGame(ctx, mods) {
           if (distTo(c.x, c.z) < 7) {
             player.autoTarget = null; autoTargetIsBush = false; autoDetour = 0;
             botFarmChores();
+            botGainXp(3);
             autoFarmMode = 'pick'; autoFarmScan = 0;
           } else if (!player.autoTarget || autoTargetIsBush) {
-            player.autoTarget = { x: c.x, z: c.z }; autoTargetIsBush = false;
+            botSetTarget(c.x, c.z);
           }
         } else if (autoFarmMode === 'fish') {
           // --- v27: am Ufer beim Bootssteg angeln ---
@@ -4932,7 +5046,8 @@ export function createGame(ctx, mods) {
             player.look(Math.atan2(-(CFG.boat.dock.x - player.pos.x), -(CFG.boat.dock.z - player.pos.z)), -0.2);
             botFishT -= dt;
             if (botFishT <= 0) {
-              botFishT = CFG.bot.fishEverySec * (0.8 + Math.random() * 0.5);
+              botFishT = CFG.bot.fishEverySec * (0.8 + Math.random() * 0.5)
+                * (1 - 0.06 * botLevel());   // v28: erfahrener Bot angelt schneller
               const r = Math.random();
               let id = 'hamsi', acc = 0;
               for (const [fid, f] of Object.entries(CFG.fishing.fish)) {
@@ -4943,6 +5058,8 @@ export function createGame(ctx, mods) {
               state.fishCaught += 1;
               gainXp('fish', CFG.xp.fishPer[id] || 4);
               botFishN += 1;
+              state._botFishDay = (state._botFishDay || 0) + 1;   // v28: Rapport
+              botGainXp(4);
               audio.harvest();
               if (botFishN % 4 === 1) ui.toast(t('botFish'), true, 4500);
             }
@@ -4952,7 +5069,7 @@ export function createGame(ctx, mods) {
             }
           } else if (!player.autoTarget || autoTargetIsBush) {
             player.hitWater = false;
-            player.autoTarget = { x: S.x, z: S.z }; autoTargetIsBush = false;
+            botSetTarget(S.x, S.z);
           }
         } else if (autoFarmMode === 'market') {
           // --- v27: Fang & Ernte auf dem Kasaba-Pazar verkaufen, dann shoppen ---
@@ -4964,11 +5081,11 @@ export function createGame(ctx, mods) {
               const n = Math.floor(state.inventory[id] || 0);
               if (n > 0) sum += sellProduct(id, n);
             }
-            if (sum > 0) ui.toast(t('botMarket', fmtMoney(sum, state.settings.lang)), true, 7000);
+            if (sum > 0) { ui.toast(t('botMarket', fmtMoney(sum, state.settings.lang)), true, 7000); botGainXp(6); }
             botShopping();
             autoFarmMode = 'pick'; autoFarmScan = 0;
           } else if (!player.autoTarget || autoTargetIsBush) {
-            player.autoTarget = { x: M.x + 2, z: M.z + 2 }; autoTargetIsBush = false;
+            botSetTarget(M.x + 2, M.z + 2);
           }
         } else if (autoFarmMode === 'trip') {
           // --- v27: kleiner Ausflug ins Städtchen (einmal am Tag) ---
@@ -4982,7 +5099,7 @@ export function createGame(ctx, mods) {
               autoFarmMode = 'pick'; autoFarmScan = 0;
             }
           } else if (!player.autoTarget || autoTargetIsBush) {
-            player.autoTarget = { x: T.x, z: T.z }; autoTargetIsBush = false;
+            botSetTarget(T.x, T.z);
           }
         } else if (state.basketKg >= cap - 0.01) {
           autoFarmMode = 'sell';
