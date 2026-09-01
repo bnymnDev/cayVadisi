@@ -4705,10 +4705,8 @@ export function createGame(ctx, mods) {
     if (featureOn('tavla') && distTo(CFG.city.x + 12, CFG.city.z - 4) < CFG.interactDist) return { id: 'tavla' };
     if (state.hives < CFG.yayla.maxHives
         && distTo(CFG.yayla.x + 6, CFG.yayla.z + 2) < CFG.interactDist + 2) return { id: 'hive' };
-    // v28.1: Kangal-Ausbildung zuletzt — der Hund folgt überallhin und darf
-    // keine anderen Interaktionen (Fabrik, Markt, Türen …) verdecken
-    if (state.dog && mods.dog && Math.hypot(player.pos.x - mods.dog.pos.x, player.pos.z - mods.dog.pos.z) < CFG.interactDist - 1
-        && Object.keys(state.dogTricks).length < 3) return { id: 'dogtrain' };
+    // v28.2: Kangal-Ausbildung läuft jetzt NUR über das Betriebs-Panel —
+    // kein Welt-Prompt mehr (er nervte und verdeckte andere Aktionen)
     return null;
   }
 

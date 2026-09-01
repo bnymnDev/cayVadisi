@@ -743,6 +743,7 @@ const STRINGS = {
     chartSrcVeg: 'Einnahmen Hof & Ernte',
     rescueBtn: '🏠 Zurück zum Feld (Notfall)',
     rescueDone: '🏠 Uff! Zurück am Teefeld — weiter geht\u2019s.',
+    dogMenuBtn: (n) => `Kangal ausbilden · ${n}/3 Tricks`,
 
     // ---- v5: Story — Dede-Çayı ----
     stContinue: 'Weiter',
@@ -2017,6 +2018,7 @@ const STRINGS = {
     chartSrcVeg: 'Gelir: Çiftlik & Hasat',
     rescueBtn: '🏠 Tarlaya dön (acil durum)',
     rescueDone: '🏠 Oh be! Çay tarlasına geri döndün — devam.',
+    dogMenuBtn: (n) => `Kangal eğit · ${n}/3 numara`,
 
     // ---- v5: Hikâye — Dede Çayı ----
     stContinue: 'Devam',
@@ -3230,6 +3232,7 @@ const STRINGS = {
     chartSrcVeg: 'Income: farm & harvest',
     rescueBtn: '🏠 Back to the field (emergency)',
     rescueDone: '🏠 Phew! Back at the tea field — carry on.',
+    dogMenuBtn: (n) => `Train Kangal · ${n}/3 tricks`,
     stContinue: 'Continue',
     stIcon_letter: '✉️', stTitle_letter: 'Grandfather\'s letter',
     stText_letter: '"Evlat, if you\'re reading this, the valley is yours. Pick your first 10 kilos — then you\'ll understand why I never left. Something waits for you in the old factory." Your first 10 kg are in. +250 ₺ from Dede\'s envelope.',
