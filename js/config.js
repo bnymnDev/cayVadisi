@@ -1,6 +1,6 @@
 // Balancing & Welt-Konstanten
 export const CFG = {
-  version: '30.1',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
+  version: '31',   // sichtbar auf Start- und Pausebildschirm (Cache-Diagnose)
   seed: 1453,
 
   // Welt
@@ -852,6 +852,13 @@ export const CFG = {
 
   // ---- v30: Kâhya-Modus — so viel bleibt immer in der Kasse ----
   kahya: { reserve: 1200 },
+  // ---- v31: Filialen, Zeitraffer, Kâhya-Plan ----
+  shops: {
+    istanbul:  { cost: [9000, 16000, 28000], perDay: [420, 900, 1600] },
+    zonguldak: { cost: [5000, 9000, 15000],  perDay: [240, 520, 900] }
+  },
+  kahyaReserves: [600, 1200, 3000, 6000],
+  timeScales: [1, 2, 4],
 
   // ---- v29: Stadt-Ausbaustufen & NPC-Verkehr ----
   growth: {

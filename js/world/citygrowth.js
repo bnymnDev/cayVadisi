@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { CFG } from '../config.js';
 import { state } from '../state.js';
+import { spawnPerson } from '../workers.js';
 
 function windowsTexture(cols, rows, base, lit) {
   const c = document.createElement('canvas');
@@ -22,7 +23,7 @@ function windowsTexture(cols, rows, base, lit) {
   return t;
 }
 
-export function createCityGrowth(ctx, terrain, allColliders) {
+export function createCityGrowth(ctx, terrain, allColliders, chars) {
   const group = new THREE.Group();
   ctx.scene.add(group);
   const C = CFG.city;
@@ -70,6 +71,45 @@ export function createCityGrowth(ctx, terrain, allColliders) {
     b.position.set(x, y + h / 2, z);
     group.add(b);
     allColliders.push({ x, z, r: 4.4 });
+    neon(x, z, y + h);   // v31
+  }
+
+  // v31: Stadt-Leben — Laternen (Kasaba), Fußgänger (Şehir), Neon (Metropol)
+  const lampBulbs = [], neons = [], peds = [];
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x3a3f44, roughness: 0.7 });
+  function lamp(x, z) {
+    const y = terrain.heightAt(x, z);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 4.2, 6), poleMat);
+    pole.position.set(x, y + 2.1, z);
+    const bulbMat = new THREE.MeshStandardMaterial({ color: 0xfff1c8, emissive: 0xffd88a, emissiveIntensity: 0.2 });
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), bulbMat);
+    bulb.position.set(x, y + 4.3, z);
+    group.add(pole, bulb);
+    lampBulbs.push(bulbMat);
+  }
+  function lampRing(n, r) {
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2;
+      const x = C.x + Math.cos(a) * r, z = C.z + Math.sin(a) * r;
+      if (terrain.heightAt(x, z) > 0.8) lamp(x, z);
+    }
+  }
+  function pedestrians(n) {
+    for (let i = 0; i < n; i++) {
+      const parts = spawnPerson(chars, i + 2, { hat: false, basket: false, tex: i % 4 });
+      const p = { parts, a: rnd() * Math.PI * 2, r: 26 + rnd() * 14, dir: rnd() < 0.5 ? 1 : -1, sp: 1.0 + rnd() * 0.5 };
+      group.add(parts.group);
+      peds.push(p);
+      if (parts.anim && parts.anim.play) parts.anim.play('Walk', 0.2, 1);
+    }
+  }
+  function neon(x, z, top) {
+    const col = [0xff3b6b, 0x2ee6ff, 0xffd23f, 0x7dff5a][Math.floor(rnd() * 4)];
+    const m = new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 1.2 });
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.9, 0.2), m);
+    bar.position.set(x, top - 1.5, z + 3.1);
+    group.add(bar);
+    neons.push({ m, phase: rnd() * 6 });
   }
 
   function ring(count, r0, r1, builder) {
@@ -86,8 +126,8 @@ export function createCityGrowth(ctx, terrain, allColliders) {
   }
 
   function applyStage(s) {
-    if (s >= 1 && built < 1) ring(8, 44, 54, (x, z, i) => house(x, z, i));         // Kasaba
-    if (s >= 2 && built < 2) ring(12, 56, 72, (x, z, i) => house(x, z, i + 8));    // Şehir
+    if (s >= 1 && built < 1) { ring(8, 44, 54, (x, z, i) => house(x, z, i)); lampRing(10, 40); }          // Kasaba
+    if (s >= 2 && built < 2) { ring(12, 56, 72, (x, z, i) => house(x, z, i + 8)); pedestrians(6); }      // Şehir
     if (s >= 3 && built < 3) { ring(5, 60, 78, (x, z) => tower(x, z)); }           // Metropole
     built = Math.max(built, s);
   }
@@ -102,7 +142,18 @@ export function createCityGrowth(ctx, terrain, allColliders) {
 
   return {
     stage,
-    update(dt) {
+    update(dt, elevN = 1, elapsed = 0) {
+      // v31: Laternen & Neon nachts, Fußgänger kreisen um die Stadt
+      const night = Math.max(0, 1 - elevN * 3);
+      for (const m of lampBulbs) m.emissiveIntensity = 0.15 + night * 1.6;
+      for (const n of neons) n.m.emissiveIntensity = 0.6 + night * 0.9 * (0.6 + 0.4 * Math.sin(elapsed * 3 + n.phase));
+      for (const p of peds) {
+        p.a += p.dir * p.sp * dt / p.r;
+        const x = C.x + Math.cos(p.a) * p.r, z = C.z + Math.sin(p.a) * p.r;
+        p.parts.group.position.set(x, terrain.heightAt(x, z), z);
+        p.parts.group.rotation.y = Math.atan2(-Math.sin(p.a) * p.dir, Math.cos(p.a) * p.dir);
+        if (p.parts.anim && p.parts.anim.update) p.parts.anim.update(dt);
+      }
       checkT -= dt;
       if (checkT <= 0) {
         checkT = 3;

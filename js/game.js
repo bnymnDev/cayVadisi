@@ -411,13 +411,25 @@ export function createGame(ctx, mods) {
         lines.push({ k: 'sumRent', v: '+' + fmtMoney(rent, L), sub: myParcels + ' 🚩' });
       }
     }
+    // v31: Filialen in İstanbul & Zonguldak zahlen täglich aus
+    if (state.shops) {
+      let shopSum = 0; const parts = [];
+      for (const [id, lvl] of Object.entries(state.shops)) {
+        if (lvl > 0 && CFG.shops[id]) { shopSum += CFG.shops[id].perDay[lvl - 1]; parts.push(t('shop_' + id) + ' ' + '⭐'.repeat(lvl)); }
+      }
+      if (shopSum > 0) {
+        state.money += shopSum; state.dayEarned += shopSum; state.totalEarned += shopSum;
+        lines.push({ k: 'sumShops', v: '+' + fmtMoney(shopSum, L), sub: parts.join(' · ') });
+      }
+    }
     // v30: Kâhya-Modus — der Çırak führt den Betrieb über Nacht:
     // ernten, neu pflanzen, Hofprodukte verkaufen, expandieren (Parzellen,
     // Fabriklinien, Arbeiter). Die Reserve bleibt immer in der Kasse.
     if (state.kahya && state.cirak) {
-      const K = CFG.kahya;
+      const K = { reserve: state.kahyaReserve || CFG.kahya.reserve };   // v31: einstellbar
+      const KP = state.kahyaPlan || {};                                 // v31: Tagesplan-Häkchen
       let harv = 0, planted = 0, sold = 0;
-      for (let i = 0; i < state.plots.length; i++) {
+      for (let i = 0; KP.harvest !== false && i < state.plots.length; i++) {
         const p = state.plots[i];
         if (p && p.daysLeft <= 0) {
           state.inventory[p.type] += CFG.crops[p.type].yield;
@@ -425,7 +437,7 @@ export function createGame(ctx, mods) {
         }
       }
       const fav = CFG.crops[state.settings.botCrop] ? state.settings.botCrop : 'corn';
-      while (state.money - K.reserve > seedPrice(fav)) {
+      while (KP.plant !== false && state.money - K.reserve > seedPrice(fav)) {
         const idx = state.plots.findIndex((q) => !q);
         if (idx < 0) break;
         state.money -= seedPrice(fav); state.daySpent += seedPrice(fav);
@@ -434,17 +446,18 @@ export function createGame(ctx, mods) {
       }
       if (harv || planted) farm.refreshPlots();
       for (const id of Object.keys(CFG.products)) {
+        if (KP.sell === false) break;
         if (id === 'tea_pack' || id === 'coal') continue;
         const n = Math.floor(state.inventory[id] || 0);
         if (n > 0) sold += sellProduct(id, n);
       }
       const ex = [];
       const pInfo = nextParcelInfo();
-      if (pInfo && state.money - K.reserve > pInfo.cost && buyNextParcel()) ex.push('🚩');
+      if (KP.parcels !== false && pInfo && state.money - K.reserve > pInfo.cost && buyNextParcel()) ex.push('🚩');
       const F2k = CFG.factory2;
-      if (state.factory && state.factoryLines < F2k.lineCosts.length
+      if (KP.lines !== false && state.factory && state.factoryLines < F2k.lineCosts.length
           && state.money - K.reserve > F2k.lineCosts[state.factoryLines] && buyLine()) ex.push('🏭');
-      if (state.workers < workerMax() && state.money - K.reserve > CFG.workers.hireCost && hireWorker()) ex.push('👷');
+      if (KP.hire !== false && state.workers < workerMax() && state.money - K.reserve > CFG.workers.hireCost && hireWorker()) ex.push('👷');
       state.kahyaReport = { earned: Math.round(sold), harv, planted, ex };
       if (sold > 0 || harv || planted || ex.length) {
         lines.push({ k: 'sumKahya', v: '+' + fmtMoney(Math.round(sold), L),
@@ -793,6 +806,8 @@ export function createGame(ctx, mods) {
       if (state.botReports.length > 7) state.botReports.shift();
     }
     state._botFishDay = 0;
+    // v31: Tagesbilanz fürs Imperium-Dashboard (letzte 14 Tage)
+    state.dayHist = (state.dayHist || []).concat([{ d: state.day, e: Math.round(state.dayEarned), s: Math.round(state.daySpent) }]).slice(-14);
     if (state.factoryLog) state.factoryLog.sold = state.packsSold - _packs0;
     ui.showDaySummary(lines);
     save();
@@ -3049,6 +3064,35 @@ export function createGame(ctx, mods) {
     const info = nextParcelInfo();
     if (!info) { audio.deny(); return false; }
     return buyParcel(info.idx);
+  }
+
+  // v31: Filiale kaufen / ausbauen (İstanbul-Kiosk, Zonguldak-Laden)
+  function buyShop(id) {
+    const S = CFG.shops[id];
+    if (!S) return false;
+    const lvl = state.shops[id] || 0;
+    if (lvl >= S.cost.length || state.money < S.cost[lvl]) { audio.deny(); return false; }
+    state.money -= S.cost[lvl];
+    state.daySpent += S.cost[lvl];
+    state.shops[id] = lvl + 1;
+    audio.tierUp();
+    ui.toast(t('shopBought', t('shop_' + id), lvl + 1), true, 8000);
+    checkWealth(); ui.refreshMoney(); save();
+    return true;
+  }
+
+  // v31: Kâhya-Tagesplan & Reserve
+  function toggleKahyaPlan(k) {
+    if (!state.kahyaPlan) state.kahyaPlan = {};
+    state.kahyaPlan[k] = state.kahyaPlan[k] === false;
+    save();
+    return true;
+  }
+  function cycleKahyaReserve() {
+    const R = CFG.kahyaReserves;
+    state.kahyaReserve = R[(R.indexOf(state.kahyaReserve) + 1) % R.length];
+    save();
+    return true;
   }
 
   // v30: Kâhya-Modus umschalten (alles an den Çırak delegieren)
@@ -5345,9 +5389,16 @@ export function createGame(ctx, mods) {
     ui.setTcState('bot', botFull);
     ui.setTcState('run', player.touchAuto);
 
-    // Pflück-Ziel suchen
-    camera.getWorldDirection(camDir);
-    pickTarget = tea.findTarget(camera.position, camDir);
+    // Pflück-Ziel suchen — v31: im Bot-Modus aus der Spieler-Blickrichtung,
+    // weil die Verfolgerkamera von hinten schaut und den Busch verfehlen würde
+    if (autoFarm) {
+      const e = player.euler;
+      camDir.set(-Math.sin(e.y) * Math.cos(e.x), Math.sin(e.x), -Math.cos(e.y) * Math.cos(e.x));
+      pickTarget = tea.findTarget(player.pos, camDir);
+    } else {
+      camera.getWorldDirection(camDir);
+      pickTarget = tea.findTarget(camera.position, camDir);
+    }
     ui.setCrosshairActive(pickTarget >= 0);
 
     // v26: Auto-Pflücken endet beim Losgehen oder wenn kein Busch mehr da ist
@@ -5476,7 +5527,7 @@ export function createGame(ctx, mods) {
     karsikoyPrice, sellKarsikoy, macResult, floodHit,
     buyOrchard, setLogi, spawnHeliJob,
     planPhotoMission, photoTaken, buyGulet, startMeister, meisterResult,
-    buyLine, buyParcel, buyNextParcel, nextParcelInfo, toggleKahya, buildRailway, shovelScoop, buyStall, stallStock,
+    buyLine, buyParcel, buyNextParcel, nextParcelInfo, toggleKahya, buyShop, toggleKahyaPlan, cycleKahyaReserve, buildRailway, shovelScoop, buyStall, stallStock,
     stallCycleFactor, stallCustomer, enterBeeCup, buyQueen, bookCampaign,
     featureOn, checkUnlocks, favorTalk, buyBranch, branchHire, branchMode, taxiValley2,
     hireCirak, trainCirak, story4Sell, story4Refuse, story4Finale,
@@ -5489,6 +5540,7 @@ export function createGame(ctx, mods) {
     boardDolmus, leaveDolmus, buyFlowers, buyRadyo, setRadyoProgram,
     toggleAutoFarm,
     toggleBot,
+    get autoFarmOn() { return autoFarm; },   // v31: Bot-Kamera
     rescueHome,
     inviteBuddy, konakEnter, konakExit,
     get motoRaceTime() { return motoRace ? motoRace.t : -1; },

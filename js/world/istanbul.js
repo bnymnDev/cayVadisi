@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { CFG } from '../config.js';
+import { state } from '../state.js';
 import { makeSignTexture } from './structures.js';
 
 function windowTexture(w, h, cols, rows, base, lit) {
@@ -345,6 +346,46 @@ export function createIstanbul(ctx, terrain) {
   // Höhen-Zone erst jetzt registrieren (Terrain-Mesh & Minimap sind gebaut)
   terrain.addHeightZone(Z);
 
+  // v31: Çay-Vadisi-Filiale am Kai — wächst mit state.shops.istanbul (Kiosk → Laden → Neon)
+  const kiosk = new THREE.Group();
+  {
+    const kx = Z.x0 + 16, kz = Z.z1 - 9;
+    const wood = new THREE.MeshStandardMaterial({ color: 0x8a5a3c, roughness: 0.8 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.6, 3.2), wood);
+    body.position.y = 1.3;
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.25, 3.8), red);
+    roof.position.y = 2.75;
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.2, 3.2), white);
+    upper.position.y = 3.95; upper.name = 'upper';
+    const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+    const cx2 = c.getContext('2d');
+    cx2.fillStyle = '#1b2a22'; cx2.fillRect(0, 0, 256, 64);
+    cx2.fillStyle = '#ffd98a'; cx2.font = 'bold 34px serif'; cx2.textAlign = 'center'; cx2.fillText('ÇAY VADİSİ', 128, 44);
+    const signTex = new THREE.CanvasTexture(c); signTex.colorSpace = THREE.SRGBColorSpace;
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 0.95),
+      new THREE.MeshStandardMaterial({ map: signTex, emissive: 0xffffff, emissiveMap: signTex, emissiveIntensity: 0.6 }));
+    sign.position.set(0, 2.2, 1.62); sign.name = 'sign';
+    const custMat = new THREE.MeshStandardMaterial({ color: 0x4a5a7a, roughness: 0.8 });
+    for (let i = 0; i < 3; i++) {
+      const cu = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 1.0, 4, 8), custMat);
+      cu.position.set(-1.4 + i * 1.3, 0.85, 2.6); cu.name = 'cust' + i; kiosk.add(cu);
+    }
+    kiosk.add(body, roof, upper, sign);
+    kiosk.position.set(kx, Math.max(terrain.heightAt(kx, kz), Z.h), kz);
+    kiosk.visible = false;
+    g.add(kiosk);
+  }
+  let shopT = 0;
+  function syncKiosk() {
+    const lvl = (state.shops && state.shops.istanbul) || 0;
+    kiosk.visible = lvl > 0;
+    const up = kiosk.getObjectByName('upper'); if (up) up.visible = lvl >= 2;
+    const sg = kiosk.getObjectByName('sign');
+    if (sg) { sg.material.emissiveIntensity = lvl >= 3 ? 1.6 : 0.6; sg.position.y = lvl >= 2 ? 5.2 : 2.2; }
+    for (let i = 0; i < 3; i++) { const cu = kiosk.getObjectByName('cust' + i); if (cu) cu.visible = i < lvl; }
+  }
+  syncKiosk();
+
   // v29: Skyline-Hintergrund — Wohnblocks mit beleuchteten Fenstern hinter
   // dem Kai, damit Istanbul nach Großstadt aussieht (nur Kulisse, keine Kollider).
   {
@@ -371,6 +412,7 @@ export function createIstanbul(ctx, terrain) {
     get visible() { return g.visible; },
     update(dt, elapsed) {
       if (!g.visible) return;
+      shopT -= dt; if (shopT <= 0) { shopT = 2; syncKiosk(); }   // v31
       for (const f of ferries) {
         f.m.position.x += f.dir * f.sp * dt;
         if (f.m.position.x > -60) f.dir = -1;
