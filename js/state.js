@@ -54,6 +54,10 @@ export const state = {
   debt: 0,
   insured: false,
   workerData: [],           // {name: idx, days: gearbeitete Tage}
+  botXp: 0,                 // v28: Bot-Erfahrung (Level & Perks)
+  botAuto: false,           // v28: Vali-Bot war aktiv (Offline-Verdienst)
+  botReports: [],           // v28: letzte Tagesrapporte des Bots
+  jumps: 0,                 // v28: Sprung-Zähler (Trophäe)
   sofor: false,             // ein Arbeiter zum Fahrer befördert
   teaStyle: 'siyah',
   greenLine: false,         // Yeşil-Çay-Produktionslinie gekauft
@@ -233,7 +237,7 @@ export const state = {
   hist: { stocks: {}, earned: [] },
 
   // Einstellungen
-  settings: { lang: 'de', sound: true, quality: 'auto', eco: 'auto', speed: 1, cb: false }
+  settings: { lang: 'de', sound: true, quality: 'auto', eco: 'auto', speed: 1, cb: false, bot: { fish: true, reserve: 400, crop: 'auto' } }
 };
 
 // v7: New-Game+-Preisbonus (multipliziert alle Verkäufe)
@@ -289,6 +293,8 @@ export function save() {
     boat: s.boat, rod: s.rod, fishCaught: s.fishCaught, packsSold: s.packsSold,
     story: s.story, dedeBonus: s.dedeBonus, ach: s.ach,
     debt: s.debt, insured: s.insured, workerData: s.workerData, sofor: s.sofor,
+    botXp: s.botXp, botAuto: s.botAuto, botReports: s.botReports, jumps: s.jumps,
+    savedAt: Date.now(),
     teaStyle: s.teaStyle, greenLine: s.greenLine, hives: s.hives, tavlaWins: s.tavlaWins,
     rep: s.rep, koop: s.koop, vehWear: s.vehWear, vehTuning: s.vehTuning,
     dog: s.dog, prestige: s.prestige, hist: s.hist,
@@ -345,6 +351,7 @@ export function load() {
     state.settings.eco = state.settings.eco ?? 'auto';
     state.settings.speed = state.settings.speed ?? 1;
     state.settings.cb = state.settings.cb ?? false;
+    if (!state.settings.bot) state.settings.bot = { fish: true, reserve: 400, crop: 'auto' };
     state.workers = d.workers ?? 0;
     Object.assign(state.animals, d.animals || {});
     state.plots = Array.isArray(d.plots) ? d.plots : [];
@@ -384,6 +391,17 @@ export function load() {
     state.debt = d.debt ?? 0;
     state.insured = d.insured ?? false;
     state.workerData = Array.isArray(d.workerData) ? d.workerData : [];
+    // v28: workerData mit der Arbeiterzahl abgleichen — alte Stände hatten
+    // Arbeiter OHNE Einträge, deren Arbeitstage deshalb nie hochzählten
+    while (state.workerData.length < state.workers) {
+      state.workerData.push({ name: (state.workerData.length + (d.day || 1)) % 8, days: 0 });
+    }
+    if (state.workerData.length > state.workers) state.workerData.length = state.workers;
+    state.botXp = d.botXp ?? 0;
+    state.botAuto = d.botAuto ?? false;
+    state.botReports = Array.isArray(d.botReports) ? d.botReports : [];
+    state.jumps = d.jumps ?? 0;
+    state._savedAt = d.savedAt ?? 0;
     state.sofor = d.sofor ?? false;
     state.teaStyle = d.teaStyle ?? 'siyah';
     state.greenLine = d.greenLine ?? false;
@@ -539,6 +557,7 @@ export function resetProgress() {
   state.ach = {};
   state.debt = 0; state.insured = false;
   state.workerData = []; state.sofor = false;
+  state.botXp = 0; state.botAuto = false; state.botReports = []; state.jumps = 0;
   state.teaStyle = 'siyah'; state.greenLine = false;
   state.hives = 0; state.tavlaWins = 0;
   state.rep = 0; state.koop = false;

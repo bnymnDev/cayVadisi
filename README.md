@@ -662,6 +662,25 @@ Im Fahrzeug: Joystick lenkt, ▲/▼-Pedale geben Gas und bremsen.
 - Jede manuelle Eingabe stoppt den Bot sofort; 🍃 bleibt die reine
   Pflück-Automatik.
 
+### Bot-Ausbau & Arbeiter-Fix (v28)
+- **Offline-Verdienst:** War der Vali-Bot beim Schließen aktiv, arbeitet er
+  „weiter" — beim nächsten Start gibt es die Abrechnung (bis zu 8 Stunden,
+  mehr Arbeiter und Bot-Level = mehr Ertrag).
+- **Tagesrapport:** Jeden Morgen meldet der Bot, was er gepflückt, verdient
+  und geangelt hat; der letzte Rapport steht im Arbeiter-Panel.
+- **Bot-Einstellungen** im Pausenmenü: Angeln an/aus, Geld-Reserve
+  (0/400/1500 ₺), Lieblings-Gemüse.
+- **Dolmuş & Wegenetz:** Weite Wege fährt der Bot mit dem Dolmuş (25 ₺),
+  mittlere Strecken laufen über Wegenetz-Knoten statt Luftlinie.
+- **Bot-Level:** Der Bot sammelt Erfahrung (pflücken, verkaufen, angeln,
+  ernten) und wird pro Level schneller beim Laufen und Angeln.
+- **Sprung-Feinschliff:** Sprung-Sound, federnde Landung, Trophäe bei
+  50 Sprüngen (+500 ₺).
+- **Einnahmen-Charts:** Tee/Fisch/Hof getrennt im Imperiums-Tab.
+- **Arbeiter-Fix:** Alte Spielstände hatten Arbeiter ohne Datensätze — deren
+  Arbeitstage zählten nie hoch. Wird beim Laden repariert; außerdem gibt es
+  jetzt 5 Arbeiter-Level (bis 35 % schnelleres Pflücken statt 16 %).
+
 ### Saison
 - 7 Tage, danach Medaille (Bronze/Silber/Gold) und Endlosmodus.
 - Cinematic-Intro beim ersten Start, Minimap (M), Sternenhimmel mit Mond,
