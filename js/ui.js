@@ -2692,6 +2692,7 @@ export function createUI(ctx, hooks) {
             <button id="btn-fire" class="big-btn ghost" ${state.workers <= 0 ? 'disabled' : ''}>${t('fireWorker')}</button>
           </div>
           <button id="btn-cirak" class="big-btn ghost">🎓 ${state.cirak ? t('cirakStatus', state.cirak.level) : t('cirakHireBtn')}</button>
+          ${state.dog ? `<button id="btn-dog" class="big-btn ghost">🐕 ${t('dogMenuBtn', Object.keys(state.dogTricks).length)}</button>` : ''}
           ${state.workerData.map((wd, i) => {
             let lvl = 0;
             for (let li = 0; li < CFG.workerLevelDays.length; li++) if ((wd.days || 0) >= CFG.workerLevelDays[li]) lvl = li;
@@ -2706,6 +2707,8 @@ export function createUI(ctx, hooks) {
             <div class="section-info">${t('soforInfo')}</div>` : ''}`;
         $('btn-hire').addEventListener('click', () => { if (hooks.hireWorker()) api.renderManage(); });
         $('btn-cirak').addEventListener('click', () => { api.hideOverlays(); api.showCirak(); });
+        const db = $('btn-dog');
+        if (db) db.addEventListener('click', () => { api.hideOverlays(); api.showDog(); });
         $('btn-fire').addEventListener('click', () => { if (hooks.fireWorker()) api.renderManage(); });
         const sb = $('btn-sofor');
         if (sb) sb.addEventListener('click', () => { if (hooks.promoteSofor()) api.renderManage(); });
